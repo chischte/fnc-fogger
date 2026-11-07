@@ -1,15 +1,15 @@
 """
 fnc-sensor-lance – long-term data viewer
-Reads measurements.csv and shows interactive charts for CO2, Temperature,
-and Humidity. Refreshes automatically while the logger is running.
+Discovers measurement lances and shows their stored and live measurements.
 
 Requirements:
-    pip install matplotlib pandas
+    pip install -r logger/requirements.txt
 """
 
 import sys
 from datetime import timedelta
 from pathlib import Path
+from functools import partial
 
 if __package__:
     from . import viewer_data
@@ -483,7 +483,7 @@ def range_index_for_click(x_position: float) -> int:
 def draw(fig: "plt.Figure", box_axes: list, chart_axes: list,
          range_axis: "plt.Axes", footer_text: "plt.Text",
          preserve_view: bool = False, data_cache=None,
-         skip_unchanged: bool = False) -> None:
+         skip_unchanged: bool = False, database=None, csv=None) -> None:
     preserved_limits = (
         [(axis.get_xlim(), axis.get_ylim()) for axis in chart_axes]
         if preserve_view else None
@@ -491,7 +491,7 @@ def draw(fig: "plt.Figure", box_axes: list, chart_axes: list,
 
     try:
         previous_revision = data_cache.revision if data_cache else None
-        df_all = data_cache.load(DB_FILE, CSV_FILE) if data_cache else load_data()
+        df_all = data_cache.load(database or DB_FILE, csv or CSV_FILE) if data_cache else load_data()
         if skip_unchanged and data_cache and data_cache.revision == previous_revision:
             return
     except Exception as exc:
@@ -500,6 +500,9 @@ def draw(fig: "plt.Figure", box_axes: list, chart_axes: list,
 
     df = filter_data(df_all)
     if df.empty:
+        footer_text.set_text("Noch keine Messdaten. Warte auf die ausgewählte Lanze …")
+        footer_text.set_color(current_theme()["muted"])
+        fig.canvas.draw_idle()
         return
 
     last = df_all.iloc[-1]
@@ -532,15 +535,28 @@ def draw(fig: "plt.Figure", box_axes: list, chart_axes: list,
 # Entry point
 # ---------------------------------------------------------------------------
 
-def main() -> None:
-    if not DB_FILE.exists() and not CSV_FILE.exists():
-        print(f"No data file found at {DB_FILE}")
-        print("Start logger.py first to collect measurements.")
-        sys.exit(1)
+def show_charts(database=DB_FILE, csv=CSV_FILE, title="Messlanze", collector=None) -> bool:
+    render = partial(draw, database=database, csv=csv)
+    return_home = False
+    _state["manual_view"] = False
 
     data_cache = viewer_data.MeasurementCache()
     fig = plt.figure(figsize=(11, 8.5))
     fig.patch.set_facecolor(current_theme()["page"])
+    fig.canvas.manager.set_window_title(title)
+    title_text = fig.text(0.18, 0.955, title, color=current_theme()["text"],
+                          fontsize=12, va="center")
+    home_axis = fig.add_axes([0.02, 0.935, 0.12, 0.04])
+    home_button = Button(home_axis, "Home", color=current_theme()["button_off"],
+                         hovercolor=current_theme()["grid"])
+    home_button.label.set_color(current_theme()["text"])
+
+    def _home(_event):
+        nonlocal return_home
+        return_home = True
+        plt.close(fig)
+
+    home_button.on_clicked(_home)
     window_controls = configure_viewer_window(fig)
     if window_controls is not None:
         window_controls.apply_theme(current_theme())
@@ -553,7 +569,7 @@ def main() -> None:
         figure=fig,
         height_ratios=[1, 6.5, 0.01],
         hspace=0.12,          # gap between boxes row and charts block
-        top=0.97,
+        top=0.91,
         bottom=CONTROL_ROW_TOP + X_AXIS_LABEL_SPACE_INCHES / fig.get_figheight(),
         left=0.07, right=0.97,
     )
@@ -588,7 +604,7 @@ def main() -> None:
         fontsize=8, color=current_theme()["muted"], fontfamily="monospace",
     )
 
-    draw(fig, box_axes, chart_axes, range_axis, footer_text, data_cache=data_cache)
+    render(fig, box_axes, chart_axes, range_axis, footer_text, data_cache=data_cache)
 
     # Minus/plus step through the ranges; labels and markers select directly.
     def _on_click(event):
@@ -596,7 +612,7 @@ def main() -> None:
             idx = range_index_for_click(event.xdata)
             _state["range"] = RANGES[idx][0]
             _state["manual_view"] = False
-            draw(fig, box_axes, chart_axes, range_axis, footer_text, data_cache=data_cache)
+            render(fig, box_axes, chart_axes, range_axis, footer_text, data_cache=data_cache)
 
     fig.canvas.mpl_connect("button_press_event", _on_click)
 
@@ -613,10 +629,15 @@ def main() -> None:
 
     def _toggle_dark_mode(_event):
         _state["dark_mode"] = not _state["dark_mode"]
+        title_text.set_color(current_theme()["text"])
+        home_button.color = current_theme()["button_off"]
+        home_button.hovercolor = current_theme()["grid"]
+        home_button.ax.set_facecolor(home_button.color)
+        home_button.label.set_color(current_theme()["text"])
         if window_controls is not None:
             window_controls.apply_theme(current_theme())
         limits = [(axis.get_xlim(), axis.get_ylim()) for axis in chart_axes]
-        draw(
+        render(
             fig, box_axes, chart_axes, range_axis, footer_text,
             preserve_view=_state["manual_view"], data_cache=data_cache,
         )
@@ -685,7 +706,7 @@ def main() -> None:
     fig.canvas.mpl_connect("scroll_event", _remember_scroll_zoom)
 
     def _update(_frame):
-        draw(
+        render(
             fig,
             box_axes,
             chart_axes,
@@ -694,6 +715,19 @@ def main() -> None:
             preserve_view=_state["manual_view"], data_cache=data_cache, skip_unchanged=True,
         )
 
+    connection_text = fig.text(0.97, 0.925, "Verbinde …" if collector else "",
+                               ha="right", fontsize=8, color=current_theme()["muted"])
+
+    def _connection_status():
+        status = collector.latest_status() if collector else None
+        if status:
+            connection_text.set_text(status)
+            connection_text.set_color(current_theme()["muted"])
+            fig.canvas.draw_idle()
+
+    status_timer = fig.canvas.new_timer(interval=1000)
+    status_timer.add_callback(_connection_status)
+    status_timer.start()
     refresh_timer = fig.canvas.new_timer(interval=REFRESH_INTERVAL_MS)
     refresh_timer.add_callback(_update, None)
     refresh_timer.start()
@@ -702,7 +736,43 @@ def main() -> None:
         plt.show()
     finally:
         refresh_timer.stop()
+        status_timer.stop()
         data_cache.close()
+    return return_home
+
+
+def main() -> None:
+    # Script launches must also support package-relative discovery modules.
+    if not __package__:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    try:
+        from logger.viewer_selection import LanceSelection
+        from logger.lance_collection import LanceCollector
+        from logger import logger as acquisition
+    except ImportError as error:
+        print(f"Missing dependency: {error}. Run: pip install -r logger/requirements.txt",
+              file=sys.stderr)
+        return
+
+    while True:
+        selection = LanceSelection(DB_FILE.parent)
+        lance = selection.show()
+        if lance is None:
+            return
+        database = selection.registry.measurement_path(lance)
+        from contextlib import closing
+        with closing(acquisition.connect(database)) as db:
+            if database == DB_FILE:
+                acquisition.import_csv(db)
+        collector = LanceCollector(lance, database)
+        collector.start()
+        title = lance.label + (f" | {lance.location}" if lance.location else "")
+        try:
+            return_home = show_charts(database, database.with_suffix(".csv"), title, collector)
+        finally:
+            collector.stop()
+        if not return_home:
+            return
 
 
 if __name__ == "__main__":

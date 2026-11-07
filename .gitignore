@@ -15,3 +15,5 @@ logger/data/backup.log
 logger/data/*.out.log
 logger/data/*.err.log
 logger/data/recovery/
+logger/data/lances.db*
+logger/data/devices/

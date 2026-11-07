@@ -1,0 +1,85 @@
+"""Persistent device labels and isolated measurement database assignments."""
+import re
+import sqlite3
+from contextlib import closing, contextmanager
+from dataclasses import dataclass
+from pathlib import Path
+
+
+@dataclass(frozen=True)
+class Lance:
+    device_id: str
+    hostname: str
+    port: int
+    name: str = ""
+    location: str = ""
+    database_name: str = ""
+
+    @property
+    def url(self):
+        return f"http://{self.hostname}:{self.port}"
+
+    @property
+    def label(self):
+        return self.name or f"Messlanze {self.device_id[-6:]}"
+
+
+class LanceRegistry:
+    def __init__(self, directory):
+        self.directory = Path(directory)
+        self.directory.mkdir(parents=True, exist_ok=True)
+        self.path = self.directory / "lances.db"
+        with self._connect() as db:
+            db.execute("""CREATE TABLE IF NOT EXISTS lances(
+                device_id TEXT PRIMARY KEY, hostname TEXT NOT NULL,
+                port INTEGER NOT NULL, name TEXT NOT NULL DEFAULT '',
+                location TEXT NOT NULL DEFAULT '', database_name TEXT NOT NULL UNIQUE)""")
+
+    @contextmanager
+    def _connect(self):
+        with closing(sqlite3.connect(self.path, timeout=10)) as db:
+            with db:
+                yield db
+
+    def list(self):
+        with self._connect() as db:
+            return [Lance(*row) for row in db.execute(
+                "SELECT device_id,hostname,port,name,location,database_name "
+                "FROM lances ORDER BY name,device_id")]
+
+    def remember(self, lance, sensor_serial=None):
+        if not re.fullmatch(r"[0-9a-f]{12}", lance.device_id):
+            raise ValueError("Invalid lance device ID")
+        with self._connect() as db:
+            existing = db.execute("SELECT database_name FROM lances WHERE device_id=?",
+                                  (lance.device_id,)).fetchone()
+            database_name = existing[0] if existing else f"devices/{lance.device_id}.db"
+            legacy_assigned = db.execute(
+                "SELECT 1 FROM lances WHERE database_name='measurements.db'").fetchone()
+            if not existing and not legacy_assigned and self._matches_legacy(sensor_serial):
+                database_name = "measurements.db"
+            db.execute("""INSERT INTO lances(device_id,hostname,port,database_name)
+                VALUES(?,?,?,?) ON CONFLICT(device_id) DO UPDATE SET
+                hostname=excluded.hostname,port=excluded.port""",
+                       (lance.device_id, lance.hostname, lance.port, database_name))
+        return next(item for item in self.list() if item.device_id == lance.device_id)
+
+    def _matches_legacy(self, sensor_serial):
+        path = self.directory / "measurements.db"
+        if not path.exists():
+            return False
+        with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as db:
+            columns = {row[1] for row in db.execute("PRAGMA table_info(measurements)")}
+            if "scd_serial" not in columns or not sensor_serial:
+                return False
+            row = db.execute("SELECT scd_serial FROM measurements WHERE scd_serial IS NOT NULL "
+                             "ORDER BY id DESC LIMIT 1").fetchone()
+            return row is not None and row[0] == sensor_serial
+
+    def save_labels(self, device_id, name, location):
+        with self._connect() as db:
+            db.execute("UPDATE lances SET name=?,location=? WHERE device_id=?",
+                       (name.strip(), location.strip(), device_id))
+
+    def measurement_path(self, lance):
+        return self.directory / lance.database_name

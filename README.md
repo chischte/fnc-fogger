@@ -146,6 +146,25 @@ sind blockierend.
 
 Viewer: python logger/viewer.py
 
+Der Viewer startet mit einer Lanzenauswahl. Er sucht automatisch per mDNS nach
+`_messlanze._tcp.local` und zeigt gespeicherte Lanzen auch offline an. Mit
+"Erneut suchen" wird die Suche manuell wiederholt; automatisch alle 15 Sekunden.
+Abhaengigkeiten installieren: `python -m pip install -r logger/requirements.txt`.
+
+Name und Einsatzort koennen fuer die ausgewaehlte Lanze eingegeben werden.
+"Speichern", das Wechseln der Auswahl, das Oeffnen der Grafiken und das
+Schliessen des Auswahlfensters speichern diese Angaben in `logger/data/lances.db`.
+Die Zuordnung verwendet die dauerhafte Geraete-ID, nicht die wechselnde IP.
+In der Grafikansicht stehen Name und Einsatzort oben; "Home" fuehrt zur
+Auswahl zurueck. Das Schliessen der Grafikansicht beendet den Viewer.
+
+Die vorhandene `measurements.db` wird anhand der letzten gespeicherten
+SCD41-Seriennummer der passenden Lanze zugeordnet. Weitere Lanzen erhalten
+getrennte Datenbanken unter `logger/data/devices/<geraete-id>.db`.
+Waehrend ihre Grafikansicht geoeffnet ist, fragt der Viewer die ausgewaehlte
+Lanze alle fuenf Sekunden ab und speichert neue Messwerte. Der separate
+Logger bleibt fuer die durchgehende Erfassung unabhaengig vom Viewer nutzbar.
+
 <img src="screenshot_viewer.jpg" alt="FastNChip sensor data viewer" width="800">
 
 CSV fuer Excel: python logger/logger.py --export-csv
