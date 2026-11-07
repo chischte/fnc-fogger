@@ -95,6 +95,16 @@ Logger: python logger/logger.py
 
 Andere IP: python logger/logger.py --url http://192.168.31.168
 
+Ab ESP32-Firmware 3.1.3 ist die Lanze auch per mDNS unter
+`http://messlanze-<letzte sechs MAC-Zeichen>.local` erreichbar, beispielsweise
+`http://messlanze-5cc8b4.local`. Der Name bleibt bei einem IP-Wechsel gleich.
+PC-Programme koennen den DNS-SD-Dienst `_messlanze._tcp.local` suchen;
+SRV liefert Host und HTTP-Port, TXT enthaelt `id` (vollstaendige MAC ohne
+Doppelpunkte), `path=/api/current` und `firmware`. Multicast muss zwischen
+PC und Lanze erlaubt sein. Nach WLAN-Verbindungsabbruechen wird der Dienst
+neu gestartet; fehlgeschlagene Starts werden alle zehn Sekunden wiederholt.
+Die Portenta-Firmware bietet diese Erkennung bisher nicht an.
+
 Eine vorhandene measurements.csv wird einmalig nach measurements.db importiert.
 Danach wird der QSPI-Puffer nachgeholt und anhand von boot_id plus sequence
 duplikatfrei gespeichert.

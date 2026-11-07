@@ -26,6 +26,7 @@ void WebServer::begin(uint32_t now) {
 
 void WebServer::poll(uint32_t now) {
   serviceWifi(now);
+  discovery_.poll(serverStarted_, now);
   if (!serverStarted_) {
     return;
   }

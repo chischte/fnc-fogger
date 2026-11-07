@@ -6,6 +6,7 @@
 #include "config.h"
 #include "firmware/firmware_updater.h"
 #include "firmware/measurement_controller.h"
+#include "firmware/network_discovery.h"
 #include "firmware/qspi_storage.h"
 
 class WebServer {
@@ -62,6 +63,7 @@ class WebServer {
   FirmwareUpdater& firmwareUpdater_;
   WiFiServer server_;
   WiFiClient client_;
+  NetworkDiscovery discovery_;
   BacklogReader backlogReader_;
   ClientState clientState_ = ClientState::idle;
   String requestHeaders_;
