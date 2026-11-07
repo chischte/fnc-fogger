@@ -24,13 +24,13 @@ class LanceSelection:
         self.events = queue.Queue()
         self.stop = threading.Event()
         self.window = tk.Tk()
-        self.window.title("Messlanzen | Auswahl")
+        self.window.title("Lance selection")
         self.window.geometry("940x580")
         self.window.minsize(720, 480)
         self.window.configure(background="#f3f6f4")
         self.name = tk.StringVar(master=self.window)
         self.location = tk.StringVar(master=self.window)
-        self.status = tk.StringVar(master=self.window, value="Suche nach Messlanzen …")
+        self.status = tk.StringVar(master=self.window, value="Searching for lances …")
         self._build()
         self._refresh_rows()
         self.window.protocol("WM_DELETE_WINDOW", self._close)
@@ -47,16 +47,16 @@ class LanceSelection:
         style.map("Treeview", background=[("selected", "#3b8c62")])
         frame = ttk.Frame(self.window, padding=24)
         frame.pack(fill="both", expand=True)
-        ttk.Label(frame, text="Messlanzen", font=("Segoe UI", 22, "bold")).pack(anchor="w")
-        ttk.Label(frame, text="Lanze auswählen, benennen und Messkurven öffnen.",
+        ttk.Label(frame, text="Measurement lances", font=("Segoe UI", 22, "bold")).pack(anchor="w")
+        ttk.Label(frame, text="Select a lance, assign a name and open its charts.",
                   font=("Segoe UI", 11)).pack(anchor="w", pady=(4, 18))
 
         table = ttk.Frame(frame)
         table.pack(fill="both", expand=True)
         self.tree = ttk.Treeview(table, columns=("name", "location", "status", "address"),
                                  show="headings", selectmode="browse", height=7)
-        for column, title, width in (("name", "Name", 210), ("location", "Einsatzort", 180),
-                                      ("status", "Status", 90), ("address", "Adresse", 280)):
+        for column, title, width in (("name", "Name", 210), ("location", "Location", 180),
+                                      ("status", "Status", 90), ("address", "Address", 280)):
             self.tree.heading(column, text=title)
             self.tree.column(column, width=width, minwidth=70)
         scrollbar = ttk.Scrollbar(table, orient="vertical", command=self.tree.yview)
@@ -72,15 +72,15 @@ class LanceSelection:
         editor.columnconfigure(3, weight=1)
         ttk.Label(editor, text="Name").grid(row=0, column=0, padx=(0, 8))
         ttk.Entry(editor, textvariable=self.name).grid(row=0, column=1, sticky="ew")
-        ttk.Label(editor, text="Einsatzort").grid(row=0, column=2, padx=(18, 8))
+        ttk.Label(editor, text="Location").grid(row=0, column=2, padx=(18, 8))
         ttk.Entry(editor, textvariable=self.location).grid(row=0, column=3, sticky="ew")
-        ttk.Button(editor, text="Speichern", command=self._save).grid(row=0, column=4, padx=(14, 0))
+        ttk.Button(editor, text="Save", command=self._save).grid(row=0, column=4, padx=(14, 0))
 
         actions = ttk.Frame(frame)
         actions.pack(fill="x")
-        self.scan_button = ttk.Button(actions, text="Erneut suchen", command=self._scan)
+        self.scan_button = ttk.Button(actions, text="Refresh", command=self._scan)
         self.scan_button.pack(side="left")
-        self.open_button = ttk.Button(actions, text="Grafiken öffnen", command=self._open, state="disabled")
+        self.open_button = ttk.Button(actions, text="Open charts", command=self._open, state="disabled")
         self.open_button.pack(side="right")
         ttk.Label(frame, textvariable=self.status, wraplength=820).pack(anchor="w", pady=(14, 0))
 
@@ -118,13 +118,13 @@ class LanceSelection:
             self._refresh_rows()
             return True
         except Exception as error:
-            messagebox.showerror("Speichern fehlgeschlagen", str(error), parent=self.window)
+            messagebox.showerror("Save failed", str(error), parent=self.window)
             return False
 
     def _save(self):
         if self._save_labels():
             self._refresh_rows()
-            self.status.set("Name und Einsatzort gespeichert.")
+            self.status.set("Name and location saved.")
 
     def _scan(self):
         if self.scanning or self.stop.is_set():
@@ -134,7 +134,7 @@ class LanceSelection:
             self.scan_timer = None
         self.scanning = True
         self.scan_button.configure(state="disabled")
-        self.status.set("Suche nach Messlanzen im lokalen Netzwerk …")
+        self.status.set("Searching for lances on the local network …")
         threading.Thread(target=self._discover, daemon=True).start()
 
     def _discover(self):
@@ -164,8 +164,8 @@ class LanceSelection:
             self.online = online
             self.scan_button.configure(state="normal")
             self._refresh_rows()
-            self.status.set(f"Suche fehlgeschlagen: {error}" if error else
-                            f"{len(online)} Lanze(n) online. Gespeicherte Lanzen sind auch offline verfügbar.")
+            self.status.set(f"Discovery failed: {error}" if error else
+                            f"{len(online)} lance(s) online. Saved lances are also available offline.")
             self.scan_timer = self.window.after(SCAN_INTERVAL_MS, self._scan)
         self.window.after(QUEUE_INTERVAL_MS, self._receive)
 

@@ -21,7 +21,7 @@ class Lance:
 
     @property
     def label(self):
-        return self.name or f"Messlanze {self.device_id[-6:]}"
+        return self.name or f"Lance {self.device_id[-6:]}"
 
 
 class LanceRegistry:

@@ -16,7 +16,7 @@ constexpr uint32_t SERIAL_POLL_INTERVAL_MS = 10;
 Application::Application()
     : firmwareUpdater_(storage_),
       measurements_(sensors_, storage_),
-      webServer_(measurements_, storage_, firmwareUpdater_) {}
+      webServer_(measurements_, storage_, firmwareUpdater_, controlSettings_) {}
 
 void Application::begin() {
   beginSerial();
@@ -27,6 +27,7 @@ void Application::begin() {
   const uint32_t now = millis();
   sensors_.begin(now);
   measurements_.begin(now);
+  controlSettings_.begin();
   webServer_.begin(now);
 }
 

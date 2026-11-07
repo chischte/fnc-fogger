@@ -20,5 +20,6 @@ class Application {
   SensorManager sensors_;
   FirmwareUpdater firmwareUpdater_;
   MeasurementController measurements_;
+  ControlSettingsStore controlSettings_;
   WebServer webServer_;
 };

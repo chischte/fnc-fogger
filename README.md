@@ -165,6 +165,42 @@ Waehrend ihre Grafikansicht geoeffnet ist, fragt der Viewer die ausgewaehlte
 Lanze alle fuenf Sekunden ab und speichert neue Messwerte. Der separate
 Logger bleibt fuer die durchgehende Erfassung unabhaengig vom Viewer nutzbar.
 
+Ueber den Schalter oben rechts wechselt die Grafikansicht zwischen "View mode"
+und "Command mode". Im Command-Modus stehen die Messkurven links, die
+Humidity-/CO2-PI-Diagramme rechts (−100 bis +100 %, Zeitachse bei 0 %;
+P gepunktet, I gestrichelt, SUM durchgezogen, mit festen Legenden;
+Feuchte blau, CO2 violett wie in den Messkurven). Unterhalb
+der PI-Diagramme lassen sich die Sollwerte mit Minus links und Plus rechts
+einstellen und mit "Setpoints speichern" uebertragen. CO2: 0–5000 ppm in
+500er-Schritten, danach bis 20000 ppm in 1000er-Schritten. Feuchte: 70–100 %RH
+in Einerschritten. Beide Sollwerte werden auch in den oberen Messkarten
+in beiden Modi als `SET:` angezeigt, zusammen mit `DIF:` (Istwert minus
+Sollwert) und `PI%:` (aktuelle Reglerausgabe). Nicht verfuegbare Reglerwerte
+erscheinen als `--`. Der Modusbutton zeigt jeweils den Zielmodus an.
+Die zentrierte Ueberschrift lautet `Lanzenname @ Einsatzort`.
+Die Werteanzeige ist nicht per Texteingabe editierbar.
+
+Die Sollwertschnittstelle benoetigt ESP32-Firmware ab 3.1.4. Die Firmware
+speichert beide Werte gemeinsam als versionierten NVS-Blob, bevor sie die
+Aenderung bestaetigt. Unveraenderte Werte erzeugen keine erneuten Flash-Schreibzugriffe.
+Nach Neustarts werden die Werte vor dem WLAN-Start geladen. Der Viewer
+speichert bestaetigte Werte zusaetzlich in der Tabelle `control_setpoints`
+der zur Lanze gehoerenden Messdatenbank. Nach Wiederverbindung gelten die
+Geraetewerte; gespeicherte PC-Werte werden nicht automatisch zurueckgeschrieben.
+Offline-Aenderungen werden nicht automatisch spaeter gesendet.
+
+P-, I- und Summenwerte werden nur waehrend der geoeffneten Grafikansicht im
+RAM gepuffert (maximal 2160 Live-Samples, bei fuenf Sekunden etwa drei Stunden).
+Sie werden weder in SQLite noch in CSV gespeichert. Diese Kurven haben daher
+keinen historischen Verlauf nach Schliessen des Viewers.
+
+Die aktuelle Messlanze hat keine Aktoren und keine PI-Abstimmung. Deshalb
+bleiben Ausgaenge deaktiviert und die PI-Felder melden "Regelung nicht
+konfiguriert". Aktuell sind Sollwertspeicherung, Anzeige und die Schnittstelle
+fuer spaetere Reglerdaten vorbereitet; ein autonomer aktiver Regler und seine
+Hardwareansteuerung muessen fuer die spaetere Hardware ergaenzt werden.
+Ein Wechsel in den Command-Modus aktiviert keine Ausgaenge.
+
 <img src="screenshot_viewer.jpg" alt="FastNChip sensor data viewer" width="800">
 
 CSV fuer Excel: python logger/logger.py --export-csv

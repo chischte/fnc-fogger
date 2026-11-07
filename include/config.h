@@ -55,7 +55,7 @@ constexpr size_t PERSISTENT_LOG_MAX_BYTES = 4U * 1024U * 1024U;
 constexpr size_t OTA_MAX_FILE_BYTES = 5U * 1024U * 1024U;
 #endif
 #ifdef ARDUINO_ARCH_ESP32
-constexpr const char* FIRMWARE_VERSION = "3.1.3-esp32s3";
+constexpr const char* FIRMWARE_VERSION = "3.1.4-esp32s3";
 #else
 constexpr const char* FIRMWARE_VERSION = "3.1.0-portenta";
 #endif

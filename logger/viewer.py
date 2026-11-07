@@ -14,9 +14,12 @@ from functools import partial
 if __package__:
     from . import viewer_data
     from .viewer_window import configure_viewer_window
+    from .viewer_control import CommandPanel
 else:
     import viewer_data
     from viewer_window import configure_viewer_window
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from logger.viewer_control import CommandPanel
 
 try:
     import pandas as pd
@@ -351,7 +354,28 @@ def plot_series(ax: "plt.Axes", df: pd.DataFrame, s: dict) -> None:
 # Value boxes (like the website cards)
 # ---------------------------------------------------------------------------
 
-def draw_value_boxes(box_axes: list, last: pd.Series) -> None:
+def draw_control_values(ax, value, series, setpoints, control_state):
+    target = None
+    if setpoints is not None:
+        target = setpoints.humidity_rh if series["col"] == "humidity_corrected_rh" else setpoints.co2_ppm
+    difference = value - target if target is not None and pd.notna(value) else None
+    output = None
+    if control_state and control_state["online"] and control_state["enabled"]:
+        samples = control_state["samples"]
+        channel = "humidity" if series["col"] == "humidity_corrected_rh" else "co2"
+        if samples:
+            output = samples[-1].get(f"{channel}_sum")
+    fields = (("SET:", f"{target:g}" if target is not None else "--"),
+              ("DIF:", format(difference, "+" + series["fmt"]) if difference is not None else "--"),
+              ("PI%:", f"{output:.1f}" if output is not None and pd.notna(output) else "--"))
+    for y, (label, text) in zip((0.78, 0.49, 0.20), fields):
+        for x, content, alignment in ((0.62, label, "left"), (0.95, text, "right")):
+            ax.text(x, y, content, ha=alignment, va="center", fontsize=11,
+                    fontweight="bold", color=current_theme()["muted"],
+                    transform=ax.transAxes, zorder=2)
+
+
+def draw_value_boxes(box_axes: list, last: pd.Series, setpoints=None, control_state=None) -> None:
     theme = current_theme()
     for ax, s in zip(box_axes, SERIES):
         ax.clear()
@@ -372,13 +396,13 @@ def draw_value_boxes(box_axes: list, last: pd.Series) -> None:
         val_str = format(val, s["fmt"]) if pd.notna(val) else "--"
 
         val_y = 0.45
+        value_x = 0.32 if s["col"] != "temp_box_c" else 0.5
 
         # Label (top, bold, muted grey)
-        ax.text(0.5, 0.78, s["label"],
+        ax.text(value_x, 0.78, s["label"],
                 ha="center", va="center", fontsize=10, fontweight="bold",
                 color=theme["muted"], transform=ax.transAxes, zorder=2)
-        # Value (always centered in box)
-        ax.text(0.5, val_y, val_str,
+        ax.text(value_x, val_y, val_str,
                 ha="center", va="center", fontsize=22, fontweight="bold",
                 color=s["color"], transform=ax.transAxes, zorder=2)
         if s["col"] == "temp_box_c":
@@ -387,7 +411,9 @@ def draw_value_boxes(box_axes: list, last: pd.Series) -> None:
                 ax.text(0.82, val_y, f"{val - ambient:+.1f}",
                         ha="center", va="center", fontsize=11, fontweight="bold",
                         color=s["overlay_color"], transform=ax.transAxes, zorder=2)
-        ax.text(0.5, 0.13, s["unit"],
+        else:
+            draw_control_values(ax, val, s, setpoints, control_state)
+        ax.text(value_x, 0.13, s["unit"],
                 ha="center", va="center", fontsize=10, fontweight="bold",
                 color=theme["muted"], transform=ax.transAxes, zorder=2)
 
@@ -483,7 +509,7 @@ def range_index_for_click(x_position: float) -> int:
 def draw(fig: "plt.Figure", box_axes: list, chart_axes: list,
          range_axis: "plt.Axes", footer_text: "plt.Text",
          preserve_view: bool = False, data_cache=None,
-         skip_unchanged: bool = False, database=None, csv=None) -> None:
+         skip_unchanged: bool = False, database=None, csv=None, control_monitor=None) -> None:
     preserved_limits = (
         [(axis.get_xlim(), axis.get_ylim()) for axis in chart_axes]
         if preserve_view else None
@@ -500,7 +526,7 @@ def draw(fig: "plt.Figure", box_axes: list, chart_axes: list,
 
     df = filter_data(df_all)
     if df.empty:
-        footer_text.set_text("Noch keine Messdaten. Warte auf die ausgewählte Lanze …")
+        footer_text.set_text("No measurements yet. Waiting for the selected lance …")
         footer_text.set_color(current_theme()["muted"])
         fig.canvas.draw_idle()
         return
@@ -508,7 +534,9 @@ def draw(fig: "plt.Figure", box_axes: list, chart_axes: list,
     last = df_all.iloc[-1]
     ts = last["timestamp"]
 
-    draw_value_boxes(box_axes, last)
+    control_state = control_monitor.snapshot() if control_monitor else None
+    setpoints = control_state["setpoints"] if control_state else None
+    draw_value_boxes(box_axes, last, setpoints, control_state)
     for ax, s in zip(chart_axes, SERIES):
         plot_series(ax, df, s)
     if preserved_limits:
@@ -535,8 +563,9 @@ def draw(fig: "plt.Figure", box_axes: list, chart_axes: list,
 # Entry point
 # ---------------------------------------------------------------------------
 
-def show_charts(database=DB_FILE, csv=CSV_FILE, title="Messlanze", collector=None) -> bool:
-    render = partial(draw, database=database, csv=csv)
+def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None) -> bool:
+    render = partial(draw, database=database, csv=csv,
+                     control_monitor=collector.control if collector else None)
     return_home = False
     _state["manual_view"] = False
 
@@ -544,12 +573,17 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Messlanze", collector=Non
     fig = plt.figure(figsize=(11, 8.5))
     fig.patch.set_facecolor(current_theme()["page"])
     fig.canvas.manager.set_window_title(title)
-    title_text = fig.text(0.18, 0.955, title, color=current_theme()["text"],
-                          fontsize=12, va="center")
+    title_text = fig.text(0.5, 0.955, title, color=current_theme()["text"],
+                          fontsize=12, fontweight="semibold", ha="center", va="center")
     home_axis = fig.add_axes([0.02, 0.935, 0.12, 0.04])
     home_button = Button(home_axis, "Home", color=current_theme()["button_off"],
                          hovercolor=current_theme()["grid"])
     home_button.label.set_color(current_theme()["text"])
+    mode_axis = fig.add_axes([0.77, 0.935, 0.21, 0.04])
+    mode_button = Button(mode_axis, "Command mode", color=current_theme()["button_off"],
+                         hovercolor=current_theme()["grid"])
+    mode_button.label.set_color(current_theme()["text"])
+    command_mode = False
 
     def _home(_event):
         nonlocal return_home
@@ -576,9 +610,10 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Messlanze", collector=Non
 
     # Inner grid for the 3 charts — controls spacing between charts only
     gs_charts = GridSpecFromSubplotSpec(
-        3, 1,
+        3, 2,
         subplot_spec=gs_outer[1],
         hspace=0.52,
+        wspace=0.22,
     )
 
     # Value boxes (top row, one per column)
@@ -586,7 +621,20 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Messlanze", collector=Non
     box_axes = [fig.add_subplot(gs_boxes[0, i]) for i in range(3)]
 
     # Charts
-    chart_axes = [fig.add_subplot(gs_charts[r]) for r in range(3)]
+    chart_axes = [fig.add_subplot(gs_charts[r, :]) for r in range(3)]
+    command_panel = CommandPanel(fig, gs_charts, collector)
+
+    def _toggle_mode(_event):
+        nonlocal command_mode
+        command_mode = not command_mode
+        mode_button.label.set_text("View mode" if command_mode else "Command mode")
+        for row, axis in enumerate(chart_axes):
+            axis.set_subplotspec(gs_charts[row, 0] if command_mode else gs_charts[row, :])
+        command_panel.set_visible(command_mode)
+        command_panel.update(current_theme(), chart_axes[0].get_xlim())
+        fig.canvas.draw_idle()
+
+    mode_button.on_clicked(_toggle_mode)
 
     # Range selector flanked by matching theme and adaptive Y toggles.
     range_axis = fig.add_axes([0.32, 0.030, 0.36, 0.060])
@@ -634,6 +682,11 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Messlanze", collector=Non
         home_button.hovercolor = current_theme()["grid"]
         home_button.ax.set_facecolor(home_button.color)
         home_button.label.set_color(current_theme()["text"])
+        mode_button.color = current_theme()["button_off"]
+        mode_button.hovercolor = current_theme()["grid"]
+        mode_button.ax.set_facecolor(mode_button.color)
+        mode_button.label.set_color(current_theme()["text"])
+        command_panel.update(current_theme(), chart_axes[0].get_xlim())
         if window_controls is not None:
             window_controls.apply_theme(current_theme())
         limits = [(axis.get_xlim(), axis.get_ylim()) for axis in chart_axes]
@@ -673,6 +726,7 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Messlanze", collector=Non
         gs_outer.update(
             bottom=CONTROL_ROW_TOP + X_AXIS_LABEL_SPACE_INCHES / fig.get_figheight()
         )
+        command_panel.layout()
 
     _layout_controls()
     fig.canvas.mpl_connect("resize_event", _layout_controls)
@@ -715,15 +769,34 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Messlanze", collector=Non
             preserve_view=_state["manual_view"], data_cache=data_cache, skip_unchanged=True,
         )
 
-    connection_text = fig.text(0.97, 0.925, "Verbinde …" if collector else "",
-                               ha="right", fontsize=8, color=current_theme()["muted"])
+    connection_text = fig.text(0.5, 0.925, "Connecting …" if collector else "",
+                               ha="center", fontsize=8, color=current_theme()["muted"])
+    last_setpoints = None
 
     def _connection_status():
+        nonlocal last_setpoints
         status = collector.latest_status() if collector else None
         if status:
             connection_text.set_text(status)
             connection_text.set_color(current_theme()["muted"])
             fig.canvas.draw_idle()
+        setpoints = command_panel.update(current_theme(), chart_axes[0].get_xlim())
+        if setpoints != last_setpoints:
+            last_setpoints = setpoints
+            render(fig, box_axes, chart_axes, range_axis, footer_text,
+                   preserve_view=_state["manual_view"], data_cache=data_cache)
+        if command_mode:
+            fig.canvas.draw_idle()
+        if collector:
+            try:
+                frame = data_cache.load(database, csv)
+                if not frame.empty:
+                    state = collector.control.snapshot()
+                    draw_value_boxes(box_axes, frame.iloc[-1], state["setpoints"], state)
+                    fig.canvas.draw_idle()
+            except Exception as error:
+                connection_text.set_text(f"Could not read measurements: {error}")
+                fig.canvas.draw_idle()
 
     status_timer = fig.canvas.new_timer(interval=1000)
     status_timer.add_callback(_connection_status)
@@ -766,7 +839,7 @@ def main() -> None:
                 acquisition.import_csv(db)
         collector = LanceCollector(lance, database)
         collector.start()
-        title = lance.label + (f" | {lance.location}" if lance.location else "")
+        title = lance.label + (f" @ {lance.location}" if lance.location else "")
         try:
             return_home = show_charts(database, database.with_suffix(".csv"), title, collector)
         finally:

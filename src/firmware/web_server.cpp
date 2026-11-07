@@ -1,6 +1,7 @@
 #include "firmware/web_server.h"
 
 #include "firmware/measurement_json.h"
+#include "firmware/control_api.h"
 #include "firmware/time_utils.h"
 #include "wifi-credentials.h"
 #include "web_ui.h"
@@ -9,15 +10,18 @@ namespace {
 constexpr int UNKNOWN_CONTENT_LENGTH = -1;
 constexpr size_t RESPONSE_CHUNK_BYTES = 1024;
 constexpr char HEADER_TERMINATOR[] = "\r\n\r\n";
+constexpr size_t MAX_CONTROL_BODY_BYTES = 96;
 }  // namespace
 
 WebServer::WebServer(MeasurementController& measurements,
                      QspiStorage& storage,
-                     FirmwareUpdater& firmwareUpdater)
+                     FirmwareUpdater& firmwareUpdater,
+                     ControlSettingsStore& controlSettings)
     : measurements_(measurements),
       storage_(storage),
       firmwareUpdater_(firmwareUpdater),
-      server_(Config::HTTP_PORT) {}
+      server_(Config::HTTP_PORT),
+      controlSettings_(controlSettings) {}
 
 void WebServer::begin(uint32_t now) {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -110,6 +114,11 @@ void WebServer::readRequestBytes(uint32_t now) {
     lastClientActivityAt_ = now;
     if (clientState_ == ClientState::readingHeaders) {
       readHeaderByte(static_cast<char>(value));
+    } else if (clientState_ == ClientState::receivingControlSettings) {
+      controlBody_ += static_cast<char>(value);
+      if (controlBody_.length() == expectedBodyBytes_) {
+        finishControlSettings();
+      }
     } else {
       ++receivedBodyBytes_;
       readMultipartHeaderByte(static_cast<char>(value));
@@ -207,7 +216,11 @@ void WebServer::handleRequest() {
     return;
   }
 
-  if (method == "GET" && path == "/api/measurement") {
+  if (method == "GET" && path == "/api/control") {
+    startResponse(200, "application/json", buildControlJson(controlSettings_));
+  } else if (method == "POST" && path == "/api/control/setpoints") {
+    prepareControlSettings();
+  } else if (method == "GET" && path == "/api/measurement") {
     startApiResponse();
   } else if (method == "GET" && path == "/api/current") {
     startResponse(200, "application/json", buildApiJson(false));
@@ -224,6 +237,34 @@ void WebServer::handleRequest() {
   } else {
     startResponse(404, "text/plain", "Not found.");
   }
+}
+
+void WebServer::prepareControlSettings() {
+  if (!controlSettings_.available()) {
+    startResponse(503, "text/plain", "Persistent control settings unavailable.");
+    return;
+  }
+  if (headerValue("Content-Type") != "application/x-www-form-urlencoded" ||
+      !parseContentLength(headerValue("Content-Length"), expectedBodyBytes_) ||
+      !expectedBodyBytes_ || expectedBodyBytes_ > MAX_CONTROL_BODY_BYTES) {
+    startResponse(400, "text/plain", "Invalid setpoint request.");
+    return;
+  }
+  controlBody_ = "";
+  clientState_ = ClientState::receivingControlSettings;
+}
+
+void WebServer::finishControlSettings() {
+  ControlSettings settings;
+  if (!parseControlSettings(controlBody_, settings)) {
+    startResponse(422, "text/plain", "Setpoints out of range or malformed.");
+    return;
+  }
+  if (!controlSettings_.save(settings)) {
+    startResponse(503, "text/plain", "Setpoints could not be persisted.");
+    return;
+  }
+  startResponse(200, "application/json", buildControlJson(controlSettings_));
 }
 
 void WebServer::prepareUpload() {
@@ -270,6 +311,7 @@ String WebServer::buildApiJson(bool includeHistory) const {
   json += ",\"storage_ready\":";
   json += storage_.isDataReady() ? "true" : "false";
   json += ",\"scd_errors\":" + String(measurements_.sensorErrorCount());
+  json += ",\"control\":" + buildControlJson(controlSettings_);
   json += ",\"measurement\":";
   appendMeasurementJson(json, measurements_.current(), measurements_.bootId());
   json += includeHistory ? ",\"history\":[" : "}";
@@ -463,6 +505,8 @@ const char* WebServer::reasonPhrase(uint16_t status) const {
       return "Unprocessable Content";
     case 431:
       return "Request Header Fields Too Large";
+    case 503:
+      return "Service Unavailable";
     default:
       return "Internal Server Error";
   }
@@ -477,6 +521,7 @@ bool WebServer::requestTimedOut(uint32_t now) const {
 bool WebServer::isReadingRequest() const {
   return clientState_ == ClientState::readingHeaders ||
          clientState_ == ClientState::readingMultipartHeaders ||
+         clientState_ == ClientState::receivingControlSettings ||
          clientState_ == ClientState::receivingUpload;
 }
 
@@ -490,6 +535,7 @@ void WebServer::closeClient() {
   clientState_ = ClientState::idle;
   requestHeaders_ = "";
   multipartHeaders_ = "";
+  controlBody_ = "";
   boundary_ = "";
   responseBody_ = "";
   responseOffset_ = 0;

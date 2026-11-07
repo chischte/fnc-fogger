@@ -4,6 +4,7 @@
 #include <WiFi.h>
 
 #include "config.h"
+#include "firmware/control_settings_store.h"
 #include "firmware/firmware_updater.h"
 #include "firmware/measurement_controller.h"
 #include "firmware/network_discovery.h"
@@ -12,7 +13,7 @@
 class WebServer {
  public:
   WebServer(MeasurementController& measurements, QspiStorage& storage,
-            FirmwareUpdater& firmwareUpdater);
+            FirmwareUpdater& firmwareUpdater, ControlSettingsStore& controlSettings);
 
   void begin(uint32_t now);
   void poll(uint32_t now);
@@ -23,6 +24,7 @@ class WebServer {
     readingHeaders,
     readingMultipartHeaders,
     receivingUpload,
+    receivingControlSettings,
     sendingResponse,
     streamingBacklog,
   };
@@ -37,6 +39,8 @@ class WebServer {
   void handleRequest();
   void prepareUpload();
   void finishUpload();
+  void prepareControlSettings();
+  void finishControlSettings();
 
   String buildApiJson(bool includeHistory) const;
   void startApiResponse();
@@ -64,6 +68,8 @@ class WebServer {
   WiFiServer server_;
   WiFiClient client_;
   NetworkDiscovery discovery_;
+  ControlSettingsStore& controlSettings_;
+  String controlBody_;
   BacklogReader backlogReader_;
   ClientState clientState_ = ClientState::idle;
   String requestHeaders_;
