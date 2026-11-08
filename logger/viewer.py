@@ -1,5 +1,5 @@
 """
-fnc-sensor-lance – long-term data viewer
+fnc-fogger – long-term data viewer
 Discovers measurement lances and shows their stored and live measurements.
 
 Requirements:

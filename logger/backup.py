@@ -1,5 +1,5 @@
 """
-fnc-sensor-lance – daily backup
+fnc-fogger – daily backup
 Creates a consistent dated backup of measurements.db.
 Run daily via Windows Task Scheduler.
 """
