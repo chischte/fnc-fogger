@@ -1,17 +1,20 @@
 # fnc-sensor-lance
 
-## Geplanter Anschlussplan
+## Massgebender Anschlussplan
 
-![Anschlussplan: ESP32-C3 SuperMini mit SCD41, SHT45 und SHTC3](ESP32-C3_SuperMini_Layout.png)
+![fnc-fogger - Anschlussplan - Entwurf 04](docs/fnc-fogger-layout-v4.png)
 
-[Editierbare SVG-Version](ESP32-C3_SuperMini_Layout.svg).
+Der Anschlussplan **fnc-fogger - Entwurf 04** ist die massgebende Referenz
+fuer den geplanten Projektaufbau mit ESP32-C3 SuperMini, Sensoren, Luefter
+und Fogger. Er ersetzt die bisherigen Anschlussplaene.
+Ergaenzende Anschlusstabellen und Hinweise stehen in [Hardware](docs/hardware.md).
 
-Der Plan verwendet SDA **GPIO 4** und SCL **GPIO 5** bei **3.3 V** Sensorversorgung.
-Er beschreibt den geplanten Aufbau; die unten dokumentierte und getestete
-Firmware verwendet weiterhin das ESP32-S3-Board.
-Pinpositionen: [ESP32-C3 SuperMini Pinout und Schaltplan](https://dl.artronshop.co.th/ESP32-C3%20SuperMini%20datasheet.pdf).
-GPIO 4/5 sind die fuer diesen Plan gewaehlte I2C-Belegung und muessen bei
-einem spaeteren Firmwarewechsel entsprechend konfiguriert werden.
+Der Plan verwendet SDA **GPIO 0**, SCL **GPIO 1**, Luefter-PWM **GPIO 4**,
+Luefter-Tacho **GPIO 5** und Fogger-Gate **GPIO 6**.
+Die Sensorversorgung betraegt **3,3 V**. Optional ist ein **SHTC3** fuer
+Aussenfeuchte und Aussentemperatur am gleichen I2C-Bus vorgesehen.
+Die vorhandene Firmware verwendet weiterhin das ESP32-S3-Board mit
+SDA GPIO8 und SCL GPIO9; die Umsetzung des C3-Aufbaus steht noch aus.
 
 ## Heizvergleich vom 25.10.2026
 
