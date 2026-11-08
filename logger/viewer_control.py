@@ -22,6 +22,8 @@ class CommandPanel:
         self.pending = False
         self.last_setpoints = None
         self.feedback = ""
+        self.changed = False
+        self._last_render_state = None
         self.graphs = [figure.add_subplot(grid[row, 1]) for row in range(2)]
         self.editor = figure.add_subplot(grid[2, 1])
         self.editor.axis("off")
@@ -84,11 +86,21 @@ class CommandPanel:
                 self.dirty = False
 
     def update(self, theme, limits=None):
+        self.changed = False
         self._read_results()
         state = self.collector.control.snapshot() if self.collector else {
             "setpoints": None, "samples": [], "supported": False,
             "online": False, "enabled": False, "message": "No lance connected."}
         setpoints = state["setpoints"]
+        samples = state["samples"]
+        render_state = (tuple(theme.items()), tuple(limits) if limits is not None else None,
+                        setpoints, state["supported"], state["online"], state["enabled"],
+                        state["message"], len(samples), samples[-1]["timestamp"] if samples else None,
+                        self.feedback, self.pending, self.dirty, self.visible)
+        if render_state == self._last_render_state:
+            return setpoints
+        self._last_render_state = render_state
+        self.changed = True
         if setpoints is not None and not self.dirty and not self.pending and setpoints != self.last_setpoints:
             self.co2.set_val(setpoints.co2_ppm)
             self.humidity.set_val(setpoints.humidity_rh)

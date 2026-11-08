@@ -759,24 +759,30 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None) -
 
     fig.canvas.mpl_connect("scroll_event", _remember_scroll_zoom)
 
+    last_plot_revision = data_cache.revision
+
     def _update(_frame):
+        nonlocal last_plot_revision
         render(
             fig,
             box_axes,
             chart_axes,
             range_axis,
             footer_text,
-            preserve_view=_state["manual_view"], data_cache=data_cache, skip_unchanged=True,
+            preserve_view=_state["manual_view"], data_cache=data_cache,
+            skip_unchanged=data_cache.revision == last_plot_revision,
         )
+        last_plot_revision = data_cache.revision
 
     connection_text = fig.text(0.5, 0.925, "Connecting …" if collector else "",
                                ha="center", fontsize=8, color=current_theme()["muted"])
     last_setpoints = None
+    last_card_state = None
 
     def _connection_status():
-        nonlocal last_setpoints
+        nonlocal last_setpoints, last_card_state
         status = collector.latest_status() if collector else None
-        if status:
+        if status and status != connection_text.get_text():
             connection_text.set_text(status)
             connection_text.set_color(current_theme()["muted"])
             fig.canvas.draw_idle()
@@ -785,18 +791,25 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None) -
             last_setpoints = setpoints
             render(fig, box_axes, chart_axes, range_axis, footer_text,
                    preserve_view=_state["manual_view"], data_cache=data_cache)
-        if command_mode:
+        if command_mode and command_panel.changed:
             fig.canvas.draw_idle()
         if collector:
             try:
                 frame = data_cache.load(database, csv)
                 if not frame.empty:
                     state = collector.control.snapshot()
-                    draw_value_boxes(box_axes, frame.iloc[-1], state["setpoints"], state)
-                    fig.canvas.draw_idle()
+                    samples = state["samples"]
+                    card_state = (data_cache.revision, state["setpoints"], state["online"],
+                                  state["enabled"], samples[-1]["timestamp"] if samples else None)
+                    if card_state != last_card_state:
+                        last_card_state = card_state
+                        draw_value_boxes(box_axes, frame.iloc[-1], state["setpoints"], state)
+                        fig.canvas.draw_idle()
             except Exception as error:
-                connection_text.set_text(f"Could not read measurements: {error}")
-                fig.canvas.draw_idle()
+                message = f"Could not read measurements: {error}"
+                if message != connection_text.get_text():
+                    connection_text.set_text(message)
+                    fig.canvas.draw_idle()
 
     status_timer = fig.canvas.new_timer(interval=1000)
     status_timer.add_callback(_connection_status)

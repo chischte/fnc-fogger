@@ -34,6 +34,12 @@ class ViewerWindowTests(unittest.TestCase):
     def tearDown(self):
         self.window.destroy()
 
+    def test_live_draw_does_not_switch_to_wait_cursor(self):
+        with patch.object(self.canvas, "set_cursor") as set_cursor:
+            with self.manager.toolbar._wait_cursor_for_draw_cm():
+                pass
+        set_cursor.assert_not_called()
+
     def press_key(self, key):
         self.canvas.callbacks.process(
             "key_press_event", KeyEvent("key_press_event", self.canvas, key=key)

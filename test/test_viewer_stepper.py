@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from matplotlib.figure import Figure
 
@@ -7,6 +7,23 @@ from logger.viewer_stepper import CO2_LEVELS, HUMIDITY_LEVELS, SetpointStepper
 
 
 class SetpointStepperTests(unittest.TestCase):
+    def test_command_panel_does_not_redraw_unchanged_state(self):
+        from matplotlib.gridspec import GridSpec
+        from logger.viewer import DARK_THEME, LIGHT_THEME
+        from logger.viewer_control import CommandPanel
+        figure = Figure()
+        panel = CommandPanel(figure, GridSpec(3, 2, figure=figure), None)
+        panel.set_visible(True)
+        with patch.object(panel, "_draw_graphs") as redraw:
+            panel.update(LIGHT_THEME)
+            self.assertTrue(panel.changed)
+            panel.update(LIGHT_THEME)
+            self.assertFalse(panel.changed)
+            self.assertEqual(redraw.call_count, 1)
+            panel.update(DARK_THEME)
+            self.assertTrue(panel.changed)
+            self.assertEqual(redraw.call_count, 2)
+
     def test_command_panel_can_edit_defaults_without_device_support(self):
         from matplotlib.gridspec import GridSpec
         from logger.viewer import LIGHT_THEME

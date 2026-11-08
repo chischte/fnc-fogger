@@ -2,6 +2,7 @@
 
 import ctypes
 import sys
+from contextlib import nullcontext
 from ctypes import wintypes
 
 
@@ -127,6 +128,8 @@ class TkViewerWindow:
         if sys.platform == "win32":
             self.window.bind("<Map>", self._on_window_map, add="+")
         if self.toolbar is not None:
+            # Live refreshes must not flash Windows' busy cursor on every draw.
+            self.toolbar._wait_cursor_for_draw_cm = nullcontext
             self._native_draw_rubberband = self.toolbar.draw_rubberband
             self.toolbar.draw_rubberband = self._draw_zoom_selection
             self._create_zoom_button()

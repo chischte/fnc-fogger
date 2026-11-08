@@ -24,3 +24,6 @@ Follow Clean Code principles for all new and modified code.
 - Keep hardware access, control logic, networking, sensor handling and UI
 - separated into clearly defined modules. Avoid blocking code where possible
 - and avoid hidden dependencies or global mutable state.
+# Commit messages
+
+- Always start commit messages with an uppercase letter.
