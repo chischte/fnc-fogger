@@ -5,7 +5,7 @@ from zeroconf import IPVersion, ServiceBrowser, ServiceListener, Zeroconf
 
 from .lance_registry import Lance
 
-SERVICE_TYPE = "_messlanze._tcp.local."
+SERVICE_TYPE = "_fnc-fogger._tcp.local."
 DISCOVERY_SECONDS = 3
 
 

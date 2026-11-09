@@ -14,17 +14,17 @@ class LanceRegistryTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.directory = Path(self.temp.name)
         self.registry = LanceRegistry(self.directory)
-        self.lance = Lance("14c19f5cc8b4", "messlanze-5cc8b4.local", 80)
+        self.lance = Lance("14c19f5cc8b4", "fnc-fogger-5cc8b4.local", 80)
 
     def tearDown(self):
         self.temp.cleanup()
 
     def test_labels_survive_restart_and_address_change(self):
         original = self.registry.remember(self.lance)
-        self.registry.save_labels(self.lance.device_id, " Kammer 1 ", " Labor ")
+        self.registry.save_labels(self.lance.device_id, " Chamber 1 ", " Lab ")
         registry = LanceRegistry(self.directory)
         updated = registry.remember(Lance(self.lance.device_id, "new.local", 8080))
-        self.assertEqual((updated.name, updated.location), ("Kammer 1", "Labor"))
+        self.assertEqual((updated.name, updated.location), ("Chamber 1", "Lab"))
         self.assertEqual(updated.database_name, original.database_name)
         self.assertEqual(updated.url, "http://new.local:8080")
 
@@ -84,7 +84,7 @@ class ChartNavigationTests(unittest.TestCase):
 
         with patch.object(viewer, "draw"), patch.object(viewer, "configure_viewer_window", return_value=None), \
                 patch.object(plt, "show", side_effect=click_home):
-            self.assertTrue(viewer.show_charts(title="Testlanze | Labor"))
+            self.assertTrue(viewer.show_charts(title="Test lance | Lab"))
         self.assertEqual(plt.get_fignums(), [])
 
     def test_closing_chart_exits_without_reopening_selection(self):
@@ -105,20 +105,20 @@ class SelectionEditingTests(unittest.TestCase):
             try:
                 selection.tree.selection_set(first.device_id)
                 selection._select()
-                selection.name.set("Kammer A")
-                selection.location.set("Labor")
+                selection.name.set("Chamber A")
+                selection.location.set("Lab")
                 selection.tree.selection_set(second.device_id)
                 selection._select()
                 selection.tree.selection_set(first.device_id)
                 selection._select()
-                self.assertEqual(selection.name.get(), "Kammer A")
-                self.assertEqual(selection.location.get(), "Labor")
+                self.assertEqual(selection.name.get(), "Chamber A")
+                self.assertEqual(selection.location.get(), "Lab")
                 selection._open()
                 self.assertEqual(selection.result.device_id, first.device_id)
-                self.assertEqual(selection.result.name, "Kammer A")
+                self.assertEqual(selection.result.name, "Chamber A")
                 saved = {item.device_id: item for item in LanceRegistry(directory).list()}
                 self.assertIn(second.device_id, saved)
-                self.assertEqual(saved[first.device_id].location, "Labor")
+                self.assertEqual(saved[first.device_id].location, "Lab")
             finally:
                 if not selection.stop.is_set():
                     selection._finish()

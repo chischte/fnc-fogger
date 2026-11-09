@@ -1,37 +1,33 @@
-# ESP32-S3 Hardwaretest vom 24.10.2026
+# ESP32-S3 hardware test, 2026-10-24
 
-**Endergebnis: ESP32-S3 laeuft erfolgreich.** Beide Sensoren liefern gueltige
-Werte, WLAN und Flash-Puffer funktionieren. OTA einschliesslich Neustart
-sowie Betrieb ohne USB mit externer 5-V-Versorgung sind erfolgreich geprueft.
-Die unten protokollierten Sensorfehler wurden nach Korrektur der vertauschten
-Leitungen behoben; sie beschreiben die vorausgehende Fehlersuche.
+**Final result: ESP32-S3 operates successfully.** Both sensors return valid
+readings, WiFi and flash buffering work. OTA including restart and operation
+without USB on an external 5 V supply were verified. The sensor errors below
+were resolved after correcting swapped wires; they record the preceding investigation.
 
-Geraet: ESP32-S3 Revision v0.2, MAC `14:c1:9f:5c:c8:b4`.
-COM4 ist USB Serial/JTAG, COM5 der CH343-Anschluss desselben Boards.
-Firmware: `3.0.0-esp32s3`. WLAN-Adresse beim Test: `192.168.31.211`.
+Device: ESP32-S3 revision v0.2, MAC `14:c1:9f:5c:c8:b4`.
+COM4 is USB Serial/JTAG; COM5 is the CH343 connection on the same board.
+Firmware: `3.0.0-esp32s3`. Test WiFi address: `192.168.31.211`.
 
-## Erfolgreich geprueft
+## Successfully verified
 
-- USB-Upload mit esptool einschliesslich Flash-Hash-Pruefung.
-- Start und PSRAM-Erkennung (8386295 nutzbare Bytes, 8-MB-Baustein).
-- WLAN-Verbindung, Startseite und Update-Seite (HTTP 200).
-- `/api/current`, `/api/measurement` einschliesslich JSON-Verlauf.
-- LittleFS-Messpuffer, NDJSON-Auslieferung und Erhalt ueber Neustarts.
-- Echtes OTA des App-BIN, HTTP 200, automatischer Software-Neustart,
-  neue Boot-ID und erfolgreiche Wiederverbindung.
-- OTA ueber `upload_firmware.ps1 -DeviceUrl http://192.168.31.211`.
-- Ungueltiges OTA-Image wird mit HTTP 422 abgelehnt; kein Neustart,
-  Flash-Puffer bleibt verfuegbar.
-- 38 automatisierte Tests erfolgreich.
+- USB upload using esptool, including flash hash verification.
+- Startup and PSRAM detection (8386295 usable bytes, 8 MB chip).
+- WiFi connection, home page and update page (HTTP 200).
+- `/api/current`, `/api/measurement`, including JSON history.
+- LittleFS measurement buffer, NDJSON delivery and persistence across restarts.
+- Real OTA of the app BIN: HTTP 200, automatic software restart, new boot ID and reconnection.
+- OTA using `upload_firmware.ps1 -DeviceUrl http://192.168.31.211`.
+- Invalid OTA image rejected with HTTP 422; no restart; flash buffer remains available.
+- All 38 automated tests passed.
 
-Beim ersten OTA-Test wurde eine Neustart-Race-Condition gefunden und behoben:
-Schliesst der Client nach Empfang der Antwort sofort, wird ein bereits
-verifiziertes Update jetzt trotzdem aktiviert. Der anschliessende Test
-bestaetigt Software-Neustart und neue Boot-ID.
+The first OTA test exposed a restart race condition, which was fixed: if the
+client closes immediately after receiving the response, a verified update is
+still activated. The subsequent test confirmed software restart and new boot ID.
 
-## Sensorpruefung noch nicht erfolgreich
+## Initial sensor check unsuccessful
 
-Die Sensoren sind laut Benutzer angeschlossen. Startdiagnose bei 100 kHz:
+The user reported connected sensors. Startup diagnostics at 100 kHz:
 
 ```text
 I2C SDA=8 SCL=9
@@ -40,83 +36,69 @@ SHT45 I2C address 0x44 status=5
 SCD41 I2C address 0x62 status=5
 ```
 
-Status 5 ist laut lokalem ESP32-Wire-Treiber `ESP_ERR_TIMEOUT`.
-Beide Sensoren liefern keine gueltigen Messwerte. Die Firmware sucht weiter;
-die API liefert NULL mit Validitaetsflag false. Deshalb sind reale CO2-,
-Temperatur-, Feuchte- und SHT45-Heizzykluspruefungen noch offen.
-Die Leitungen sind bei der Startpruefung HIGH; ein dauerhaft auf LOW
-festgehaltener Bus wurde dabei nicht beobachtet. Versorgung, Verdrahtung und
-Pull-ups muessen am Aufbau geprueft werden; eine konkrete Ursache ist noch
-nicht nachgewiesen.
+In the local ESP32 Wire driver, status 5 is `ESP_ERR_TIMEOUT`. Neither sensor
+returned valid readings. Firmware kept searching; API returned NULL with false
+validity flags. Real CO2, temperature, humidity and SHT45 heater-cycle checks
+were therefore still pending. Lines were HIGH at startup; no permanently LOW
+bus was observed. Supply, wiring and pull-ups required physical checks; no
+specific cause was proven yet.
 
-## Wiederholung: nur SHT45 mit kurzem Kabel
+## Retry: SHT45 alone with shorter cable
 
-Der Benutzer hat den SCD41 getrennt und den SHT45 direkt mit kuerzerem Kabel
-angeschlossen. Erneut ueber API und serielle Startdiagnose getestet:
-`SHT45 I2C address 0x44 status=5`. Nach einem vollstaendigen Messintervall
-(`uptime_ms=77195`, `sht_read_uptime_ms=72587`, Sequenz 16) bleiben
-`boxtemp` und `humidity` NULL, beide Validitaetsflags false.
-Der ESP32 blieb waehrend der abschliessenden Beobachtung unter derselben
-Boot-ID erreichbar. Kein SHT45-Heizzyklus nachweisbar, da kein gueltiger
-Ausgangsmesswert vorhanden ist. Das fehlende SCD41-Signal ist bei diesem
-Aufbau erwartet. Kabelverkuerzung und Abtrennen des zweiten Sensors haben
-den SHT45-Kommunikationsfehler noch nicht behoben.
+The user disconnected SCD41 and connected SHT45 directly with a shorter cable.
+API and serial diagnostics again showed `SHT45 I2C address 0x44 status=5`.
+After a complete interval (`uptime_ms=77195`, `sht_read_uptime_ms=72587`,
+sequence 16), `boxtemp` and `humidity` stayed NULL with both flags false.
+ESP32 remained reachable under the same boot ID during final observation.
+No SHT45 heater cycle could be demonstrated without a valid initial reading.
+The missing SCD41 signal was expected in this assembly. Shortening the cable
+and disconnecting the second sensor had not resolved SHT45 communication.
 
-## Wiederholung nach verbesserter Stromversorgung
+## Retry after improving power supply
 
-Nach der vom Benutzer verbesserten Stromversorgung erneut per HTTP-API
-beobachtet. Waehrend der Abfrage wechselte die Boot-ID von `2388127005`
-auf `2211524122`; ein Neustart wurde beobachtet, ohne dass der Test einen
-Reset ausgeloest hat. Die Ursache ist nicht bestimmt.
-Nach dem naechsten SHT45-Uebernahmezeitpunkt (`uptime_ms=74577`,
-`sht_read_uptime_ms=74577`, Sequenz 15) bleiben Temperatur und Feuchte NULL,
-mit Validitaetsflags false. LittleFS ist weiter bereit, die HTTP-API
-antwortet. Eine erfolgreiche Sensorerfassung ist weiterhin nicht belegt.
+After the user's supply improvement, HTTP API observation showed the boot ID
+change from `2388127005` to `2211524122`; a restart occurred without the test
+triggering reset. Cause was undetermined. After the next SHT45 acceptance time
+(`uptime_ms=74577`, `sht_read_uptime_ms=74577`, sequence 15), temperature and
+humidity remained NULL with false flags. LittleFS stayed ready and HTTP
+responded. Successful sensor acquisition was still unproven.
 
-## Wiederholung nach Korrektur der vertauschten Leitungen
+## Retry after correcting swapped wires
 
-Der I2C-Bus funktioniert nach dem Umstecken: SCD41 mit Seriennummer
-`0A8815073B72` liefert gueltige CO2- und Feuchtewerte, beispielsweise
-533 ppm und 44.35 % rF bei Sequenz 68. Die ausgelesene SCD41-Temperatur
-betrug 29.47 Grad C, der konfigurierte Offset 2.2 Grad C.
-SCD41-Messungen laufen ueber mehrere aufeinanderfolgende 5-s-Intervalle
-mit unveraenderter Boot-ID `1364144317`.
-SHT45 bleibt auch bei der naechsten regulaeren Uebernahme
-(`sht_read_uptime_ms=339192`, Sequenz 68) ungueltig: `boxtemp` und
-`humidity` sind NULL. Der Anschlusszustand beider Module muss nochmals
-geklaert werden; der jetzt antwortende Sensor ist eindeutig ein SCD41.
-Die NDJSON-Auslieferung aus dem aktuellen Flash-Puffer wurde erneut abgefragt.
+I2C worked after reconnection: SCD41 serial `0A8815073B72` returned valid CO2
+and humidity, for example 533 ppm and 44.35 %RH at sequence 68. Read-back SCD41
+temperature was 29.47 degrees C, configured offset 2.2 degrees C. Readings
+continued over consecutive five-second intervals with boot ID `1364144317`.
 
-## Erfolgreiche SHT45-Erfassung nach weiterer Anschlusskorrektur
+SHT45 remained invalid at its next regular acceptance
+(`sht_read_uptime_ms=339192`, sequence 68): `boxtemp` and `humidity` were NULL.
+Both modules' connections still needed clarification; the responding sensor
+was clearly SCD41. NDJSON from the current flash buffer was queried again.
 
-Bei der erneuten Pruefung liefern erstmals beide Sensoren gleichzeitig
-als gueltig markierte Werte. Sequenz 159, Boot-ID `1364144317`,
-`sht_read_uptime_ms=794192`: SHT45 23.52 Grad C und 50.91 % rF;
-SCD41 288 ppm CO2, 23.30 Grad C und 43.85 % rF.
-Die SHT45-Werte stammen von einer neuen regulaeren Uebernahme, nicht von
-einem wiederholten alten Wert. Die gueltigen SHT45-Daten wurden auch im
-aktuellen LittleFS-NDJSON-Puffer nachgewiesen. Der Heiz-/Abkuehlzyklus
-ist damit noch nicht vollstaendig separat geprueft.
+## Successful SHT45 acquisition after further wiring correction
 
-## Wiederholungsmessung mit Heiz-/Abkuehlzeit
+Both sensors returned valid readings simultaneously for the first time:
+sequence 159, boot ID `1364144317`, `sht_read_uptime_ms=794192`.
+SHT45: 23.52 degrees C, 50.91 %RH. SCD41: 288 ppm CO2, 23.30 degrees C,
+43.85 %RH. SHT45 values came from a fresh scheduled reading, not an old repeat.
+Valid SHT45 data was also confirmed in current LittleFS NDJSON. The complete
+heater/cooldown cycle was not yet separately verified.
 
-Beide Sensoren liefern bei Sequenz 185 weiterhin gueltige Werte:
-SHT45 24.63 Grad C, 46.04 % rF roh bzw. 47.04 % rF mit +1 Prozentpunkt
-Offset; SCD41 493 ppm, 26.62 Grad C und 45.15 % rF.
-Der SHT45-Zeitstempel steigt von 859192 auf 924192 ms (65 s).
-Die Firmware meldet `sht_heater_elapsed_ms=60010`, entsprechend einer
-Messung nach mindestens 60 s Abkuehlzeit. Dies ist ein Firmware-Zeitnachweis,
-keine separate elektrische Messung der Heizleistung. Boot-ID unveraendert,
-Flash-Puffer bereit, SCD-Fehlerzaehler 0.
+## Repeated measurement including heater/cooldown timing
 
-## Erfolgreicher Betrieb mit externer Versorgung ohne USB
+Both remained valid at sequence 185: SHT45 24.63 degrees C, 46.04 %RH raw,
+47.04 %RH with +1 percentage point offset; SCD41 493 ppm, 26.62 degrees C,
+45.15 %RH. SHT45 timestamp increased from 859192 to 924192 ms (65 s).
+Firmware reported `sht_heater_elapsed_ms=60010`, indicating at least 60 s
+cooldown. This is firmware timing evidence, not an independent electrical
+heater-power measurement. Boot ID unchanged, flash ready, SCD error count 0.
 
-Versorgung laut Benutzer: 5 V am 5-V-Pin, USB getrennt. Das Geraet ist unter
-`192.168.31.211` erreichbar; die ARP-Tabelle bestaetigt die bekannte MAC
-`14:c1:9f:5c:c8:b4`. Bei der abschliessenden Pruefung vor dem Commit:
-Boot-ID `2924729219`, Sequenz 33, Uptime 162187 ms, SCD-Fehlerzaehler 0,
-LittleFS bereit. SHT45: 24.40 Grad C und 41.71 % rF roh bzw. 42.71 % rF
-korrigiert; SCD41: 337 ppm, 24.51 Grad C und 46.63 % rF.
-Alle vorhandenen Sensorwerte sind als gueltig markiert. Die SHT45-Messung
-weist 60010 ms Abkuehlzeit auf. Der ESP32-S3 laeuft damit auch ohne USB
-an der externen Versorgung erfolgreich.
+## Successful external-supply operation without USB
+
+User-reported supply: 5 V on the 5 V pin, USB disconnected. Device reachable
+at `192.168.31.211`; ARP confirmed MAC `14:c1:9f:5c:c8:b4`.
+Final check before commit: boot ID `2924729219`, sequence 33, uptime 162187 ms,
+SCD errors 0, LittleFS ready. SHT45: 24.40 degrees C and 41.71 %RH raw,
+42.71 %RH corrected; SCD41: 337 ppm, 24.51 degrees C, 46.63 %RH.
+All available readings were valid. SHT45 cooldown was 60010 ms.
+ESP32-S3 therefore operated successfully without USB on the external supply.

@@ -1,0 +1,30 @@
+Translate ALL German labels in the existing six-panel wiring infographic into
+English. Preserve styling, hardware, pin assignments and all connections,
+especially the crossing-free 24 V and GND layout in panel 1.
+
+Title: fnc-fogger - Wiring Diagram
+Subtitle: DRAFT 04 - ESP32-C3 SuperMini
+Panel 1: 24 V Supply; Fan Pin 2 (+24 V); Schematic connections;
+ESP32 GND (common ground); Fan Pin 1 (GND); Check 5 V version / setting;
+Measure output before connecting; Current rating not guaranteed.
+Panel 2: Function; Connection; common ground; Sensors (3.3 V);
+Proposed GPIOs - Check board pinout.
+Panel 3: Sensors - I2C; SCD41 + SHT45 - SHTC3 optional on the same I2C bus;
+CO2 Sensor; Humidity / Temperature; OPTIONAL; Ambient humidity / temperature;
+Check I2C pull-ups to 3.3 V.
+Panel 4: 4-pin PWM fan (40 mm, slim); common ground; 24 V input;
+Direct PWM - 3.3 V push-pull - 25 kHz; Tach: internal ESP32 pull-up.
+Panel 5: Front view: marking towards you - Metal tab = Drain;
+Switching at 3.3 V successfully tested; Reset state undefined without gate
+pull-down; HIGH = ON - LOW = OFF - Fixed ON time: 200 ms;
+50%: 200 ms ON / 200 ms OFF.
+Panel 6: Control + OTA; Logic and behaviour; CO2 PI; Fan PWM; Humidity PI;
+Fogger ON / OFF; Fogger only above confirmed minimum fan speed;
+Initial installation via USB; Actuator firmware not implemented yet;
+Update / sensor fault: request Fogger OFF; Dry-run protection required.
+Footer: Wire colours / Nets; GND (common ground); Control (GPIO);
+Common ground - Check board, load and switching before assembly;
+USB: disconnect external 5 V first.
+
+Use decimal dots. No German labels. Keep fan at 24 V, fogger and ESP32 at 5 V
+from buck, optional SHTC3 dashed, MOSFET gate1/drain2/source3 unchanged.

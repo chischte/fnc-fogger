@@ -1,43 +1,40 @@
-# Hardwarewechsel am 24.10.2026
+# Hardware migration, 2026-10-24
 
-Bis einschliesslich Commit `e215ccc` wurde mit Arduino Portenta Machine Control
-gearbeitet. Der lokale Git-Tag `portenta-machine-control-final` markiert diesen
-vollstaendigen Ausgangsstand mit PT100 und Portenta-OTA.
+Through commit `e215ccc`, the project used Arduino Portenta Machine Control.
+The local tag `portenta-machine-control-final` marks the complete previous
+state with PT100 and Portenta OTA.
 
-Ab Firmware 3.0.0-esp32s3 ist ESP32-S3-DEV-KIT-N8R8 das Standardziel:
-8 MiB Flash, 8 MiB Octal-PSRAM. SHT45 und SCD41 teilen einen I2C-Bus.
+Since firmware `3.0.0-esp32s3`, ESP32-S3-DEV-KIT-N8R8 is the default target:
+8 MiB flash, 8 MiB Octal PSRAM. SHT45 and SCD41 share one I2C bus.
 
-| Leitung | Anschluss |
+| Wire | Connection |
 | --- | --- |
-| Blau / SDA | GPIO 8 |
-| Gelb / SCL | GPIO 9 |
-| Rot / VCC | 3V3 |
-| Schwarz / GND | GND |
+| Blue / SDA | GPIO8 |
+| Yellow / SCL | GPIO9 |
+| Red / VCC | 3V3 |
+| Black / GND | GND |
 
-Die Tabelle beschreibt das am Aufbau verwendete Grove-Kabel in der Reihenfolge
-Schwarz, Rot, Blau, Gelb. Blau ersetzt hier die ueblicherweise weisse
-SDA-Leitung. Die Farbzuordnung des urspruenglichen Bildes traf auf dieses
-Kabel nicht zu und wurde beim Hardwaretest korrigiert.
+This table describes the actual Grove cable, in black/red/blue/yellow order.
+Blue replaces the usual white SDA wire. The original image's colour assignment
+did not match this cable and was corrected during the hardware test.
 
-I2C laeuft mit 100 kHz. PT100, RTD-Treiber und RTD-Diagnosen sind entfernt.
-Das API-Feld `outertemp` bleibt fuer bestehende Logger als `null` erhalten;
-`valid.outertemp` ist false. Historische Daten im Python-Logger bleiben lesbar.
+I2C operates at 100 kHz. PT100, RTD driver and RTD diagnostics are removed.
+API field `outertemp` remains `null` for existing loggers; `valid.outertemp`
+is false. Historical Python logger data remains readable.
 
-Der Messpuffer liegt auf LittleFS statt Portenta-QSPI. Zwei App-Partitionen
-von je 2 MiB erlauben OTA; 4032 KiB bleiben fuer LittleFS. Zwei rotierende
-Messdateien sind auf je etwa 1.5 MiB begrenzt. Ein fehlgeschlagenes Mounten
-fuehrt zur Formatierung der Datenpartition; SQLite bleibt Langzeitspeicher.
+The measurement buffer uses LittleFS rather than Portenta QSPI. Two 2 MiB app
+partitions support OTA; 4032 KiB remains for LittleFS. Two rotating measurement
+files are limited to about 1.5 MiB each. Mount failure formats the data
+partition; SQLite remains the long-term store.
 
-Erstinstallation ueber USB: `pio run -e esp32s3 -t upload --upload-port COMx`.
-WLAN-Zugangsdaten wie bisher in `../wifi-credentials.h` hinterlegen.
-Danach `http://<geraete-ip>/update` oeffnen und ausschliesslich
-`.pio/build/esp32s3/firmware.bin` hochladen (kein merged/factory BIN,
-keine Portenta-Datei). Alternativ:
-`./upload_firmware.ps1 -DeviceUrl http://<geraete-ip>`.
-Der Upload prueft das Image mit der ESP32-Update-Bibliothek und aktiviert erst
-bei erfolgreichem Abschluss die andere App-Partition. Abbruch belaesst die
-laufende Firmware. Die Update-Seite hat wie bisher keine Anmeldung und ist
-fuer ein vertrauenswuerdiges lokales WLAN vorgesehen.
+Initial USB installation: `pio run -e esp32s3 -t upload --upload-port COMx`.
+Store WiFi credentials in `../wifi-credentials.h` as before. Then open
+`http://<device-ip>/update` and upload only `.pio/build/esp32s3/firmware.bin`
+(no merged/factory BIN or Portenta file). Alternatively run
+`./upload_firmware.ps1 -DeviceUrl http://<device-ip>`.
+The ESP32 Update library validates the image and activates the other app
+partition only on success. Aborting leaves the current firmware running.
+The update page still has no login and is intended for trusted local WiFi.
 
-Der Portenta-Build ist weiterhin explizit mit `-e portenta_h7_m7` verfuegbar,
-jetzt ebenfalls ohne PT100. Die vollstaendige alte Firmware steht im Git-Tag.
+Portenta builds remain explicitly available through `-e portenta_h7_m7`, now
+also without PT100. The complete old firmware is preserved in the Git tag.

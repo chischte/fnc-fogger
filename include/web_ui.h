@@ -1,7 +1,7 @@
 #pragma once
 
 const char UPDATE_HTML[] = R"rawliteral(
-<!doctype html><html><head><meta charset="utf-8"><title>Firmware Update</title>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Firmware Update</title>
 <style>
 body{font-family:system-ui,sans-serif;max-width:500px;margin:60px auto;padding:20px;background:#f3f6f4}
 .card{background:white;border:1px solid #d9e2dc;border-radius:8px;padding:32px;box-shadow:0 2px 8px #173b2412}
@@ -17,7 +17,7 @@ button:disabled{background:#a0b8c8;cursor:default}
 </style></head>
 <body><div class="card"><h2>&#128225; Firmware Update</h2>
 <form id="f">
-  <label>Firmware-Datei:</label><br>
+  <label>Firmware file:</label><br>
   <input type="file" id="bin" accept=".bin,.ota" required>
   <br><button id="btn" type="submit">Upload &amp; Flash</button>
 </form>
@@ -36,7 +36,7 @@ document.getElementById('f').addEventListener('submit',function(e){
   var bar=document.getElementById('prog-bar');
   var label=document.getElementById('prog-label');
   btn.disabled=true;
-  status.textContent='Phase 1/3: Firmware-Datei wird übertragen ...';
+  status.textContent='Phase 1/3: Uploading firmware file ...';
   wrap.style.display='block';
   bar.style.width='0%';
   label.textContent='0% — 0 / '+Math.round(file.size/1024)+' KB';
@@ -53,21 +53,21 @@ document.getElementById('f').addEventListener('submit',function(e){
   };
   xhr.upload.onload=function(){
     bar.style.width='100%';
-    status.textContent='Phase 2/3: Firmware wird geprüft und installiert. Bitte warten ...';
+    status.textContent='Phase 2/3: Verifying and installing firmware. Please wait ...';
   };
   xhr.onload=function(){
     bar.style.width='100%';
-    label.textContent='100% — Upload abgeschlossen';
+    label.textContent='100% — Upload complete';
     if(xhr.status>=200&&xhr.status<300){
-      status.textContent='Phase 3/3: '+xhr.responseText+' Verbindung wird wiederhergestellt ...';
+      status.textContent='Phase 3/3: '+xhr.responseText+' Reconnecting ...';
       setTimeout(function(){window.location.href='/';},10000);
     }else{
-      status.textContent='Fehler: '+xhr.responseText;
+      status.textContent='Error: '+xhr.responseText;
       btn.disabled=false;
     }
   };
   xhr.onerror=function(){
-    status.textContent='Netzwerkfehler beim Upload. Das Gerät wurde nicht aktualisiert.';
+    status.textContent='Network error during upload. The device was not updated.';
     btn.disabled=false;
   };
   var fd=new FormData();
@@ -78,7 +78,7 @@ document.getElementById('f').addEventListener('submit',function(e){
 )rawliteral";
 
 const char INDEX_HTML[] = R"rawliteral(
-<!doctype html><html lang="de"><head><meta charset="utf-8">
+<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sensors</title>
 <style>
@@ -100,8 +100,8 @@ h2{margin:0 0 10px;font-size:1rem;color:#2a3630;text-align:center}.values{displa
     <span class="unit">&deg;C</span>
   </div>
 </div>
-<section><h2>Humidity</h2><div class="legend" aria-label="Feuchte-Sensoren"><span><i></i>Inbox (SHT45)</span><span><i class="scd"></i>Inbox (SCD41)</span><span><i class="ambient"></i>Ambient (SHTC3)</span></div><canvas id="chart-humidity" width="900" height="220"></canvas></section>
-<section><h2>CO2</h2><div class="legend" aria-label="CO2-Sensor"><span><i class="co2"></i>SCD41</span></div><canvas id="chart-co2" width="900" height="220"></canvas></section>
+<section><h2>Humidity</h2><div class="legend" aria-label="Humidity sensors"><span><i></i>Inbox (SHT45)</span><span><i class="scd"></i>Inbox (SCD41)</span><span><i class="ambient"></i>Ambient (SHTC3)</span></div><canvas id="chart-humidity" width="900" height="220"></canvas></section>
+<section><h2>CO2</h2><div class="legend" aria-label="CO2 sensor"><span><i class="co2"></i>SCD41</span></div><canvas id="chart-co2" width="900" height="220"></canvas></section>
 <section><h2>Temperature</h2><div class="legend"><span><i class="inbox"></i>Inbox (SHT45)</span><span><i class="ambient-temp"></i>Ambient (SHTC3)</span></div><canvas id="chart-temperature" width="900" height="220"></canvas></section>
 <footer id="status-footer">Last Reading: -- &nbsp; | &nbsp; -- data points</footer>
 <script>
@@ -201,9 +201,9 @@ function updateFooter(sequence){
 async function update(){
   try{
     let r=await fetch('/api/measurement'),payload=await r.json(),d=payload.measurement||payload;
-    document.querySelector('#co2').textContent=d.co2===null?'Fehler':d.co2;
-    document.querySelector('#boxtemp').textContent=d.boxtemp===null?'Fehler':Number(d.boxtemp).toFixed(1);
-    document.querySelector('#humidity').textContent=d.humidity_corrected===null?'Fehler':Number(d.humidity_corrected).toFixed(1);
+    document.querySelector('#co2').textContent=d.co2===null?'Error':d.co2;
+    document.querySelector('#boxtemp').textContent=d.boxtemp===null?'Error':Number(d.boxtemp).toFixed(1);
+    document.querySelector('#humidity').textContent=d.humidity_corrected===null?'Error':Number(d.humidity_corrected).toFixed(1);
     draw(payload.history||[]);
     updateFooter(d.sequence);
   }catch(e){console.log(e)}

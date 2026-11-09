@@ -1,13 +1,19 @@
-﻿# Einkaufsliste – gewählter Aufbau
+# Shopping list: selected assembly
 
-| Menge | Bauteil | Verwendung |
+| Quantity | Part | Purpose |
 | --- | --- | --- |
-| 1 | XZG DC/DC-Buck, abgebildete kompakte Ausführung | 24 V auf 5,0 V für ESP32 und Fogger |
-| 1 | [Noctua NF-A4x10 24V PWM](https://www.galaxus.ch/de/s1/product/noctua-nf-a4x10-24v-pwm-40-mm-1x-pc-luefter-40864061) | Direkt mit 24 V versorgt; PWM an GPIO4 |
-| 1 | IRLB8721, vorhanden | Fogger-Low-Side-Schalter, Gate direkt an GPIO6 |
-| nach Bedarf | Leitungen, Klemmen, Sicherung, Isolation | Versorgung und Montage |
-| nach Bedarf | Dupont-Kabel | Sensor- und Signalleitungen |
+| 1 | XZG DC/DC buck, pictured compact variant | 24 V to 5.0 V for ESP32 and fogger |
+| 1 | [Noctua NF-A4x10 24V PWM](https://www.noctua.at/en/products/nf-a4x10-24v-pwm/specifications) | Direct 24 V supply; PWM to GPIO4 |
+| 1 | IRLB8721, already available | Fogger low-side switch; gate directly to GPIO6 |
+| As needed | Wires, terminals, fuse, insulation | Power and assembly |
+| As needed | Dupont cables | Sensor and signal wiring |
 
-Ein Buck-Modul versorgt Controller und Fogger mit 5 V; nur der Lüfter und der Buck-Eingang bleiben direkt am 24-V-Zweig. Die konkrete Buck-Variante muss 24 V am Eingang und 5,0 V am Ausgang unterstützen; Ausgang vor Anschluss messen. Keine Gate-Widerstände in der gewünschten Variante; deren elektrische Grenzen stehen in [hardware.md](hardware.md#grenzen-der-gewünschten-widerstandslosen-variante).
+One buck powers controller and fogger at 5 V; only fan and buck input stay
+on the 24 V net. The actual buck must support 24 V input and 5.0 V output;
+measure output before connecting. No gate resistors in the requested variant;
+see [electrical limits](hardware.md#limits-of-the-requested-resistor-free-variant).
 
-ESP32-C3 SuperMini-Devboard, SCD41- und SHT45-Breakouts sowie vollständiges 5-V-Fogger-Modul ergänzen, soweit noch nicht vorhanden. Geregelte 24-V-Versorgung ist vorhanden. Fogger-Modell, Trockenlaufschutz, Laststrom und Schaltspitzen vor Hardwarefreigabe dokumentieren.
+Add ESP32-C3 SuperMini, SCD41 and SHT45 breakouts, and a complete 5 V fogger
+module if not already available. A regulated 24 V supply is available.
+Document fogger model, dry-run protection, load current and switching spikes
+before hardware approval.

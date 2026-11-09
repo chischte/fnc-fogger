@@ -9,7 +9,7 @@
 
 namespace {
 constexpr uint32_t RETRY_INTERVAL_MS = 10000;
-constexpr char SERVICE_NAME[] = "messlanze";
+constexpr char SERVICE_NAME[] = "fnc-fogger";
 constexpr char SERVICE_PROTOCOL[] = "tcp";
 }  // namespace
 #endif
@@ -34,7 +34,7 @@ void NetworkDiscovery::poll(bool connected, uint32_t now) {
   String deviceId = WiFi.macAddress();
   deviceId.replace(":", "");
   deviceId.toLowerCase();
-  const String hostname = "messlanze-" + deviceId.substring(6);
+  const String hostname = "fnc-fogger-" + deviceId.substring(6);
   if (!MDNS.begin(hostname.c_str())) {
     Serial.println("mDNS startup failed; retrying later.");
     return;

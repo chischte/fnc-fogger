@@ -1,122 +1,156 @@
-# Hardware zum fnc-fogger-Anschlussplan - Entwurf 04
+# Hardware for fnc-fogger wiring diagram, draft 04
 
-Stand: 09.11.2026. Anschlussentwurf, keine ausführbare Firmware und keine Hardwarefreigabe.
+Updated 2026-11-09. Wiring proposal, not executable actuator firmware or hardware approval.
 
-Massgebende Referenz fuer den geplanten Projektaufbau ist der
-[fnc-fogger-Anschlussplan - Entwurf 04](fnc-fogger-layout-v4.png).
-Die folgenden Tabellen und Hinweise ergaenzen diesen Plan.
+The [fnc-fogger wiring diagram, draft 04](fnc-fogger-layout-v4.png) is the
+authoritative reference for the planned assembly. Tables and notes below supplement it.
 
-## Stromversorgung
+## Power supply
 
-Geregeltes 24-V-DC-Netzteil mit gemeinsamer Masse verwenden. Nur ein XZG DC/DC-Buck bleibt:
+Use a regulated 24 V DC supply with common ground and one XZG DC/DC buck:
 
-| Quelle | Ziel |
+| Source | Destination |
 | --- | --- |
-| Netzteil +24 V | Noctua Pin 2 und XZG DC/DC-Buck IN+ |
-| Netzteil GND | Noctua Pin 1, IRLB8721 Source, ESP32 GND, XZG DC/DC-Buck IN− / OUT− |
-| XZG DC/DC-Buck OUT+ = 5,0 V | ESP32-C3 SuperMini 5V und Fogger-Plus |
+| Supply +24 V | Noctua pin 2 and XZG buck IN+ |
+| Supply GND | Noctua pin 1, IRLB8721 source, ESP32 GND, XZG buck IN- / OUT- |
+| XZG buck OUT+ = 5.0 V | ESP32-C3 SuperMini 5V and fogger positive |
 
-Abgebildetes kompaktes XZG-DC/DC-Buck-Modul verwenden (schwarze Platine, 4R7-Drossel). Der Angebotstitel nennt mehrere Ausgangsspannungen; die konkrete Variante und deren Einstellung sind damit nicht eindeutig bestimmt. Für diesen Aufbau die 5-V-Variante bzw. 5-V-Einstellung verwenden und vor Anschluss mit dem Multimeter 5,0 V am Ausgang prüfen. Keine unbekannten Lötbrücken verändern. Die Klemmenbezeichnungen IN+/IN− und OUT+/OUT− sind funktional; ihre Position am gelieferten Modul prüfen. Geeigneten 5-V-Eingang am konkreten Devboard prüfen; keine 5 V auf 3V3 legen. Lastströme direkt zum Netzteil zurückführen, nicht durch ESP32- oder Sensorleitungen. Leitungen und Sicherung nach Last und Einschaltstrom auslegen.
+Use the pictured compact XZG buck (black PCB, 4R7 inductor). The product title
+lists multiple output voltages, so the exact variant/setting is uncertain.
+Use the 5 V variant or setting and measure 5.0 V before connecting. Do not
+change unidentified solder bridges. IN+/IN- and OUT+/OUT- are functional
+labels; check physical positions on the delivered module. Check the board's
+appropriate 5 V input; never apply 5 V to 3V3. Route load currents directly
+back to the supply, not through ESP32/sensor wiring. Size wiring and fuses for
+load and inrush current. The 24 V and GND nets are drawn without crossings.
 
-## GPIO-Vorschlag
+## Proposed GPIO assignments
 
-| Funktion | GPIO | Anschluss / Konfiguration |
+| Function | GPIO | Connection/configuration |
 | --- | --- | --- |
-| I²C SDA | 0 | SDA von SCD41 und SHT45 |
-| I²C SCL | 1 | SCL von SCD41 und SHT45 |
-| FAN_PWM | 4 | Direkt an Noctua Pin 4; 3,3-V-Push-Pull, 25 kHz |
-| FAN_TACH | 5 | Noctua Pin 3; Eingang mit internem Pull-up nach 3,3 V |
-| FOG_EN | 6 | Direkt an IRLB8721 Gate, Pin 1; LOW = AUS, HIGH fordert EIN an |
+| I2C SDA | 0 | SCD41 and SHT45 SDA |
+| I2C SCL | 1 | SCD41 and SHT45 SCL |
+| FAN_PWM | 4 | Direct to Noctua pin 4; 3.3 V push-pull, 25 kHz |
+| FAN_TACH | 5 | Noctua pin 3; input with internal pull-up to 3.3 V |
+| FOG_EN | 6 | Direct to IRLB8721 gate, pin 1; LOW = OFF, HIGH requests ON |
 
-GPIO-Nummern sind keine physischen Steckplatznummern. Verfügbarkeit am konkreten ESP32-C3 SuperMini-Board prüfen. I²C in der Firmware explizit auf SDA GPIO0 und SCL GPIO1 konfigurieren. GPIO8 (Board-LED) und GPIO9 (BOOT) bleiben frei; beide sind Boot-Konfigurationspins. USB verwendet GPIO18/19 und bleibt verfügbar.
+GPIO numbers are not physical connector positions. Check availability on the
+actual ESP32-C3 SuperMini. Explicitly configure I2C SDA GPIO0 / SCL GPIO1.
+Leave GPIO8 (board LED) and GPIO9 (BOOT) unused; both are boot configuration
+pins. USB uses GPIO18/19 and remains available.
 
-Pinbelegungsreferenz: [Apache NuttX: ESP32-C3 SuperMini](https://nuttx.incubator.apache.org/docs/latest/platforms/risc-v/esp32c3/boards/esp32c3-supermini/index.html).
-## Sensoren
+Pin reference: [Apache NuttX: ESP32-C3 SuperMini](https://nuttx.incubator.apache.org/docs/latest/platforms/risc-v/esp32c3/boards/esp32c3-supermini/index.html).
 
-| Signal vom ESP32 | SCD41-Breakout | SHT45-Breakout |
+## Sensors
+
+| ESP32 signal | SCD41 breakout | SHT45 breakout |
 | --- | --- | --- |
-| 3V3 | Geeigneter 3,3-V-Versorgungseingang | Geeigneter 3,3-V-Versorgungseingang |
+| 3V3 | Appropriate 3.3 V supply input | Appropriate 3.3 V supply input |
 | GND | GND | GND |
 | GPIO0 | SDA | SDA |
 | GPIO1 | SCL | SCL |
 
-Optional kann ein **SHTC3 (I2C-Adresse `0x70`)** fuer Aussenfeuchte und
-Aussentemperatur am gleichen Bus angeschlossen werden:
+An optional **SHTC3 (I2C address `0x70`)** measures ambient humidity and temperature
+on the same bus:
 
-| SHTC3-Signal | Verbindung |
+| SHTC3 signal | Connection |
 | --- | --- |
-| 3V3 | 3,3-V-Sensorversorgung |
-| GND | Gemeinsame Masse |
-| SDA | GPIO0, parallel zu SCD41 und SHT45 |
-| SCL | GPIO1, parallel zu SCD41 und SHT45 |
+| 3V3 | 3.3 V sensor supply |
+| GND | Common ground |
+| SDA | GPIO0, parallel to SCD41 and SHT45 |
+| SCL | GPIO1, parallel to SCD41 and SHT45 |
 
-Die Angaben beschreiben die Signale; die physische Pinreihenfolge am Modul
-pruefen. Der SHTC3 ist optional und dient der Aussenmessung.
+These are signal assignments; check physical pin order on the module.
+SHTC3 is optional and measures ambient conditions.
 
-Adressen: SCD41 0x62, SHT45 0x44. Kein Multiplexer erforderlich. Kurze I²C-Leitungen, zunächst 100 kHz. Vorhandene I²C-Pull-ups der Breakouts müssen nach 3,3 V führen. Das Weglassen des optionalen Tacho-Widerstands betrifft nicht die erforderlichen I²C-Pull-ups: bei Breakouts ohne diese ist der Busaufbau zu ergänzen.
+Addresses: SCD41 `0x62`, SHT45 `0x44`. No multiplexer needed. Keep I2C wiring
+short, initially at 100 kHz. Breakout pull-ups must connect to 3.3 V. Omitting
+the optional tach resistor does not remove the need for I2C pull-ups; add them
+if absent on the breakouts.
 
-SCD41 benötigt bei 3,3 V bis 205 mA Spitzenstrom zusätzlich zur übrigen Boardlast. Reglerreserve des gewählten Devboards prüfen. Sensoren repräsentativ in der Innenluft, vor direktem Nebel und Kondensation geschützt, montieren. Nur SHT45-Feuchte geht in den Feuchte-PID ein.
+At 3.3 V, SCD41 requires up to 205 mA peak in addition to other board loads.
+Check regulator headroom. Mount sensors in representative chamber air,
+protected from direct mist and condensation. Only SHT45 humidity feeds the humidity PI.
 
-Quellen: [SCD4x-Datenblatt](https://sensirion.com/resource/datasheet/scd4x), [SHT4x-Datenblatt](https://sensirion.com/resource/datasheet/sht4x).
+Sources: [SCD4x datasheet](https://sensirion.com/resource/datasheet/scd4x),
+[SHT4x datasheet](https://sensirion.com/resource/datasheet/sht4x).
 
 ## Noctua NF-A4x10 24V PWM
 
-| Lüfter-Pin | Signal / übliche Kabelfarbe | Anschluss |
+| Fan pin | Signal / usual wire colour | Connection |
 | --- | --- | --- |
-| 1 | GND / schwarz | Gemeinsame Masse |
-| 2 | +24 V / gelb | Direkt an Netzteil +24 V |
-| 3 | TACH / grün | GPIO5 mit internem 3,3-V-Pull-up |
-| 4 | PWM / blau | Direkt an GPIO4 |
+| 1 | GND / black | Common ground |
+| 2 | +24 V / yellow | Direct to supply +24 V |
+| 3 | TACH / green | GPIO5 with internal 3.3 V pull-up |
+| 4 | PWM / blue | Direct to GPIO4 |
 
-Pinzählung anhand des Steckers prüfen, nicht aus einer beliebigen Blickrichtung ableiten. Der Lüfter erhält dauerhaft 24 V; nur seine separate PWM-Leitung wird mit 3,3 V und 25 kHz angesteuert. 100 % HIGH entspricht maximaler Drehzahl. Kein XZG DC/DC-Buck und kein Last-MOSFET im Lüfterzweig. Tacho liefert zwei Open-Collector-Pulse pro Umdrehung; Signalqualität mit internem Pull-up am Aufbau prüfen. Ohne PWM-Signal läuft der Lüfter mit voller Drehzahl.
+Check pin numbering against the connector, not an assumed viewing direction.
+The fan receives continuous 24 V; only its PWM input is driven with 3.3 V at
+25 kHz. 100% HIGH means maximum speed. No buck or load MOSFET in the fan path.
+Tach provides two open-collector pulses per revolution; check signal quality
+with the internal pull-up on the assembly. With no PWM signal, the fan runs
+at full speed.
 
-Quellen: [Noctua Mikrocontroller-Anleitung](https://www.noctua.at/en/support/faqs/microcontroller-guide-pwm-setup-and-rpm-monitoring), [NF-A4x10 24V PWM](https://www.noctua.at/en/products/nf-a4x10-24v-pwm/specifications).
+Sources: [Noctua microcontroller guide](https://www.noctua.at/en/support/faqs/microcontroller-guide-pwm-setup-and-rpm-monitoring),
+[NF-A4x10 24V PWM](https://www.noctua.at/en/products/nf-a4x10-24v-pwm/specifications).
 
-## Fogger mit IRLB8721
+## Fogger with IRLB8721
 
-Gewünschte Direktansteuerung ohne Gate-Vorwiderstand und ohne Gate-Source-Pulldown. Durchschalten bei 3,3 V erfolgreich getestet (09.11.2026, Fogger-Modul an 5 V).
+Requested direct drive without gate series resistor or gate-source pull-down.
+Switching at 3.3 V successfully tested (2026-11-09, fogger module supplied at 5 V).
 
-### Pinbelegung und exakter Anschluss
+### Pinout and exact connections
 
-TO-220 von vorne betrachten: Beschriftung zu dir, Metalllasche hinten, Beine nach unten. Von links nach rechts: **1 Gate, 2 Drain, 3 Source**. Die Metalllasche ist ebenfalls Drain und muss gegen GND/Gehäuse isoliert bleiben.
+TO-220 front view: marking towards you, metal tab behind, legs pointing down.
+Left to right: **1 Gate, 2 Drain, 3 Source**. The metal tab is also drain and
+must remain insulated from GND/enclosure.
 
 ```text
              IRLB8721
-        Beschriftung zu dir
-          ┌───────────┐
-          │ IRLB8721  │
-          └──┬──┬──┬──┘
+         Marking towards you
+          +------------+
+          |  IRLB8721  |
+          +--+--+--+---+
              1  2  3
              G  D  S
-             │  │  └──────── Netzteil GND / ESP32 GND
-GPIO6 ───────┘  │
-                └─────────── Fogger −
-Buck OUT+ 5 V ───────────── Fogger +
+             |  |  +-------- Supply GND / ESP32 GND
+GPIO6 -------+  |
+                +----------- Fogger negative
+Buck OUT+ 5 V -------------- Fogger positive
 ```
 
-| Anschluss | Verbindung |
+| Terminal | Connection |
 | --- | --- |
-| Gate, Pin 1 links | Direkt an ESP32 GPIO6 |
-| Drain, Pin 2 Mitte | Fogger-Minus |
-| Source, Pin 3 rechts | Netzteil-Minus und ESP32 GND |
-| Fogger-Plus | An XZG DC/DC-Buck OUT+ (5,0 V) |
-| Metalllasche | Drain; gleiches Potential wie Fogger-Minus |
+| Gate, pin 1 left | Direct to ESP32 GPIO6 |
+| Drain, pin 2 middle | Fogger negative |
+| Source, pin 3 right | Supply negative and ESP32 GND |
+| Fogger positive | XZG buck OUT+ (5.0 V) |
+| Metal tab | Drain; same potential as fogger negative |
 
-**Fogger-Minus nicht zusätzlich an GND anschliessen:** Das würde den MOSFET überbrücken. Ein vollständiges 5-V-Ultraschallmodul mit eigener Treiberelektronik verwenden, keinen nackten Piezo.
+**Do not also connect fogger negative to GND:** that would bypass the MOSFET.
+Use a complete 5 V ultrasonic module with its own driver, not a bare piezo element.
 
-### Grenzen der gewünschten widerstandslosen Variante
+### Limits of the requested resistor-free variant
 
-- Durchschalten bei 3,3 V erfolgreich getestet: Der Nutzer hat am 09.11.2026 das saubere Schalten des Fogger-Moduls an 5 V bestätigt. Dies dokumentiert den getesteten Aufbau.
-- Ohne Gate-Source-Pulldown kann das Gate bei Reset, Boot oder abgetrenntem ESP32 geladen bzw. undefiniert bleiben. Software-LOW und ein interner GPIO-Pulldown garantieren dann keinen AUS-Zustand. Unbeaufsichtigten Betrieb damit nicht freigeben.
-- Ohne Gate-Vorwiderstand sind GPIO-Ladeströme und Ringing nicht extern begrenzt; kurze Leitungen und Prüfung am realen Aufbau erforderlich.
-- Der Fogger wird mit 5 V vom Buck versorgt; der Lüfter bleibt direkt an 24 V. Nur Lüfter und Buck-Eingang hängen am 24-V-Zweig.
+- Switching at 3.3 V successfully tested: on 2026-11-09 the user confirmed clean switching of the 5 V fogger module. This records the tested assembly.
+- Without gate-source pull-down, the gate can remain charged or undefined during reset, boot or ESP32 disconnection. Software LOW and an internal GPIO pull-down do not guarantee OFF then. Do not approve unattended operation in that state.
+- Without gate series resistance, GPIO charging currents and ringing are not externally limited; keep wires short and check the real assembly.
+- Fogger uses 5 V from the buck; fan remains directly on 24 V. Only fan and buck input connect to the 24 V net.
 
-GPIO6 früh auf LOW setzen. HIGH fordert EIN an, LOW schaltet bei versorgtem, aktiv treibendem GPIO aus. Feste EIN-Zeit 200 ms, variable AUS-Zeit (bei 50 %: 200 ms EIN / 200 ms AUS); kein 25-kHz-PWM am Fogger. Mindestlaufzeiten, Wiederanlauf und unabhängigen Trockenlaufschutz des konkreten Foggers prüfen.
+Set GPIO6 LOW early. HIGH requests ON; LOW switches off with a powered,
+actively driven GPIO. Fixed ON time is 200 ms, OFF time varies (50%: 200 ms
+ON / 200 ms OFF); no 25 kHz fogger PWM. Check minimum run times, restart
+behaviour and independent dry-run protection for the actual module.
 
-Quelle: [Infineon IRLB8721-Datenblatt, Pinbelegung und Grenzwerte](https://www.infineon.com/assets/row/public/documents/24/49/infineon-irlb8721-datasheet-en.pdf).
+Source: [Infineon IRLB8721 datasheet, pinout and ratings](https://www.infineon.com/assets/row/public/documents/24/49/infineon-irlb8721-datasheet-en.pdf).
 
-## Upload und OTA
+## Upload and OTA
 
-Firmware ist noch nicht implementiert. OTA über WLAN benötigt passende Firmware und Flash-Partitionen. Der verbleibende XZG DC/DC-Buck versorgt das ESP32-Board dabei weiter mit 5 V. Erstinstallation und Wiederherstellung per USB; externe 5 V dabei trennen, solange das Board keine gleichzeitige Einspeisung erlaubt.
+The planned actuator firmware is not implemented. WiFi OTA requires suitable
+firmware and flash partitions. The XZG buck keeps the ESP32 supplied with 5 V.
+Initial installation and recovery use USB; disconnect external 5 V unless
+the board supports simultaneous supplies.
 
-Während Updates Fogger AUS anfordern und Lüfter auf definierte Fehlerdrehzahl setzen. Die widerstandslose Gate-Schaltung garantiert beim anschliessenden Reset keinen AUS-Zustand. Erst nach gültigen Sensorwerten regeln.
+During updates request fogger OFF and set the defined fan fault speed.
+The resistor-free gate circuit does not guarantee OFF during the subsequent
+reset. Resume control only after valid sensor readings.

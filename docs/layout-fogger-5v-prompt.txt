@@ -1,4 +1,20 @@
-Edit the provided existing German electronics connection plan precisely. Preserve its complete six-panel layout, blue style, ESP32-C3 SuperMini, all sensor wiring including OPTIONAL SHTC3, and Noctua NF-A4x10 24V PWM model and fan pin table. Changes: Panel 1 orange +24 V branches ONLY to fan pin 2 and buck IN+. REMOVE fogger from orange +24V distribution. Buck OUT+ red +5V now branches to BOTH ESP32 5V and Fogger PLUS. Show two red labelled outputs and unambiguous black common ground unchanged. Panel 5 change "+24 V" input to "+5 V" in RED connected to Fogger +, supplied by Buck OUT+. Replace "3,3 V: Durchschalten nicht garantiert" with exact "Durchschalten bei 3,3 V erfolgreich getestet." Keep separate note "Ohne Gate-Pulldown ist Reset-Zustand undefiniert." Replace bottom timing text with "HIGH = EIN · LOW = AUS · EIN-Zeit fest: 200 ms" and next line "50 %: 200 ms EIN / 200 ms AUS". Keep IRLB8721 pins Gate1 Drain2 Source3 correct. Panel 6 use CO2-PI and Feuchte-PI labels instead of PID, add concise note "Fogger nur bei bestätigter Lüfter-Mindestdrehzahl". No humidity-to-fan control connection. All other text and content unchanged. Ensure clear legible German text and accurate functional wiring.
+Edit the existing six-panel wiring diagram. Preserve blue styling,
+ESP32-C3 SuperMini, all sensor wiring including OPTIONAL SHTC3, and Noctua
+NF-A4x10 24V PWM pin table.
+
+Panel 1: +24 V serves ONLY fan pin 2 and buck IN+. Remove fogger from this
+net. Red buck OUT+ at 5 V branches to ESP32 5V and fogger positive. Keep common
+ground unambiguous.
+Panel 5: replace fogger +24 V input with red +5 V from buck OUT+.
+Replace the unverified-switching warning with "Switching at 3.3 V successfully
+tested." Retain "Reset state undefined without gate pull-down."
+Timing: "HIGH = ON - LOW = OFF - Fixed ON time: 200 ms" and
+"50%: 200 ms ON / 200 ms OFF". Keep gate 1 / drain 2 / source 3 correct.
+Panel 6: use CO2 PI and Humidity PI labels instead of PID. Add "Fogger only
+above confirmed minimum fan speed". No humidity-to-fan control connection.
 
 Correction after visual review:
-undefined
+Remove obsolete "Fogger positive (+24 V)" text completely. The orange net has
+only fan pin 2 and buck IN+ endpoints. Keep black ground separate and red 5 V
+outputs connected to ESP32 and fogger. Subsequent crossing-free correction
+is recorded in layout-power-no-crossing-prompt.txt.

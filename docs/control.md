@@ -1,66 +1,100 @@
-﻿# Regelungskonzept
+# Control concept
 
-Dies ist eine Spezifikation für die spätere Firmware; PID-Werte sind noch nicht abgestimmt.
+This specifies future firmware; PI tuning is not yet established.
 
-## CO₂ → Zuluft
+## CO2 to supply air
 
-Regelfehler = CO₂-Istwert − CO₂-Sollwert. Positiver Fehler erhöht den Lüfter-Stellwert. Begrenzung auf die erprobte Mindestlüftung bis 100 %, Anti-Windup auf Basis des tatsächlich begrenzten Ausgangs. Der ESP32 setzt diesen Stellwert direkt und ohne Invertierung in 3,3-V-Push-Pull-PWM mit 25 kHz für den Noctua NF-A4x10 24V PWM um. GPIO5 erfasst das Tachosignal mit internem Pull-up; ein externer Tacho-Widerstand ist nicht vorgesehen. Tacho dient zur Erkennung von Stillstand nach Ablauf einer Anlaufzeit.
+Control error = measured CO2 minus CO2 setpoint. A positive error increases
+fan demand. Only the CO2 PI determines fan speed. At sufficiently low CO2,
+it may request no air exchange and stop the fan. When running, constrain the
+output to the experimentally established reliable minimum and configured
+maximum; apply anti-windup using the actual constrained output.
 
-Zuluft kann CO₂ nur senken, wenn ihre Konzentration niedriger ist und ein Abluftweg vorhanden ist. Ohne CO₂-Quelle ist eine aktive Erhöhung nicht möglich. Deshalb ist der Sollwert nur innerhalb der physikalisch erreichbaren Grenzen haltbar.
+ESP32 directly drives the Noctua NF-A4x10 24V PWM using non-inverted 3.3 V
+push-pull PWM at 25 kHz. GPIO5 reads tach using the internal pull-up; no
+external tach resistor is planned. Tach detects a stopped fan after a startup
+grace period. The viewer displays measured tach RPM, never RPM inferred from PI output.
 
-Den CO₂-Regler nur mit einem neuen gültigen Messwert aktualisieren. Für den geplanten SCD41-Standardbetrieb zunächst 5-s-Messtakt vorsehen; die Sensor- und Kammerträgheit beim Tuning berücksichtigen. Quelle: [SCD4x-Datenblatt](https://sensirion.com/resource/datasheet/scd4x). Automatische Selbstkalibrierung nur verwenden, wenn deren Frischluftbedingungen erfüllt sind.
+Supply air can lower CO2 only if its concentration is lower and an exhaust
+path exists. Without a CO2 source, active increase is impossible. The setpoint
+is therefore achievable only within physical limits.
 
-## Relative Feuchte → Fogger
+Update the CO2 PI only with fresh valid readings. Initially plan a five-second
+measurement interval for SCD41 standard operation; account for sensor and
+chamber lag during tuning. Source: [SCD4x datasheet](https://sensirion.com/resource/datasheet/scd4x).
+Use automatic self-calibration only when its fresh-air conditions are satisfied.
 
-Die Lüfterdrehzahl wird ausschließlich vom CO₂-PI-Regler bestimmt. Der
-Feuchte-PI-Regler und die Fogger-Steuerung dürfen keine Lüfterdrehzahl
-anfordern oder erhöhen. Der Fogger darf nur laufen, wenn die gemessene
-Lüfterdrehzahl mindestens die experimentell bestimmte zuverlässige
-Mindestdrehzahl erreicht. Fordert der CO₂-Regler wegen ausreichend niedriger
-CO₂-Konzentration keinen Luftaustausch an, bleibt der Fogger unabhängig vom
-Feuchtebedarf aus. Bei Unterschreiten der Mindestdrehzahl wird der Fogger
-sofort ausgeschaltet. Diese Freigabesperre muss beim Anti-Windup des
-Feuchte-PI-Reglers berücksichtigt werden.
+## Relative humidity to fogger
 
-Regelfehler = rF-Sollwert − rF-Istwert. Positiver Fehler erhöht den PID-Ausgang zwischen 0 und 100 %. GPIO6 schaltet über den IRLB8721 als Low-Side-Schalter die 5-V-Fogger-Versorgung (Gate an GPIO6, Drain an Fogger-Minus, Source an GND; HIGH fordert EIN an, LOW = AUS). Der Fogger arbeitet mit einer festen EIN-Zeit von 200 ms und variabler AUS-Zeit. Für einen Stellwert p mit 0 < p < 100 gilt: t_aus = 0,2 s × (100 / p − 1). Bei 50 % wechseln sich 200 ms EIN und 200 ms AUS ab; bei 10 % folgen auf 200 ms EIN jeweils 1,8 s AUS. Kein 25-kHz-Schalten der Fogger-Versorgung.
+The humidity PI and fogger control must never request or increase fan speed.
+The fogger may operate only when measured fan speed reaches the experimentally
+established reliable minimum. When the CO2 PI requests no air exchange because
+CO2 is sufficiently low, the fogger stays off regardless of humidity demand.
+Immediately switch the fogger off below minimum fan speed. Account for this
+interlock in humidity-PI anti-windup.
 
-Die feste EIN-Zeit wurde nach dem praktischen Fogger-Test vom 09.11.2026 von 2 s auf 200 ms reduziert. Bei 0 % bleibt der Fogger aus; 100 % darf nur bei freigegebenem Dauerbetrieb dauerhaft einschalten. Schutzabschaltungen und die Lüfter-Freigabesperre wirken sofort, auch während eines EIN-Impulses. Die Zeitsteuerung muss nichtblockierend erfolgen.
+Control error = humidity setpoint minus measured humidity. Positive error
+increases output between 0 and 100%. GPIO6 drives an IRLB8721 low-side switch
+for the 5 V fogger supply (gate to GPIO6, drain to fogger negative, source to
+GND; HIGH requests ON, LOW = OFF).
 
-SHT45-Werte in festem, konfigurierbarem Takt erfassen; PID nur mit frischen gültigen Werten und tatsächlichem Zeitabstand berechnen. Lüftung beeinflusst auch die Feuchte. Beide Regler zuerst einzeln, danach gemeinsam abstimmen. Zunächst D-Anteil auf null setzen; später nur bei belegtem Nutzen ergänzen, mit gefilterter Ableitung des Messwerts.
+The fogger uses a fixed **200 ms ON time** and variable OFF time. For demand
+p with 0 < p < 100: `off_time = 0.2 s * (100 / p - 1)`.
+At 50%, alternate 200 ms ON / 200 ms OFF; at 10%, use 200 ms ON / 1.8 s OFF.
+Do not switch fogger power at 25 kHz.
 
-## Fehler- und Startzustände
+The fixed ON time was reduced from 2 s to 200 ms after the practical test on
+2026-11-09. At 0%, stay off. At 100%, continuous operation requires explicit
+support by the module. Protection shutdowns and the fan interlock act
+immediately, including during an ON pulse. Timing must be nonblocking.
 
-| Ereignis | Vorgesehene Reaktion |
+Acquire SHT45 readings at a fixed configurable interval. Update the PI only
+with fresh valid readings and actual elapsed time. Ventilation also affects
+humidity; tune controllers separately first, then together. Initially keep
+D at zero; add it only if demonstrated useful, with a filtered measurement derivative.
+
+## Fault and startup states
+
+| Event | Planned response |
 | --- | --- |
-| Boot/Reset, noch keine gültigen Messungen | Fogger AUS anfordern; ohne Gate-Pulldown ist AUS beim Reset nicht garantiert; Lüfter zunächst volle Drehzahl |
-| SHT45 ungültig oder veraltet | Fogger sofort AUS; Feuchteintegrator anhalten/zurücksetzen |
-| SCD41 ungültig oder veraltet | Lüfter auf konfigurierte Fehlerdrehzahl (zunächst 100 %), Fogger AUS |
-| Lüfterstillstand bei angeforderter Drehzahl | Fehler melden, Fogger AUS |
-| Wasser fehlt | Fogger durch Trockenlaufschutz AUS |
-| Konfigurierte Feuchteobergrenze überschritten | Fogger AUS unabhängig vom PID |
+| Boot/reset, no valid readings yet | Request fogger OFF; without gate pull-down, OFF during reset is not guaranteed; initially run fan at full speed |
+| SHT45 invalid or stale | Fogger OFF immediately; hold/reset humidity integrator |
+| SCD41 invalid or stale | Configured fan fault speed (initially 100%); fogger OFF |
+| Fan stopped despite speed demand | Report fault; fogger OFF |
+| No water | Dry-run protection switches fogger OFF |
+| Configured humidity upper limit exceeded | Fogger OFF independently of PI |
 
-Zeitüberschreitungen relativ zum Sensortakt definieren. Wiederanlauf erst nach gültigen Messungen und beseitigter Fehlerursache mit begrenztem, sprungarmem Ausgang. Fehlerzustände müssen sichtbar bleiben.
+Define timeouts relative to sensor intervals. Restart only with valid readings
+and cleared fault cause, using bounded, bumpless output. Fault states must stay visible.
 
-## Offener Versuch nach Einbau des Lüfters
+## Pending experiment after fan installation
 
-- [ ] Sobald der Lüfter installiert ist: mit dem tatsächlichen Luftweg prüfen,
-  ab welcher PWM-Vorgabe und gemessenen Drehzahl er aus dem Stillstand
-  zuverlässig anläuft. Mehrere Starts wiederholen.
-- [ ] Separat die kleinste zuverlässig gehaltene Drehzahl bei bereits
-  laufendem Lüfter bestimmen. Anlauf- und Betriebsgrenze mit Reserve festhalten.
-- [ ] Fogger-Freigabe erst bei per Tacho bestätigter Mindestdrehzahl prüfen;
-  bei Stillstand oder zu geringer Drehzahl muss der Fogger ausschalten.
+- [ ] With the real air path installed, determine the PWM command and measured speed at which the fan reliably starts from rest. Repeat multiple starts.
+- [ ] Separately determine the lowest reliably sustained speed of an already running fan. Record startup and operating limits with margin.
+- [ ] Verify that fogger enable requires tach-confirmed minimum speed and that stopped/slow fan conditions switch the fogger off.
 
-## Firmware-Struktur
+## Firmware structure
 
-Sensorzugriff, hardwareunabhängiger PID, Fogger-Zeitfenstersteuerung, Lüfter-/Lastschalter-Treiber und Zustandsüberwachung getrennt halten. Anwendung verbindet die Module mit expliziten Abhängigkeiten. Zeitsteuerung monoton und ohne blockierende Wartezeiten; Netzwerk und UI später als separate Module ergänzen.
+Keep sensor access, hardware-independent PI logic, fogger pulse scheduling,
+fan/load-switch drivers and state monitoring separate. Application connects
+them through explicit dependencies. Use monotonic, nonblocking timing;
+networking and UI remain separate modules.
 
-Vor Hardwarefreigabe: Reset-Ausgänge, Sensorverlust, Lüfterstillstand, Trockenlauf, PWM-Polarität sowie minimale Schaltzeiten prüfen. PID erst mit dem realen Luftvolumen, Luftweg und Fogger abstimmen.
+Before hardware release, check reset outputs, sensor loss, fan stall, dry-run
+protection, PWM polarity and minimum switching times. Tune PI only with the
+actual chamber volume, air path and fogger.
 
-## WLAN-OTA-Updates
+## WiFi OTA updates
 
-Erstinstallation per USB, danach Firmware-Updates über WLAN mit Authentifizierung und geeigneter OTA-Partitionierung. Noch nicht implementiert. Der XZG DC/DC-Buck liefert während des OTA-Uploads weiterhin 5 V; USB ist dafür nicht nötig.
+Initial installation via USB, then WiFi updates with authentication and an
+appropriate OTA partition layout. This planned arrangement is not implemented.
+The XZG buck continues providing 5 V during OTA; USB is unnecessary.
 
-Vor dem Schreiben der Firmware Fogger ausschalten, beide PID-Integratoren anhalten und Lüfter auf definierte Fehlerdrehzahl (zunächst 100 %) setzen. Nach erfolgreichem Upload neu starten, Ausgangszustände setzen und erst nach gültigen Sensorwerten in die Regelung wechseln. Bei Abbruch Zustand melden und Wiederanlauf kontrollieren. USB bleibt als Wiederherstellungsweg verfügbar.
+Before writing firmware, switch fogger off, hold both PI integrators and set
+fan to the defined fault speed (initially 100%). After successful upload,
+restart, initialize outputs and resume control only after valid readings.
+Report aborted updates and control recovery. USB remains the recovery route.
 
-Durchschalten bei 3,3 V erfolgreich getestet (09.11.2026, Fogger-Modul an 5 V). Ohne Gate-Pulldown bleibt das Reset-Verhalten undefiniert; siehe [elektrische Grenzen](hardware.md#grenzen-der-gewünschten-widerstandslosen-variante).
+Switching at 3.3 V successfully tested (2026-11-09, fogger module supplied at
+5 V). Without gate pull-down, reset behaviour remains undefined; see
+[electrical limits](hardware.md#limits-of-the-requested-resistor-free-variant).

@@ -1,32 +1,43 @@
-﻿# Bildgenerierung
+# Image generation
 
-## Aktuell: Entwurf 04
+## Current: draft 04
 
-Am 24.10.2026 mit dem integrierten image_gen-Tool überarbeitet: ESP32-C3 SuperMini statt ESP32-S3, kompaktes XZG-DC/DC-Buck-Modul statt LM2596, kein Netzteilbild und kein Vermerk „Innen“. I²C verwendet GPIO0/GPIO1; GPIO4/5/6 bleiben für Lüfter und Fogger. Die konkrete Buck-Ausführung ist anhand des Angebotstitels nicht eindeutig; 5-V-Ausgang vor Anschluss prüfen.
+Revised on 2026-10-24 using the built-in image_gen tool: ESP32-C3 SuperMini
+replaces ESP32-S3; a compact XZG buck replaces LM2596. No power-supply picture
+or chamber-interior label. I2C uses GPIO0/GPIO1; GPIO4/5/6 serve fan and fogger.
+The exact buck variant is unclear from its product title; measure its 5 V
+output before connecting.
 
-Ergebnis: `fnc-fogger-layout-v4.png`. Vollständiger verwendeter Prompt: [layout-v4-prompt.txt](layout-v4-prompt.txt). Der fnc-fogger-Anschlussplan ist fuer das Projekt massgebend; hardware.md ergaenzt ihn mit Anschlusstabellen und Hinweisen.
+Output: `fnc-fogger-layout-v4.png`. Historical generation instructions:
+[layout-v4-prompt.txt](layout-v4-prompt.txt). The wiring diagram is authoritative;
+`hardware.md` supplements it with tables and notes.
 
-Bei der Bildprüfung wurde eine Korrektur der Controller-Abbildung und der Masseleitung am Buck-Eingang veranlasst. Der Korrekturprompt steht ebenfalls in layout-v4-prompt.txt. Die Buck-Anschlüsse sind schematisch, ihre tatsächliche Lage ist am Modul zu prüfen.
+Visual review prompted corrections to the controller illustration and buck
+input ground wiring. The buck terminals are schematic; verify actual positions.
+The orange net serves only fan and buck IN+ at 24 V. ESP32 and fogger use
+buck OUT+ at 5 V. See `hardware.md` for the complete nets.
 
-Die orange Anschlussliste in Feld 1 ist eine funktionale Aufzählung der +24-V-Abgänge, kein eigenständiger Versorgungseingang. Nur Lüfter und Buck IN+ hängen an +24 V. ESP32 und Fogger hängen an Buck OUT+ (5 V); hardware.md beschreibt die Netze vollständig.
+## Optional ambient sensor, 2026-11-08
 
-## Optionaler Aussensensor (08.11.2026)
+An OPTIONAL SHTC3 was added with dashed border and branches. It measures
+ambient humidity and temperature, connected in parallel to 3.3 V, GND,
+SDA GPIO0 and SCL GPIO1; I2C address `0x70`. The filename remains the project reference.
 
-Im Sensorfeld wurde der SHTC3 fuer Aussenfeuchte und Aussentemperatur
-als OPTIONAL mit gestricheltem Rahmen und gestrichelten Abzweigen ergaenzt.
-Anschluss parallel an 3,3 V, GND, SDA GPIO0 und SCL GPIO1; I2C-Adresse 0x70.
-Der bestehende Dateiname bleibt die massgebende Projektreferenz.
+## Fogger test and 5 V supply, 2026-11-09
 
-## Fogger-Test und 5-V-Versorgung (09.11.2026)
+Switching at 3.3 V successfully tested with the fogger supplied at 5 V.
+Fogger positive moves to buck OUT+ (5 V); Noctua remains directly on 24 V.
+Fixed fogger ON time is now 200 ms; at 50%, OFF time is also 200 ms. The warning
+about undefined reset state without gate pull-down remains. Edited using the
+built-in image_gen tool; [edit prompt](layout-fogger-5v-prompt.txt).
 
-Durchschalten bei 3,3 V erfolgreich getestet, mit Fogger-Modul an 5 V.
-Der Fogger-Plus-Anschluss wird auf Buck OUT+ (5 V) umgelegt; der Noctua-Lüfter
-bleibt direkt an 24 V. Feste Fogger-EIN-Zeit jetzt 200 ms; bei 50 % folgen
-200 ms AUS. Der Hinweis zum undefinierten Reset-Zustand ohne Gate-Pulldown
-bleibt bestehen. Bildänderung mit dem integrierten image_gen-Tool;
-Änderungsprompt: [layout-fogger-5v-prompt.txt](layout-fogger-5v-prompt.txt).
+The power section was then redrawn without any crossing between +24 V and
+GND: the short orange fan branch goes up; the ground distribution stays below.
+The previous crossing bridge was ambiguous.
+[Correction prompt](layout-power-no-crossing-prompt.txt).
 
-Die Versorgung wird anschliessend ohne Kreuzung zwischen +24 V und GND
-überarbeitet: kurzer +24-V-Zweig nach oben zum Lüfter, Masseverteilung
-getrennt darunter. Die vorherige Kreuzungsbrücke war missverständlich.
-Prompt: [layout-power-no-crossing-prompt.txt](layout-power-no-crossing-prompt.txt).
+## English translation, 2026-11-09
+
+All diagram labels translated to English using the built-in image_gen tool.
+Wiring, pin assignments, the optional SHTC3 and the separated power nets remain
+unchanged. [Translation prompt](layout-english-prompt.txt).

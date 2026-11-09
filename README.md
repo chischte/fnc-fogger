@@ -1,321 +1,293 @@
 # fnc-fogger
 
-## Massgebender Anschlussplan
+## Authoritative wiring diagram
 
-![fnc-fogger - Anschlussplan - Entwurf 04](docs/fnc-fogger-layout-v4.png)
+![fnc-fogger wiring diagram, draft 04](docs/fnc-fogger-layout-v4.png)
 
-Der Anschlussplan **fnc-fogger - Entwurf 04** ist die massgebende Referenz
-fuer den geplanten Projektaufbau mit ESP32-C3 SuperMini, Sensoren, Luefter
-und Fogger. Er ersetzt die bisherigen Anschlussplaene.
-Ergaenzende Anschlusstabellen und Hinweise stehen in [Hardware](docs/hardware.md).
+The **fnc-fogger draft 04** wiring diagram is the authoritative reference for
+the planned ESP32-C3 SuperMini, sensors, fan and fogger assembly. It replaces
+earlier diagrams. See [Hardware](docs/hardware.md) for connection tables and notes.
 
-Der Plan verwendet SDA **GPIO 0**, SCL **GPIO 1**, Luefter-PWM **GPIO 4**,
-Luefter-Tacho **GPIO 5** und Fogger-Gate **GPIO 6**.
-Die Sensorversorgung betraegt **3,3 V**. Optional ist ein **SHTC3** fuer
-Aussenfeuchte und Aussentemperatur am gleichen I2C-Bus vorgesehen.
-Die vorhandene Firmware verwendet weiterhin das ESP32-S3-Board mit
-SDA GPIO8 und SCL GPIO9; die Umsetzung des C3-Aufbaus steht noch aus.
+The plan uses SDA **GPIO0**, SCL **GPIO1**, fan PWM **GPIO4**, fan tach **GPIO5**
+and fogger gate **GPIO6**. Sensors use **3.3 V**. An optional **SHTC3** measures
+ambient humidity and temperature on the same I2C bus. The fan uses **24 V**;
+the buck supplies the ESP32 and fogger with **5 V**. Existing firmware still
+targets ESP32-S3 with SDA GPIO8 and SCL GPIO9; C3 implementation is pending.
 
-## Heizvergleich vom 25.10.2026
+## Heater comparison, 2026-10-25
 
-Der SHT45-Heizer war mit `3.1.1-esp32s3-noheater` versuchsweise deaktiviert.
-Laut Benutzer sank die Temperaturdifferenz zwischen Inbox und Ambient auf null.
-Mit `3.1.2-esp32s3` ist der bisherige Heizzyklus wieder aktiviert.
-[Versuchsprotokoll](docs/sht45-noheater-trial-2026-10-25.md).
+The SHT45 heater was temporarily disabled in `3.1.1-esp32s3-noheater`.
+The user reported that the Inbox-minus-Ambient temperature difference fell
+to zero. Firmware `3.1.2-esp32s3` restores the previous heater cycle.
+See the [trial record](docs/sht45-noheater-trial-2026-10-25.md).
 
-## Sensoren ab Firmware 3.1.0
+## Sensors since firmware 3.1.0
 
-- Inbox: SHT45 fuer Temperatur und Feuchte; SCD41 fuer CO2 und die gepunktete Feuchte-Vergleichskurve.
-- Ambient: SHTC3 (`0x70`) fuer Aussentemperatur und Aussenfeuchte; beide Kurven sind gestrichelt.
-- Am aktuell eingesetzten ESP32-S3 gilt weiterhin **SDA GPIO8, SCL GPIO9, 3,3 V**.
-- Der SHTC3 wird alle 5 Sekunden abgefragt und nach spaeterem Anstecken automatisch erkannt.
-  Ohne gueltige Messung liefern API, Logger und Viewer fehlende Werte.
-- Der Viewer startet mit 30 Minuten Verlauf und adaptiver Skalierung, damit aktuelle
-  Werte auch ausserhalb der bisherigen Kammer-Skalen sichtbar bleiben.
-- Neue SQLite-/CSV-Felder: `temp_ambient_c`, `humidity_ambient_rh` und zugehoerige
-  Validitaetsflags. Historische PT100-Werte bleiben in `temp_outer_c` erhalten und
-  werden nicht als SHTC3-Messungen angezeigt.
+- Inbox: SHT45 for temperature and humidity; SCD41 for CO2 and the dotted humidity comparison curve.
+- Ambient: SHTC3 (`0x70`) for ambient temperature and humidity, both drawn as dashed lines.
+- The deployed ESP32-S3 still uses **SDA GPIO8, SCL GPIO9, 3.3 V**.
+- SHTC3 is polled every five seconds and detected automatically when connected later. Without a valid reading, API, logger and viewer report missing values.
+- The viewer starts with 30 minutes of history and adaptive scaling so readings outside previous chamber ranges remain visible.
+- New SQLite/CSV fields: `temp_ambient_c`, `humidity_ambient_rh` and validity flags. Historical PT100 values remain in `temp_outer_c` and are not displayed as SHTC3 readings.
 
-Protokoll und Umrechnung: [Sensirion SHTC3-Datenblatt](https://sensirion.com/resource/datasheet/shtc3).
+Protocol and conversion: [Sensirion SHTC3 datasheet](https://sensirion.com/resource/datasheet/shtc3).
 
-## Aktueller Firmwarestand
+## Current firmware
 
-Aktuelles Ziel: **ESP32-S3-DEV-KIT-N8R8**, ab 24.10.2026.
-SHT45 und SCD41: SDA **GPIO 8**, SCL **GPIO 9**, Versorgung **3.3 V**.
-PT100 ist aus der aktiven Firmware entfernt.
+Current target: **ESP32-S3-DEV-KIT-N8R8**, since 2026-10-24.
+SHT45 and SCD41 use SDA **GPIO8**, SCL **GPIO9**, **3.3 V** supply.
+PT100 has been removed from active firmware.
 
-**Hardwaretest erfolgreich:** ESP32-S3 laeuft mit SHT45 und SCD41,
-WLAN, LittleFS-Messpuffer und OTA. Auch der Betrieb ohne USB mit externer
-5-V-Versorgung wurde erfolgreich geprueft. Testprotokoll:
-[ESP32-S3 Hardwaretest vom 24.10.2026](docs/esp32s3-hardware-test-2026-10-24.md).
+**Hardware test passed:** ESP32-S3 works with SHT45, SCD41, WiFi, LittleFS
+measurement buffering and OTA. Operation without USB on an external 5 V supply
+was verified. See the [2026-10-24 test](docs/esp32s3-hardware-test-2026-10-24.md).
 
-Der vorherige Portenta-Machine-Control-Stand ist mit dem lokalen Git-Tag
-`portenta-machine-control-final` (`e215ccc`) markiert.
-Details: [Hardwarewechsel und OTA](docs/hardware-migration-esp32s3.md).
+The previous Portenta Machine Control state is marked by local Git tag
+`portenta-machine-control-final` (`e215ccc`).
+See [hardware migration and OTA](docs/hardware-migration-esp32s3.md).
 
-## ESP32-S3 installieren
+## ESP32-S3 installation
 
-1. `include/wifi-credentials.example.h` nach `../wifi-credentials.h` kopieren
-   und WLAN-Zugangsdaten eintragen.
-2. Bauen: `pio run` (Standard: `esp32s3`).
-3. Erstinstallation per USB: `pio run -t upload --upload-port COMx`.
-4. IP-Adresse mit `pio device monitor --port COMx` ablesen.
-5. Spaetere OTA-Updates: `http://<ip>/update` und
-   `.pio/build/esp32s3/firmware.bin` waehlen, oder
-   `./upload_firmware.ps1 -DeviceUrl http://<ip>`.
+1. Copy `include/wifi-credentials.example.h` to `../wifi-credentials.h` and enter WiFi credentials.
+2. Build: `pio run` (default: `esp32s3`).
+3. Initial USB installation: `pio run -t upload --upload-port COMx`.
+4. Read the IP address with `pio device monitor --port COMx`.
+5. For OTA, open `http://<ip>/update` and select `.pio/build/esp32s3/firmware.bin`, or run `./upload_firmware.ps1 -DeviceUrl http://<ip>`.
 
-Logger und Viewer funktionieren weiter. Der Flash-Puffer verwendet jetzt LittleFS.
-SHT45-Heizzyklus, Sensorparameter und Messintervalle bleiben bestehen.
+Logger and viewer continue to work. Flash buffering now uses LittleFS.
+The SHT45 heater cycle, sensor parameters and measurement intervals are retained.
 
-## Historische Portenta-Dokumentation bis 2.0.15
+## Historical Portenta documentation through 2.0.15
 
-Die folgenden Abschnitte beschreiben den frueheren Aufbau einschliesslich PT100,
-QSPI und `.ota`-Format; fuer ESP32-S3 gilt die Anleitung oben.
+The following sections describe the previous assembly, including PT100, QSPI
+and `.ota` format. Use the instructions above for ESP32-S3.
 
+Measurement system for a climate chamber using Arduino Portenta Machine Control:
 
-Messsystem fuer eine Klimakammer auf dem Arduino Portenta Machine Control:
-
-- SHT45 fuer Inbox-Temperatur und relative Feuchte
-- SCD41 fuer CO2 und eine gepunktete Feuchte-Vergleichskurve
-- Ein PT100 an Kanal 1 (frueherer Inbox-Anschluss) fuer die Aussentemperatur
-- lokale Webseite und QSPI-Rueckpuffer
-- Python-Logger mit SQLite, CSV-Export, Viewer und Backup
+- SHT45 for Inbox temperature and relative humidity
+- SCD41 for CO2 and a dotted humidity comparison curve
+- One PT100 on channel 1 (formerly Inbox) for ambient temperature
+- Local web page and QSPI recovery buffer
+- Python logger with SQLite, CSV export, viewer and backup
 
 ## Installation
 
-1. `include/wifi-credentials.example.h` nach
-   `../wifi-credentials.h` kopieren und dort `WIFI_SSID` und
-   `WIFI_PASSWORD` eintragen. Die echte Datei liegt damit ausserhalb des
-   Repositorys.
-2. Sensorparameter und Kanalbelegung in include/config.h kontrollieren.
-3. Firmware bauen: pio run
-4. Erstinstallation per USB/DFU: pio run -t upload
-5. Python-Pakete: python -m pip install -r logger/requirements.txt
+1. Copy `include/wifi-credentials.example.h` to `../wifi-credentials.h` and set `WIFI_SSID` and `WIFI_PASSWORD`. The real file remains outside the repository.
+2. Check sensor parameters and channel assignments in `include/config.h`.
+3. Build firmware: `pio run`.
+4. Initial USB/DFU installation: `pio run -t upload`.
+5. Install Python packages: `python -m pip install -r logger/requirements.txt`.
 
-## Betrieb
+## Operation
 
-Logger: python logger/logger.py
+Logger: `python logger/logger.py`.
 
-Andere IP: python logger/logger.py --url http://192.168.31.168
+Different IP: `python logger/logger.py --url http://192.168.31.168`.
 
-Ab ESP32-Firmware 3.1.3 ist die Lanze auch per mDNS unter
-`http://messlanze-<letzte sechs MAC-Zeichen>.local` erreichbar, beispielsweise
-`http://messlanze-5cc8b4.local`. Der Name bleibt bei einem IP-Wechsel gleich.
-PC-Programme koennen den DNS-SD-Dienst `_messlanze._tcp.local` suchen;
-SRV liefert Host und HTTP-Port, TXT enthaelt `id` (vollstaendige MAC ohne
-Doppelpunkte), `path=/api/current` und `firmware`. Multicast muss zwischen
-PC und Lanze erlaubt sein. Nach WLAN-Verbindungsabbruechen wird der Dienst
-neu gestartet; fehlgeschlagene Starts werden alle zehn Sekunden wiederholt.
-Die Portenta-Firmware bietet diese Erkennung bisher nicht an.
+The English naming convention in this revision makes the lance reachable via mDNS at
+`http://fnc-fogger-<last six MAC characters>.local`, for example
+`http://fnc-fogger-5cc8b4.local`. The name is stable when the IP changes.
+PC applications discover DNS-SD service `_fnc-fogger._tcp.local`. SRV supplies
+host and HTTP port; TXT contains `id` (full MAC without colons),
+`path=/api/current` and `firmware`. Multicast must be allowed between PC and
+lance. The service restarts after WiFi disconnections; failed starts are
+retried every ten seconds. Portenta does not yet provide this discovery. Earlier ESP32 firmware uses a
+legacy service name: update firmware and viewer together for automatic
+discovery with the English name. No firmware is uploaded by this repository change.
 
-Eine vorhandene measurements.csv wird einmalig nach measurements.db importiert.
-Danach wird der QSPI-Puffer nachgeholt und anhand von boot_id plus sequence
-duplikatfrei gespeichert.
-Die Firmware erzeugt pro Start eine Hardware-Zufallskennung, damit ein
-zurueckgesetzter Flash-Zaehler keine alten Messschluessel wiederverwendet.
-Falls die Zufallsquelle ausfaellt, dient die gespeicherte Kennung als Fallback.
+An existing `measurements.csv` is imported into `measurements.db` once.
+The QSPI backlog is recovered and deduplicated by `boot_id` plus `sequence`.
+Firmware generates a hardware-random ID at each boot so a reset flash counter
+cannot reuse old measurement keys. If randomness fails, the stored ID is the fallback.
 
-SCD41 koennen einzeln am selben Anschluss ausgetauscht werden (feste Adresse
-0x62). Nach drei Messintervallen ohne gueltige Messung initialisiert die Firmware erneut
-und durchsucht Wire sowie Wire1. Ohne Sensor wird alle 5 Sekunden gesucht.
-Die Seriennummer steht als scd_serial in API und SQLite zur Zuordnung der
-Messwerte zum jeweiligen Exemplar. Beide erhalten denselben festen Offset
-aus config.h; eine automatische Temperaturanpassung findet nicht statt.
-Zwei SCD41 duerfen nicht gleichzeitig am selben I2C-Bus angeschlossen werden.
+SCD41 sensors can be replaced individually on the same connection (fixed
+address `0x62`). After three intervals without valid readings, firmware
+reinitializes and searches Wire and Wire1. Without a sensor, it searches every
+five seconds. `scd_serial` in API and SQLite identifies the sensor. All units
+use the same fixed offset from `config.h`; no automatic temperature adjustment
+occurs. Never connect two SCD41 sensors to the same I2C bus simultaneously.
 
-Der SHT45 wird an I2C (SDA, SCL, GND und passende Versorgung des Moduls)
-angeschlossen, Adresse `0x44` in `config.h`. Die Firmware sucht unabhaengig vom
-SCD41 auf Wire und Wire1. Beide Sensoren koennen wegen ihrer unterschiedlichen
-Adressen denselben Bus verwenden. Ausserhalb der Heiz-/Abkuehlphase laufen interne High-Precision-Messungen alle 5 Sekunden; die 10-ms-Konversion wird im Hauptloop abgewartet. CRC-Fehler,
-fehlende und veraltete Werte werden ungueltig, ohne Ersatz durch SCD41 oder PT100.
-Der erste Messdatensatz kann vor Ende der ersten Konversion noch NULL enthalten.
-Protokoll und Umrechnung: [Sensirion SHT4x-Datenblatt](https://sensirion.com/resource/datasheet/sht4x).
+SHT45 connects through SDA, SCL, GND and an appropriate module supply,
+address `0x44` in `config.h`. Firmware searches Wire and Wire1 independently
+of SCD41. Their different addresses allow a shared bus. Outside heater/cooldown,
+internal high-precision readings run every five seconds; the 10 ms conversion
+is awaited in the main loop without blocking. CRC failures, missing and stale
+readings become invalid, without substitution by SCD41 or PT100. The first
+record can contain NULL before conversion completes.
+Protocol and conversion: [Sensirion SHT4x datasheet](https://sensirion.com/resource/datasheet/sht4x).
 
-## Firmware-Struktur
+## Firmware structure
 
-Die Firmware ist entlang ihrer Verantwortlichkeiten unterteilt:
+- `SensorManager`: SCD41 and ambient RTD hardware access
+- `Sht45Sensor`: independent, nonblocking SHT45 polling and CRC checks
+- `MeasurementController`: timing, history and data flow
+- `QspiStorage`: persistent measurement buffer and partitions
+- `FirmwareUpdater`: OTA files, verification and activation
+- `WebServer`: WiFi, HTTP API and UI delivery
+- `Application`: explicit dependency wiring and orchestration
 
-- `SensorManager`: SCD41- und Aussen-RTD-Hardwarezugriff
-- `Sht45Sensor`: unabhaengige, nicht blockierende SHT45-Abfrage mit CRC-Pruefung
-- `MeasurementController`: Messtakt, Verlauf und Datenfluss
-- `QspiStorage`: persistenter Messpuffer und Partitionen
-- `FirmwareUpdater`: OTA-Datei, Pruefung und Aktivierung
-- `WebServer`: WLAN, HTTP-API und UI-Auslieferung
-- `Application`: explizite Verdrahtung und Ablaufsteuerung
+Sensor initialization, HTTP reception, OTA upload and backlog delivery run
+incrementally in the main loop. Only necessary startup/reset delays block.
 
-Sensorinitialisierung, HTTP-Empfang, OTA-Upload und Backlog-Auslieferung werden
-schrittweise im Hauptloop verarbeitet. Nur notwendige Start-/Reset-Wartezeiten
-sind blockierend.
+Viewer: `python logger/viewer.py`.
 
-Viewer: python logger/viewer.py
+The viewer starts with lance selection, automatically discovers
+`_fnc-fogger._tcp.local`, and lists saved offline lances. "Search again" repeats
+discovery manually; automatic discovery runs every 15 seconds.
+Install dependencies with `python -m pip install -r logger/requirements.txt`.
 
-Der Viewer startet mit einer Lanzenauswahl. Er sucht automatisch per mDNS nach
-`_messlanze._tcp.local` und zeigt gespeicherte Lanzen auch offline an. Mit
-"Erneut suchen" wird die Suche manuell wiederholt; automatisch alle 15 Sekunden.
-Abhaengigkeiten installieren: `python -m pip install -r logger/requirements.txt`.
+Enter a name and location for the selected lance. "Save", changing selection,
+opening charts and closing selection save these details in
+`logger/data/lances.db`. Assignment uses the permanent device ID, not changing
+IP. Charts show name and location at the top. "Home" returns to selection;
+closing charts exits the viewer.
 
-Name und Einsatzort koennen fuer die ausgewaehlte Lanze eingegeben werden.
-"Speichern", das Wechseln der Auswahl, das Oeffnen der Grafiken und das
-Schliessen des Auswahlfensters speichern diese Angaben in `logger/data/lances.db`.
-Die Zuordnung verwendet die dauerhafte Geraete-ID, nicht die wechselnde IP.
-In der Grafikansicht stehen Name und Einsatzort oben; "Home" fuehrt zur
-Auswahl zurueck. Das Schliessen der Grafikansicht beendet den Viewer.
+An existing `measurements.db` is assigned using the last stored SCD41 serial
+number. Other lances have separate databases at
+`logger/data/devices/<device-id>.db`. While charts are open, the viewer polls
+the selected lance every five seconds and saves new readings. The standalone
+logger remains usable for continuous recording independently of the viewer.
 
-Die vorhandene `measurements.db` wird anhand der letzten gespeicherten
-SCD41-Seriennummer der passenden Lanze zugeordnet. Weitere Lanzen erhalten
-getrennte Datenbanken unter `logger/data/devices/<geraete-id>.db`.
-Waehrend ihre Grafikansicht geoeffnet ist, fragt der Viewer die ausgewaehlte
-Lanze alle fuenf Sekunden ab und speichert neue Messwerte. Der separate
-Logger bleibt fuer die durchgehende Erfassung unabhaengig vom Viewer nutzbar.
+The top-right button switches "View mode" / "Command mode". Command mode
+shows measurement curves on the left and Humidity/CO2 PI charts on the right
+(-100 to +100%, time axis at 0%; dotted `p`, dashed `i`, solid `sum`, fixed
+legends; blue humidity, purple CO2). Titles show current sum in %, measured
+fan speed in rpm and fogger ON/OFF times in seconds. Units remain visible
+when values are missing.
 
-Ueber den Schalter oben rechts wechselt die Grafikansicht zwischen "View mode"
-und "Command mode". Im Command-Modus stehen die Messkurven links, die
-Humidity-/CO2-PI-Diagramme rechts (−100 bis +100 %, Zeitachse bei 0 %;
-P gepunktet, I gestrichelt, SUM durchgezogen, mit festen Legenden;
-Feuchte blau, CO2 violett wie in den Messkurven). Unterhalb
-der PI-Diagramme lassen sich die Sollwerte mit Minus links und Plus rechts
-einstellen und mit "Setpoints speichern" uebertragen. CO2: 0–5000 ppm in
-500er-Schritten, danach bis 20000 ppm in 1000er-Schritten. Feuchte: 70–100 %RH
-in Einerschritten. Beide Sollwerte werden auch in den oberen Messkarten
-in beiden Modi als `SET:` angezeigt, zusammen mit `DIF:` (Istwert minus
-Sollwert) und `PI%:` (aktuelle Reglerausgabe). Nicht verfuegbare Reglerwerte
-erscheinen als `--`. Der Modusbutton zeigt jeweils den Zielmodus an.
-Die zentrierte Ueberschrift lautet `Lanzenname @ Einsatzort`.
-Die Werteanzeige ist nicht per Texteingabe editierbar.
+Below the PI charts, adjust setpoints with minus left and plus right, then
+transmit with "Save". CO2: 0-5000 ppm in 500 ppm steps, then 1000 ppm steps
+through 20000 ppm. Humidity: 70-100 %RH in one-point steps. Both modes also
+show setpoints in the upper measurement cards as `SET:`, with `DIF:` (measured
+minus setpoint) and `PI%:` (current controller output). Missing controller
+values appear as `--`. The mode button names the destination mode. The centered
+heading is `Lance name @ Location`. Values cannot be edited by typing.
 
-Die Sollwertschnittstelle benoetigt ESP32-Firmware ab 3.1.4. Die Firmware
-speichert beide Werte gemeinsam als versionierten NVS-Blob, bevor sie die
-Aenderung bestaetigt. Unveraenderte Werte erzeugen keine erneuten Flash-Schreibzugriffe.
-Nach Neustarts werden die Werte vor dem WLAN-Start geladen. Der Viewer
-speichert bestaetigte Werte zusaetzlich in der Tabelle `control_setpoints`
-der zur Lanze gehoerenden Messdatenbank. Nach Wiederverbindung gelten die
-Geraetewerte; gespeicherte PC-Werte werden nicht automatisch zurueckgeschrieben.
-Offline-Aenderungen werden nicht automatisch spaeter gesendet.
+Setpoints require ESP32 firmware 3.1.4 or later. Both values are committed
+together as a versioned NVS blob before acknowledgement. Unchanged values
+cause no extra flash writes. After restart they load before WiFi starts.
+The viewer also stores confirmed values in `control_setpoints` in the lance's
+measurement database. Device values are authoritative after reconnection;
+PC cache values are not automatically written back. Offline edits are not
+sent automatically later.
 
-P-, I- und Summenwerte werden nur waehrend der geoeffneten Grafikansicht im
-RAM gepuffert (maximal 2160 Live-Samples, bei fuenf Sekunden etwa drei Stunden).
-Sie werden weder in SQLite noch in CSV gespeichert. Diese Kurven haben daher
-keinen historischen Verlauf nach Schliessen des Viewers.
+P, I and sum are buffered only in RAM while charts are open (at most 2160
+live samples, about three hours at five-second intervals). They are not saved
+to SQLite or CSV and have no retained history after closing the viewer.
 
-Die aktuelle Messlanze hat keine Aktoren und keine PI-Abstimmung. Deshalb
-bleiben Ausgaenge deaktiviert und die PI-Felder melden "Regelung nicht
-konfiguriert". Aktuell sind Sollwertspeicherung, Anzeige und die Schnittstelle
-fuer spaetere Reglerdaten vorbereitet; ein autonomer aktiver Regler und seine
-Hardwareansteuerung muessen fuer die spaetere Hardware ergaenzt werden.
-Ein Wechsel in den Command-Modus aktiviert keine Ausgaenge.
+The current measurement lance has no actuators or PI tuning. Outputs remain
+disabled and PI fields report "Controller not configured". Setpoint storage,
+display and future telemetry are prepared; autonomous control and hardware
+drivers still need implementation. Entering Command mode activates no outputs.
+See [Control concept](docs/control.md): only CO2 PI requests fan speed; the
+fogger requires confirmed minimum fan speed and uses fixed 200 ms ON pulses.
 
 <img src="screenshot_viewer.jpg" alt="FastNChip sensor data viewer" width="800">
 
-CSV fuer Excel: python logger/logger.py --export-csv
+CSV for Excel: `python logger/logger.py --export-csv`.
 
-## Datenqualitaet
+## Data quality
 
-Sensorfehler werden als SQL NULL plus Validitaetsflag und RTD-Fehlercode
-gespeichert. Geraete-Uptime und Sequenznummer machen Neustarts und Luecken sichtbar.
+Sensor failures are stored as SQL NULL with validity flags and RTD error codes.
+Uptime and sequence numbers expose restarts and gaps.
 
-Der SCD41-ASC ist standardmaessig deaktiviert, da eine geschlossene Kammer nicht
-regelmaessig 400-ppm-Frischluft sieht. Der SCD41-Temperaturoffset wird bei jeder
-Initialisierung aus config.h gesetzt und vom Sensor zur Kontrolle zurueckgelesen.
-Der bestehende Offset stammt vom frueheren Abgleich mit dem Box-PT100 und bleibt
-unveraendert. Ein spaeterer Abgleich zum SHT45 setzt stabile, vergleichbare
-Temperaturen an beiden Messorten voraus. Der Hoehenwert steht in config.h.
-Betrieb nur ohne Kondensation.
+SCD41 ASC is disabled by default because a closed chamber is not regularly
+exposed to 400 ppm fresh air. Each initialization writes the temperature
+offset from `config.h` and reads it back. The existing offset comes from the
+previous Box PT100 comparison and is retained. Comparing against SHT45 later
+requires stable, comparable temperatures at both sites. Altitude is in
+`config.h`. Operate without condensation.
 
-SQLite speichert die korrigierte SCD41-Temperatur separat als temp_scd_c und den
-zurueckgelesenen Offset als scd_temperature_offset_c. Alte Zeilen bleiben dort
-NULL. Inbox-Temperatur (`boxtemp` / `temp_box_c`) und Feuchte
-(`humidity` / `humidity_rh`) stammen neu vom SHT45. Die SCD41-Feuchte steht separat
-als `scd_humidity` in API, Verlauf und QSPI sowie als `humidity_scd_rh` mit
-`valid_scd_humidity` in SQLite und CSV. Webansicht und Viewer zeichnen sie
-gepunktet. Bestehende Datenbanken werden beim Loggerstart erweitert; alte
-Messwerte behalten ihre urspruengliche Quelle (Box-PT100 bzw. SCD41-Feuchte),
-die neue Vergleichsspalte bleibt fuer alte Zeilen NULL. Alte CSV bleiben lesbar.
+SQLite stores corrected SCD41 temperature as `temp_scd_c` and the read-back
+offset as `scd_temperature_offset_c`; old rows remain NULL there. Inbox
+temperature (`boxtemp` / `temp_box_c`) and humidity (`humidity` / `humidity_rh`)
+now come from SHT45. SCD41 humidity is separate: `scd_humidity` in API,
+history and QSPI; `humidity_scd_rh` with `valid_scd_humidity` in SQLite/CSV.
+Web and viewer draw it dotted. Databases are extended at logger startup.
+Old readings retain their original source (Box PT100 or SCD41 humidity);
+the new comparison column stays NULL for old rows. Old CSV remains readable.
 
-Die PT100-Messung verwendet Dreileiterkompensation und einen 50-Hz-Netzfilter.
-configure_rtd_driver.py passt beim Build den fest auf Version 1.0.5 gesetzten
-Arduino-MAX31865-Treiber an: 50 Hz und 70 ms Wartezeit fuer Einzelmessungen
-(laut Datenblatt bis zu 66 ms). Die heruntergeladene Bibliothek bleibt unveraendert.
-Vor jeder Messung werden Dreileitermodus und Filter neu gesetzt und zurueckgelesen;
-nach der Konversion wird die Konfiguration nochmals geprueft. So bleibt ein
-alleiniger MAX31865-Reset nicht dauerhaft als fehlende Leitungswiderstands-
-kompensation unentdeckt. Bei fehlgeschlagener Pruefung ist der Messwert ungueltig.
-API, QSPI und SQLite speichern ADC-Rohwerte, die Konfiguration vor/nach der
-Messung (`rtd_outer_config_before/after`) sowie
-`rtd_config_recoveries`, den kumulativen Zaehler der Korrekturversuche seit Start.
-Im Normalbetrieb ist die Konfiguration 17 (0x11: Dreileiter, 50 Hz, Bias aus).
-Die Pruefung stellt feste Hardwareeinstellungen wieder her; sie kalibriert
-keine Temperatur und veraendert den festen SCD41-Offset nicht.
+PT100 uses three-wire compensation and a 50 Hz mains filter.
+`configure_rtd_driver.py` patches the driver pinned to
+Arduino-MAX31865 version 1.0.5 at build time: 50 Hz and 70 ms wait for single
+conversions (up to 66 ms per datasheet). The downloaded library is unchanged.
+Before each reading, three-wire mode and filter are reapplied and read back;
+configuration is rechecked after conversion. A standalone MAX31865 reset
+cannot silently leave lead resistance uncompensated. Failed checks invalidate
+readings. API, QSPI and SQLite store raw ADC counts, before/after configuration
+(`rtd_outer_config_before/after`) and `rtd_config_recoveries`, the cumulative
+correction-attempt count since boot. Normal configuration is 17 (`0x11`:
+three-wire, 50 Hz, bias off). This restores fixed settings, without temperature
+calibration or changing the SCD41 offset.
 
-Ein begrenzter Vergleich kann ueber RTD_DIAGNOSTIC_SAMPLES aktiviert werden
-(0 = aus). RTD_DIAGNOSTIC_TWO_WIRE waehlt fehlende Dreileiterkompensation statt
-60 Hz als Vergleich. Regulaere Messwerte bleiben bei Dreileiter/50 Hz;
-Vergleichswerte stehen separat in API und QSPI. Absichtliche Moduswechsel
-erhoehen ebenfalls den Korrekturzaehler. Im normalen Build ist der Vergleich aus.
-Zum reproduzierten Temperatursprung siehe [Untersuchung vom 09.09.2026](docs/pt100-offset-2026-09-09.md).
+Enable bounded comparison with `RTD_DIAGNOSTIC_SAMPLES` (0 = off).
+`RTD_DIAGNOSTIC_TWO_WIRE` selects missing three-wire compensation instead of
+60 Hz. Ordinary readings retain three-wire/50 Hz; comparison values are
+separate in API/QSPI. Intentional mode changes also increase the correction
+counter. Normal builds disable comparison. See the
+[2026-09-09 investigation](docs/pt100-offset-2026-09-09.md).
 
-## Persistenz und Backup
+## Persistence and backup
 
-Der Portenta schreibt NDJSON auf QSPI und rotiert bei 4 MiB. SQLite ist die
-fuehrende Langzeitspeicherung. backup.py sichert eine laufende Datenbank konsistent.
+Portenta writes NDJSON to QSPI and rotates at 4 MiB. SQLite is the primary
+long-term store. `backup.py` consistently backs up a running database.
 
-## OTA und Tests
+## OTA and tests
 
-pio run erzeugt firmware.ota. upload_firmware.ps1 akzeptiert kein rohes BIN.
+Historical Portenta builds generate `firmware.ota`;
+`upload_firmware.ps1 -Environment portenta_h7_m7` requires that format.
+ESP32-S3 uses `firmware.bin` as described above.
 
-Tests: python -m unittest discover -s test -p "test_*.py"
+Tests: `python -m unittest discover -s test -p "test_*.py"`.
 
-## Regulaerer Betrieb ab 2.0.13
+## Regular operation since 2.0.13
 
-Es gibt keinen separaten Inbox-PT100 mehr. Alte Datenbankspalten und historische
-Werte bleiben erhalten. Ab Firmware 2.0.15 wird der einzige Aussen-PT100 an
-Kanal 1 (frueherer Inbox-Anschluss) gelesen; Kanal 0 wird nicht mehr abgefragt.
-Die Zuordnung als Aussentemperatur in API, Datenbank und Viewer bleibt bestehen.
+There is no separate Inbox PT100. Old database columns and historical values
+remain. Since 2.0.15, the only ambient PT100 is read on channel 1 (formerly
+Inbox); channel 0 is no longer polled. Its ambient-temperature assignment in
+API, database and viewer remains.
 
-Die Aufzeichnung von CO2, SCD41-Feuchte und Aussen-PT100 erfolgt alle 5 Sekunden.
-Der SHT45 wird unabhaengig davon alle 65 Sekunden uebernommen. Zwischen diesen
-Terminen halten Anzeige und Aufzeichnung seinen letzten Wert einschliesslich
-Offset. `sht_read_uptime_ms` kennzeichnet in API, QSPI, SQLite und CSV den
-urspruenglichen Uebernahmezeitpunkt; wiederholte Werte sind keine neuen SHT45-
-Messungen. Ein Fehler am naechsten Termin ersetzt den alten Wert durch ungueltig.
-Nach einer erfolgreichen
-SHT45-Ablesung wird ein Heizimpuls angefordert: nominal 200 mW bei 3.3 V fuer
-1 Sekunde, nur mit einem frischen Wert unter 65 Grad C. Nach der maximalen
-Heizkonversion (1.11 s) folgen mindestens 60 Sekunden Abkuehlzeit, bevor eine
-neue normale Messung beginnt. Heizwerte werden nicht als Umgebungsmessung
-veroeffentlicht. Der Hauptloop bleibt waehrenddessen frei. Nach einem Neustart
-ist die erste gueltige Messung noch ungeheizt und ohne Korrektur.
+CO2, SCD41 humidity and ambient PT100 are recorded every five seconds.
+SHT45 readings are accepted independently every 65 seconds. Between readings,
+display and recording hold the last value with its offset.
+`sht_read_uptime_ms` identifies the original acceptance time in API/QSPI/
+SQLite/CSV; repeated values are not new SHT45 measurements. A failure at the
+next scheduled reading replaces the old value with invalid data.
 
-`humidity` / `humidity_rh` bleiben Rohwerte. Pro Messung werden der manuelle
-Offset `humidity_offset_rh` und `sht_heater_elapsed_ms` (Zeit der SHT45-Messung
-seit Ende der maximalen Heizkonversion) in QSPI, API, SQLite und CSV gespeichert.
-Fuer gueltige Messungen ab 60 Sekunden nach der Heizkonversion gilt
-+1.00 Prozentpunkt rF, auch bei verzoegerter Erfassung nach 65 Sekunden.
-Vor dem ersten Heizzyklus und bei Fehlern gilt kein Offset. Das ist eine
-vorlaeufige manuelle Korrektur, keine absolute Kalibrierung.
+After a successful SHT45 reading, a heater pulse is requested: nominal 200 mW
+at 3.3 V for one second, only with a fresh reading below 65 degrees C. After
+the maximum heater conversion (1.11 s), at least 60 seconds of cooldown precede
+the next normal conversion. Heated readings are not published as ambient
+measurements. The main loop remains free. The first valid reading after
+restart is unheated and uncorrected.
 
-Webansicht (`humidity_corrected`) und Viewer (`humidity_corrected_rh`) zeigen
-nur Rohwert plus gespeicherten Offset, begrenzt auf 0 bis 100 %rF. Es gibt keine
-zusaetzliche Rohwertkurve. SCD41 bleibt gepunktet, SHT45 als Volllinie.
-Historische Werte ohne Offset bleiben unveraendert; feste Skalen und adaptive
-Skalierung bleiben erhalten.
+`humidity` / `humidity_rh` remain raw. Each measurement stores manual
+`humidity_offset_rh` and `sht_heater_elapsed_ms` (time of SHT45 reading since
+the end of maximum heater conversion) in QSPI/API/SQLite/CSV. Valid readings
+at least 60 seconds after heater conversion receive +1.00 percentage point RH,
+including delayed acquisition after 65 seconds. Before the first heater cycle
+and on errors, no offset applies. This is a provisional manual correction,
+not absolute calibration.
 
-Der abgeschlossene Abkuehltest mit Firmware 2.0.11 (sechs Impulse im Abstand
-von 120 Sekunden, danach Heizer aus) ist unter
-[Heiztest vom 24.09.2026](docs/heater-test-2026-09-24/README.md) dokumentiert.
+Web (`humidity_corrected`) and viewer (`humidity_corrected_rh`) show only raw
+value plus stored offset, clamped to 0-100 %RH. No extra raw curve. SCD41 is
+dotted, SHT45 solid. Historical readings without offsets remain unchanged;
+fixed scales and adaptive scaling remain.
 
-## Viewer-Cache
+The completed 2.0.11 cooldown trial (six pulses 120 seconds apart, then heater
+off) is documented in the [2026-09-24 heater test](docs/heater-test-2026-09-24/README.md).
 
-Der Viewer laedt die Historie einmal beim Start und danach nur neu angehaengte
-Datenbankzeilen. Ohne neue Daten wird die Ansicht nicht neu gezeichnet. Alle
-Messpunkte bleiben erhalten, einschliesslich einzelner Spitzen. CSV-Dateien
-werden nur nach einer Dateiaenderung neu geladen. Beim gleichzeitigen manuellen
-Aendern alter Zeilen und Anhaengen neuer Zeilen den Viewer neu starten.
+## Viewer cache
 
-## API ab 2.0.14
+History loads once at startup, then only newly appended database rows.
+Without new data the viewer does not redraw. All points remain, including
+individual spikes. CSV reloads only after file changes. Restart the viewer
+if manually editing old rows while appending new ones.
 
-Der Logger ruft `/api/current` ohne Verlauf ab. `/api/measurement` behaelt
-seinen bisherigen Inhalt, uebertraegt den Verlauf aber messpunktweise aus
-einem festen Snapshot. Dadurch wird kein riesiger JSON-String aufgebaut,
-der bei vollem Verlauf den Heap erschoepft und unvollstaendig zurueckkommt.
-`/api/backlog/current` liefert bei der Wiederherstellung gezielt die aktuelle
-QSPI-Datei; `/api/backlog` liefert wie bisher auch die vorherige Datei.
+## API since 2.0.14
+
+The logger calls `/api/current` without history. `/api/measurement` retains
+its content but streams history one point at a time from a fixed snapshot,
+avoiding a huge JSON string that exhausts the heap and returns incomplete data
+with full history. `/api/backlog/current` retrieves only the current QSPI file;
+`/api/backlog` still returns the previous file as well.

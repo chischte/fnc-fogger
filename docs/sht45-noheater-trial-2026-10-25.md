@@ -1,31 +1,31 @@
-# SHT45-Vergleich ohne Heizer
+# SHT45 comparison without heater
 
-Versuch gestartet am 2026-10-25T01:34:26+02:00 (Europe/Zurich).
-Firmware: `3.1.1-esp32s3-noheater`, installiert per OTA auf `192.168.31.211`.
+Trial started at 2026-10-25T01:34:26+02:00 (Europe/Zurich).
+Firmware `3.1.1-esp32s3-noheater`, installed by OTA on `192.168.31.211`.
 
-Vor der Umstellung (Firmware 3.1.0):
+Before the change (firmware 3.1.0):
 
-- SHT45: 22,67 Grad C; SHTC3: 21,80 Grad C; Differenz Inbox minus Ambient: +0,87 Grad C.
-- SHT45: 39,91 %rF roh, 40,91 %rF mit bisherigem Heiz-Feuchteoffset.
-- Gespeicherter Abstand der SHT45-Messung zum Heizzyklus: 60010 ms.
+- SHT45: 22.67 degrees C; SHTC3: 21.80 degrees C; Inbox minus Ambient: +0.87 degrees C.
+- SHT45: 39.91 %RH raw, 40.91 %RH with the previous heater-related humidity offset.
+- Stored time between heater cycle and SHT45 reading: 60010 ms.
 
-Fuer den Versuch ist `SHT45_HEATER_ENABLED = false` gesetzt.
-Mess- und Uebernahmeintervalle bleiben gleich (SHT45-Uebernahme alle 65 s).
-Ohne Heizzyklus wird auch kein heizungsbezogener Feuchteoffset angewendet:
-`humidity_offset_rh = 0`, `sht_heater_elapsed_ms = null`.
-Es wird kein Temperaturoffset gesetzt. SHTC3 und SCD41 laufen unveraendert weiter.
+The trial sets `SHT45_HEATER_ENABLED = false`. Measurement and acceptance
+intervals stay unchanged (SHT45 accepted every 65 s). Without the heater cycle,
+no heater-related humidity offset applies: `humidity_offset_rh = 0`,
+`sht_heater_elapsed_ms = null`. No temperature offset is applied.
+SHTC3 and SCD41 continue unchanged.
 
-Der Neustart trennt den Versuch durch eine neue Boot-ID von den bisherigen Daten.
-Die Firmwarekennung markiert den Versuch zusaetzlich in der Live-API.
-Ein thermisches Ergebnis ist direkt nach der Umstellung noch nicht belastbar;
-Restwaerme und veraenderte Umgebungsbedingungen sind beim Verlauf zu beruecksichtigen.
+A new boot ID separates the trial from previous data. Firmware identification
+also marks the trial in the live API. Thermal results immediately after the
+change are not conclusive; consider residual heat and changing ambient conditions.
 
-## Ende des Versuchs
+## End of trial
 
-Der Benutzer meldete nach Betrieb ohne Heizung eine Temperaturdifferenz von null.
-Auf seinen Wunsch wurde der bisherige Heizzyklus mit Firmware
-`3.1.2-esp32s3` wieder aktiviert. Dies ist eine Beobachtung am aktuellen Aufbau,
-keine absolute Kalibrierung der beiden Sensoren.
+After operating without the heater, the user reported a zero temperature
+difference. At the user's request, firmware `3.1.2-esp32s3` restored the previous
+heater cycle. This is an observation on the current assembly, not an absolute
+calibration of either sensor.
 
-Nach Wiederaktivierung: Firmware 3.1.2 und neue Boot-ID 3910737168 bestaetigt.
-Vor dem ersten Heizimpuls: SHT45 21,31 Grad C, SHTC3 21,26 Grad C, Differenz +0,05 Grad C.
+After restoration, firmware 3.1.2 and new boot ID 3910737168 were confirmed.
+Before the first heater pulse: SHT45 21.31 degrees C, SHTC3 21.26 degrees C,
+difference +0.05 degrees C.
