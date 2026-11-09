@@ -41,3 +41,21 @@ The previous crossing bridge was ambiguous.
 All diagram labels translated to English using the built-in image_gen tool.
 Wiring, pin assignments, the optional SHTC3 and the separated power nets remain
 unchanged. [Translation prompt](layout-english-prompt.txt).
+
+## I2C cable colors, 2026-11-09
+
+The four sensor-bus rows in the controller pin table now use the cable colors
+confirmed by the user, with the subsequent SDA revision: 3V3 red, GND black,
+GPIO0/SDA blue, GPIO1/SCL yellow.
+Text is black on red and yellow, and white on black and blue for legibility.
+Edited with the built-in image_gen tool. The remaining diagram and the
+schematic wire-color legend are unchanged.
+
+## Noctua harness colors, 2026-11-09
+
+Panel 4 fan leads and numbered circles follow the manufacturer's
+[NF-A4x10 24V PWM specifications](https://www.noctua.at/en/products/nf-a4x10-24v-pwm/specifications):
+1 black = GND, 2 yellow = +24 V, 3 green = RPM/TACH (GPIO5),
+4 blue = PWM (GPIO4). Circle 2 uses black lettering; circles 1, 3 and 4
+use white lettering. The schematic net colors outside the fan panel remain
+unchanged. Edited using the built-in image_gen tool.
