@@ -1,6 +1,6 @@
 # Hardware zum fnc-fogger-Anschlussplan - Entwurf 04
 
-Stand: 24.10.2026. Anschlussentwurf, keine ausführbare Firmware und keine Hardwarefreigabe.
+Stand: 09.11.2026. Anschlussentwurf, keine ausführbare Firmware und keine Hardwarefreigabe.
 
 Massgebende Referenz fuer den geplanten Projektaufbau ist der
 [fnc-fogger-Anschlussplan - Entwurf 04](fnc-fogger-layout-v4.png).
@@ -12,9 +12,9 @@ Geregeltes 24-V-DC-Netzteil mit gemeinsamer Masse verwenden. Nur ein XZG DC/DC-B
 
 | Quelle | Ziel |
 | --- | --- |
-| Netzteil +24 V | Noctua Pin 2, Fogger-Plus und XZG DC/DC-Buck IN+ |
+| Netzteil +24 V | Noctua Pin 2 und XZG DC/DC-Buck IN+ |
 | Netzteil GND | Noctua Pin 1, IRLB8721 Source, ESP32 GND, XZG DC/DC-Buck IN− / OUT− |
-| XZG DC/DC-Buck OUT+ = 5,0 V | ESP32-C3 SuperMini 5V |
+| XZG DC/DC-Buck OUT+ = 5,0 V | ESP32-C3 SuperMini 5V und Fogger-Plus |
 
 Abgebildetes kompaktes XZG-DC/DC-Buck-Modul verwenden (schwarze Platine, 4R7-Drossel). Der Angebotstitel nennt mehrere Ausgangsspannungen; die konkrete Variante und deren Einstellung sind damit nicht eindeutig bestimmt. Für diesen Aufbau die 5-V-Variante bzw. 5-V-Einstellung verwenden und vor Anschluss mit dem Multimeter 5,0 V am Ausgang prüfen. Keine unbekannten Lötbrücken verändern. Die Klemmenbezeichnungen IN+/IN− und OUT+/OUT− sind funktional; ihre Position am gelieferten Modul prüfen. Geeigneten 5-V-Eingang am konkreten Devboard prüfen; keine 5 V auf 3V3 legen. Lastströme direkt zum Netzteil zurückführen, nicht durch ESP32- oder Sensorleitungen. Leitungen und Sicherung nach Last und Einschaltstrom auslegen.
 
@@ -74,7 +74,7 @@ Quellen: [Noctua Mikrocontroller-Anleitung](https://www.noctua.at/en/support/faq
 
 ## Fogger mit IRLB8721
 
-Gewünschte Direktansteuerung ohne Gate-Vorwiderstand und ohne Gate-Source-Pulldown. Diese Variante ist elektrisch nicht als zuverlässige 3,3-V-Schaltung freigegeben.
+Gewünschte Direktansteuerung ohne Gate-Vorwiderstand und ohne Gate-Source-Pulldown. Durchschalten bei 3,3 V erfolgreich getestet (09.11.2026, Fogger-Modul an 5 V).
 
 ### Pinbelegung und exakter Anschluss
 
@@ -91,7 +91,7 @@ TO-220 von vorne betrachten: Beschriftung zu dir, Metalllasche hinten, Beine nac
              │  │  └──────── Netzteil GND / ESP32 GND
 GPIO6 ───────┘  │
                 └─────────── Fogger −
-Netzteil +24 V ───────────── Fogger +
+Buck OUT+ 5 V ───────────── Fogger +
 ```
 
 | Anschluss | Verbindung |
@@ -99,19 +99,19 @@ Netzteil +24 V ───────────── Fogger +
 | Gate, Pin 1 links | Direkt an ESP32 GPIO6 |
 | Drain, Pin 2 Mitte | Fogger-Minus |
 | Source, Pin 3 rechts | Netzteil-Minus und ESP32 GND |
-| Fogger-Plus | Direkt an Netzteil +24 V |
+| Fogger-Plus | An XZG DC/DC-Buck OUT+ (5,0 V) |
 | Metalllasche | Drain; gleiches Potential wie Fogger-Minus |
 
-**Fogger-Minus nicht zusätzlich an GND anschliessen:** Das würde den MOSFET überbrücken. Ein vollständiges 24-V-Ultraschallmodul mit eigener Treiberelektronik verwenden, keinen nackten Piezo.
+**Fogger-Minus nicht zusätzlich an GND anschliessen:** Das würde den MOSFET überbrücken. Ein vollständiges 5-V-Ultraschallmodul mit eigener Treiberelektronik verwenden, keinen nackten Piezo.
 
 ### Grenzen der gewünschten widerstandslosen Variante
 
-- Das Datenblatt spezifiziert den Einschaltwiderstand ab 4,5 V Gatespannung, nicht bei 3,3 V. Die Gate-Schwellenspannung bedeutet noch kein vollständiges Durchschalten. Laststrom, Spannungsabfall Drain–Source und Erwärmung müssen geprüft werden; für garantierten Betrieb ist eine geeignete Treiberstufe oder ein bei 3,3 V spezifizierter MOSFET nötig.
+- Durchschalten bei 3,3 V erfolgreich getestet: Der Nutzer hat am 09.11.2026 das saubere Schalten des Fogger-Moduls an 5 V bestätigt. Dies dokumentiert den getesteten Aufbau.
 - Ohne Gate-Source-Pulldown kann das Gate bei Reset, Boot oder abgetrenntem ESP32 geladen bzw. undefiniert bleiben. Software-LOW und ein interner GPIO-Pulldown garantieren dann keinen AUS-Zustand. Unbeaufsichtigten Betrieb damit nicht freigeben.
 - Ohne Gate-Vorwiderstand sind GPIO-Ladeströme und Ringing nicht extern begrenzt; kurze Leitungen und Prüfung am realen Aufbau erforderlich.
-- IRLB8721 hat nur 30 V maximale Drain–Source-Spannung. Bei 24 V Versorgung bleiben 6 V Reserve. Netzteiltoleranz und Schaltspitzen müssen darunter bleiben; erforderliche Schutzbeschaltung hängt vom konkreten Fogger und der Verkabelung ab.
+- Der Fogger wird mit 5 V vom Buck versorgt; der Lüfter bleibt direkt an 24 V. Nur Lüfter und Buck-Eingang hängen am 24-V-Zweig.
 
-GPIO6 früh auf LOW setzen. HIGH fordert EIN an, LOW schaltet bei versorgtem, aktiv treibendem GPIO aus. Nur langsame EIN/AUS-Zeitfenster; kein 25-kHz-PWM am Fogger. Mindestlaufzeiten, Wiederanlauf und unabhängigen Trockenlaufschutz des konkreten Foggers prüfen.
+GPIO6 früh auf LOW setzen. HIGH fordert EIN an, LOW schaltet bei versorgtem, aktiv treibendem GPIO aus. Feste EIN-Zeit 200 ms, variable AUS-Zeit (bei 50 %: 200 ms EIN / 200 ms AUS); kein 25-kHz-PWM am Fogger. Mindestlaufzeiten, Wiederanlauf und unabhängigen Trockenlaufschutz des konkreten Foggers prüfen.
 
 Quelle: [Infineon IRLB8721-Datenblatt, Pinbelegung und Grenzwerte](https://www.infineon.com/assets/row/public/documents/24/49/infineon-irlb8721-datasheet-en.pdf).
 

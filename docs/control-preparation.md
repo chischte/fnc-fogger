@@ -70,6 +70,8 @@ scheduler. These are current configured pulse durations, not countdowns;
 they are never inferred from PI percentages. Missing, invalid or offline
 values display as `—`. Current measurement-only firmware publishes null
 for all three fields until the tach driver and actuator scheduler exist.
+The planned fixed ON duration is 0.2 s (200 ms); at 50 % the OFF duration
+is also 0.2 s. The scheduler itself is not implemented yet.
 
 The table `control_setpoints` in each lance's measurement DB contains only
 the last device-confirmed setpoints and their confirmation timestamp. The

@@ -22,9 +22,9 @@ Feuchtebedarf aus. Bei Unterschreiten der Mindestdrehzahl wird der Fogger
 sofort ausgeschaltet. Diese Freigabesperre muss beim Anti-Windup des
 Feuchte-PI-Reglers berücksichtigt werden.
 
-Regelfehler = rF-Sollwert − rF-Istwert. Positiver Fehler erhöht den PID-Ausgang zwischen 0 und 100 %. GPIO6 schaltet über den IRLB8721 als Low-Side-Schalter die 24-V-Fogger-Versorgung (Gate an GPIO6, Drain an Fogger-Minus, Source an GND; HIGH fordert EIN an, LOW = AUS). Der Ausgang wird in einem konfigurierbaren Zeitfenster in eine EIN-Dauer übersetzt: t_ein = Stellwert / 100 × Fensterdauer. Kein 25-kHz-Schalten der Fogger-Versorgung.
+Regelfehler = rF-Sollwert − rF-Istwert. Positiver Fehler erhöht den PID-Ausgang zwischen 0 und 100 %. GPIO6 schaltet über den IRLB8721 als Low-Side-Schalter die 5-V-Fogger-Versorgung (Gate an GPIO6, Drain an Fogger-Minus, Source an GND; HIGH fordert EIN an, LOW = AUS). Der Fogger arbeitet mit einer festen EIN-Zeit von 200 ms und variabler AUS-Zeit. Für einen Stellwert p mit 0 < p < 100 gilt: t_aus = 0,2 s × (100 / p − 1). Bei 50 % wechseln sich 200 ms EIN und 200 ms AUS ab; bei 10 % folgen auf 200 ms EIN jeweils 1,8 s AUS. Kein 25-kHz-Schalten der Fogger-Versorgung.
 
-Fensterdauer und Mindest-EIN-/AUS-Zeiten erst nach Auswahl des Foggers festlegen. Kurze Anforderungen unterhalb der Mindestlaufzeit gezielt unterdrücken oder über Fenster akkumulieren; die gewählte Strategie muss mit dem Anti-Windup abgestimmt werden. Bei 0 % bleibt der Fogger aus; 100 % darf nur bei freigegebenem Dauerbetrieb dauerhaft einschalten. Schutzabschaltungen wirken sofort, auch während einer Mindestlaufzeit.
+Die feste EIN-Zeit wurde nach dem praktischen Fogger-Test vom 09.11.2026 von 2 s auf 200 ms reduziert. Bei 0 % bleibt der Fogger aus; 100 % darf nur bei freigegebenem Dauerbetrieb dauerhaft einschalten. Schutzabschaltungen und die Lüfter-Freigabesperre wirken sofort, auch während eines EIN-Impulses. Die Zeitsteuerung muss nichtblockierend erfolgen.
 
 SHT45-Werte in festem, konfigurierbarem Takt erfassen; PID nur mit frischen gültigen Werten und tatsächlichem Zeitabstand berechnen. Lüftung beeinflusst auch die Feuchte. Beide Regler zuerst einzeln, danach gemeinsam abstimmen. Zunächst D-Anteil auf null setzen; später nur bei belegtem Nutzen ergänzen, mit gefilterter Ableitung des Messwerts.
 
@@ -63,4 +63,4 @@ Erstinstallation per USB, danach Firmware-Updates über WLAN mit Authentifizieru
 
 Vor dem Schreiben der Firmware Fogger ausschalten, beide PID-Integratoren anhalten und Lüfter auf definierte Fehlerdrehzahl (zunächst 100 %) setzen. Nach erfolgreichem Upload neu starten, Ausgangszustände setzen und erst nach gültigen Sensorwerten in die Regelung wechseln. Bei Abbruch Zustand melden und Wiederanlauf kontrollieren. USB bleibt als Wiederherstellungsweg verfügbar.
 
-Die direkte IRLB8721-Ansteuerung bei 3,3 V ohne Widerstände ist nicht hardwareseitig freigegeben. Reset-Verhalten und vollständiges Durchschalten sind nicht garantiert; siehe [elektrische Grenzen](hardware.md#grenzen-der-gewünschten-widerstandslosen-variante).
+Durchschalten bei 3,3 V erfolgreich getestet (09.11.2026, Fogger-Modul an 5 V). Ohne Gate-Pulldown bleibt das Reset-Verhalten undefiniert; siehe [elektrische Grenzen](hardware.md#grenzen-der-gewünschten-widerstandslosen-variante).
