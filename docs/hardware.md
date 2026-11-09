@@ -146,8 +146,10 @@ Source: [Infineon IRLB8721 datasheet, pinout and ratings](https://www.infineon.c
 
 ## Upload and OTA
 
-The planned actuator firmware is not implemented. WiFi OTA requires suitable
-firmware and flash partitions. The XZG buck keeps the ESP32 supplied with 5 V.
+The planned actuator controller is not implemented. The `esp32c3_supermini`
+profile now prepares sensor operation and WiFi OTA with a 4 MiB partition layout.
+See [device management and USB provisioning](device-management.md).
+The XZG buck keeps the ESP32 supplied with 5 V.
 Initial installation and recovery use USB; disconnect external 5 V unless
 the board supports simultaneous supplies.
 

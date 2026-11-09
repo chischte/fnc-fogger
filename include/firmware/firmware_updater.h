@@ -43,4 +43,8 @@ class FirmwareUpdater {
   size_t expectedFileSize_ = 0;
   size_t writtenBytes_ = 0;
   bool uploadFailed_ = false;
+#ifdef ARDUINO_ARCH_ESP32
+  size_t profileMatchBytes_ = 0;
+  bool profileMatched_ = false;
+#endif
 };

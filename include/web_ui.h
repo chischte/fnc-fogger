@@ -16,6 +16,7 @@ button:disabled{background:#a0b8c8;cursor:default}
 #prog-label{text-align:center;font-size:.85rem;color:#2a3630;margin-top:4px}
 </style></head>
 <body><div class="card"><h2>&#128225; Firmware Update</h2>
+<p id="target">Reading device identity ...</p>
 <form id="f">
   <label>Firmware file:</label><br>
   <input type="file" id="bin" accept=".bin,.ota" required>
@@ -26,7 +27,33 @@ button:disabled{background:#a0b8c8;cursor:default}
 <div id="status"></div>
 </div>
 <script>
-document.getElementById('f').addEventListener('submit',function(e){
+async function readDevice(){
+  var response=await fetch('/api/current',{cache:'no-store',signal:AbortSignal.timeout(8000)});
+  if(!response.ok)throw new Error('Cannot read device status');
+  return response.json();
+}
+readDevice().then(function(device){
+  document.getElementById('target').textContent='Device: '+(device.device_id||device.hardware_profile)+
+    ' | Hardware: '+device.hardware_profile+' | Firmware: '+device.firmware+' | Build: '+device.build_id;
+}).catch(function(error){document.getElementById('target').textContent=error.message;});
+async function confirmRestart(before,metadata,status){
+  var deadline=Date.now()+90000;
+  while(Date.now()<deadline){
+    await new Promise(function(resolve){setTimeout(resolve,2000);});
+    try{
+      var device=await readDevice();
+      if(device.device_id!==before.device_id)throw new Error('Device identity changed');
+      if(device.firmware===metadata[2] && device.build_id===metadata[3] &&
+         device.hardware_profile===metadata[1] && device.measurement && before.measurement &&
+         device.measurement.boot_id!==before.measurement.boot_id){
+        status.textContent='Update confirmed: '+device.device_id+' / '+device.firmware+' / '+device.build_id;
+        return;
+      }
+    }catch(error){}
+  }
+  status.textContent='Update not confirmed. Check device identity and firmware before retrying.';
+}
+document.getElementById('f').addEventListener('submit',async function(e){
   e.preventDefault();
   var file=document.getElementById('bin').files[0];
   if(!file)return;
@@ -36,6 +63,22 @@ document.getElementById('f').addEventListener('submit',function(e){
   var bar=document.getElementById('prog-bar');
   var label=document.getElementById('prog-label');
   btn.disabled=true;
+  var before,metadata;
+  try{
+    before=await readDevice();
+    if(before.device_id){
+      var bytes=new Uint8Array(await file.arrayBuffer());
+      var text=new TextDecoder('latin1').decode(bytes);
+      var matches=Array.from(text.matchAll(/FNC_FW\|([a-z0-9_]+)\|([a-zA-Z0-9.-]+)\|([a-f0-9]{12})\|END/g));
+      var unique=new Set(matches.map(function(match){return match[0];}));
+      metadata=matches[0];
+      var chips={esp32s3:9,esp32c3_supermini:5};
+      if(unique.size!==1 || bytes[0]!==233 || metadata[1]!==before.hardware_profile ||
+         (bytes[12]+256*bytes[13])!==chips[metadata[1]])throw new Error('Incompatible firmware image');
+    }
+    if(!confirm('Update '+(before.device_id||before.hardware_profile)+' at '+location.host+
+        '?\n'+before.firmware+' -> '+(metadata?metadata[2]:file.name))) {btn.disabled=false;return;}
+  }catch(error){status.textContent=error.message;btn.disabled=false;return;}
   status.textContent='Phase 1/3: Uploading firmware file ...';
   wrap.style.display='block';
   bar.style.width='0%';
@@ -60,14 +103,15 @@ document.getElementById('f').addEventListener('submit',function(e){
     label.textContent='100% — Upload complete';
     if(xhr.status>=200&&xhr.status<300){
       status.textContent='Phase 3/3: '+xhr.responseText+' Reconnecting ...';
-      setTimeout(function(){window.location.href='/';},10000);
+      if(metadata)confirmRestart(before,metadata,status);
+      else status.textContent='Upload accepted. Verify the firmware after restart.';
     }else{
       status.textContent='Error: '+xhr.responseText;
       btn.disabled=false;
     }
   };
   xhr.onerror=function(){
-    status.textContent='Network error during upload. The device was not updated.';
+    status.textContent='Connection lost. Update not confirmed; check the device before retrying.';
     btn.disabled=false;
   };
   var fd=new FormData();

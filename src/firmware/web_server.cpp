@@ -306,6 +306,18 @@ String WebServer::buildApiJson(bool includeHistory) const {
   json.reserve(2048);
   json += "{\"firmware\":\"";
   json += Config::FIRMWARE_VERSION;
+  json += "\",\"hardware_profile\":\"";
+  json += FirmwareIdentity::PROFILE;
+  json += "\",\"build_id\":\"";
+  json += FirmwareIdentity::BUILD;
+  json += "\",\"firmware_metadata\":\"";
+  json += FirmwareIdentity::METADATA;
+#ifdef ARDUINO_ARCH_ESP32
+  String deviceId = WiFi.macAddress();
+  deviceId.replace(":", "");
+  deviceId.toLowerCase();
+  json += "\",\"device_id\":\"" + deviceId;
+#endif
   json += "\",\"sensor_ready\":";
   json += measurements_.sensorReady() ? "true" : "false";
   json += ",\"storage_ready\":";

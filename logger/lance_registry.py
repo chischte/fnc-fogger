@@ -3,6 +3,7 @@ import re
 import sqlite3
 from contextlib import closing, contextmanager
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -14,6 +15,10 @@ class Lance:
     name: str = ""
     location: str = ""
     database_name: str = ""
+    firmware: str = ""
+    hardware_profile: str = ""
+    build_id: str = ""
+    last_seen: str = ""
 
     @property
     def url(self):
@@ -34,6 +39,14 @@ class LanceRegistry:
                 device_id TEXT PRIMARY KEY, hostname TEXT NOT NULL,
                 port INTEGER NOT NULL, name TEXT NOT NULL DEFAULT '',
                 location TEXT NOT NULL DEFAULT '', database_name TEXT NOT NULL UNIQUE)""")
+            columns = {row[1] for row in db.execute("PRAGMA table_info(lances)")}
+            for column in ("firmware", "hardware_profile", "build_id", "last_seen"):
+                if column not in columns:
+                    db.execute(f"ALTER TABLE lances ADD COLUMN {column} TEXT NOT NULL DEFAULT ''")
+            db.execute("""CREATE TABLE IF NOT EXISTS firmware_updates(
+                id INTEGER PRIMARY KEY, device_id TEXT NOT NULL, recorded_at TEXT NOT NULL,
+                version TEXT NOT NULL, build_id TEXT NOT NULL, hardware_profile TEXT NOT NULL,
+                sha256 TEXT NOT NULL, phase TEXT NOT NULL, detail TEXT NOT NULL)""")
 
     @contextmanager
     def _connect(self):
@@ -44,10 +57,11 @@ class LanceRegistry:
     def list(self):
         with self._connect() as db:
             return [Lance(*row) for row in db.execute(
-                "SELECT device_id,hostname,port,name,location,database_name "
+                "SELECT device_id,hostname,port,name,location,database_name,"
+                "firmware,hardware_profile,build_id,last_seen "
                 "FROM lances ORDER BY name,device_id")]
 
-    def remember(self, lance, sensor_serial=None):
+    def remember(self, lance, sensor_serial=None, status=None):
         if not re.fullmatch(r"[0-9a-f]{12}", lance.device_id):
             raise ValueError("Invalid lance device ID")
         with self._connect() as db:
@@ -62,6 +76,12 @@ class LanceRegistry:
                 VALUES(?,?,?,?) ON CONFLICT(device_id) DO UPDATE SET
                 hostname=excluded.hostname,port=excluded.port""",
                        (lance.device_id, lance.hostname, lance.port, database_name))
+            if status is not None:
+                db.execute("""UPDATE lances SET firmware=?,hardware_profile=?,build_id=?,last_seen=?
+                    WHERE device_id=?""", (
+                    status.get("firmware", ""), status.get("hardware_profile", ""),
+                    status.get("build_id", ""), datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                    lance.device_id))
         return next(item for item in self.list() if item.device_id == lance.device_id)
 
     def _matches_legacy(self, sensor_serial):
@@ -83,3 +103,11 @@ class LanceRegistry:
 
     def measurement_path(self, lance):
         return self.directory / lance.database_name
+
+    def record_update(self, device_id, image, phase, detail=""):
+        with self._connect() as db:
+            db.execute("""INSERT INTO firmware_updates(
+                device_id,recorded_at,version,build_id,hardware_profile,sha256,phase,detail)
+                VALUES(?,?,?,?,?,?,?,?)""", (
+                device_id, datetime.now(timezone.utc).isoformat(timespec="seconds"),
+                image.version, image.build_id, image.profile, image.sha256, phase, detail))

@@ -48,6 +48,8 @@ void NetworkDiscovery::poll(bool connected, uint32_t now) {
   MDNS.addServiceTxt(SERVICE_NAME, SERVICE_PROTOCOL, "path", "/api/current");
   MDNS.addServiceTxt(SERVICE_NAME, SERVICE_PROTOCOL, "firmware",
                      Config::FIRMWARE_VERSION);
+  MDNS.addServiceTxt(SERVICE_NAME, SERVICE_PROTOCOL, "hardware", FirmwareIdentity::PROFILE);
+  MDNS.addServiceTxt(SERVICE_NAME, SERVICE_PROTOCOL, "build", FirmwareIdentity::BUILD);
   started_ = true;
   Serial.println("mDNS: http://" + hostname + ".local");
 #endif

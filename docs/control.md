@@ -86,11 +86,13 @@ actual chamber volume, air path and fogger.
 
 ## WiFi OTA updates
 
-Initial installation via USB, then WiFi updates with authentication and an
-appropriate OTA partition layout. This planned arrangement is not implemented.
+Sensor/OTA provisioning is prepared in the `esp32c3_supermini` build profile:
+initial installation via USB, then targeted WiFi updates. See
+[device management](device-management.md). Authentication and integration with
+the planned actuator controller remain unimplemented.
 The XZG buck continues providing 5 V during OTA; USB is unnecessary.
 
-Before writing firmware, switch fogger off, hold both PI integrators and set
+For the future actuator controller: before writing firmware, switch fogger off, hold both PI integrators and set
 fan to the defined fault speed (initially 100%). After successful upload,
 restart, initialize outputs and resume control only after valid readings.
 Report aborted updates and control recovery. USB remains the recovery route.

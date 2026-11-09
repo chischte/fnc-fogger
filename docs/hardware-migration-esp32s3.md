@@ -31,7 +31,9 @@ Initial USB installation: `pio run -e esp32s3 -t upload --upload-port COMx`.
 Store WiFi credentials in `../wifi-credentials.h` as before. Then open
 `http://<device-ip>/update` and upload only `.pio/build/esp32s3/firmware.bin`
 (no merged/factory BIN or Portenta file). Alternatively run
-`./upload_firmware.ps1 -DeviceUrl http://<device-ip>`.
+`./upload_firmware.ps1 -DeviceUrl http://<device-hostname> -DeviceId <12-digit-device-id>`.
+The current managed updater also checks the hardware profile and confirms
+the running firmware after restart; see [device management](device-management.md).
 The ESP32 Update library validates the image and activates the other app
 partition only on success. Aborting leaves the current firmware running.
 The update page still has no login and is intended for trusted local WiFi.

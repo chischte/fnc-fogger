@@ -11,8 +11,12 @@ earlier diagrams. See [Hardware](docs/hardware.md) for connection tables and not
 The plan uses SDA **GPIO0**, SCL **GPIO1**, fan PWM **GPIO4**, fan tach **GPIO5**
 and fogger gate **GPIO6**. Sensors use **3.3 V**. An optional **SHTC3** measures
 ambient humidity and temperature on the same I2C bus. The fan uses **24 V**;
-the buck supplies the ESP32 and fogger with **5 V**. Existing firmware still
-targets ESP32-S3 with SDA GPIO8 and SCL GPIO9; C3 implementation is pending.
+the buck supplies the ESP32 and fogger with **5 V**. The existing ESP32-S3
+uses SDA GPIO8 and SCL GPIO9. The additional `esp32c3_supermini` profile
+prepares sensors and OTA on GPIO0/1; actuator control remains pending.
+
+See [device management and first two SuperMini installations](docs/device-management.md)
+for the device overview, firmware storage locations and targeted updates.
 
 ## Heater comparison, 2026-10-25
 
@@ -52,7 +56,7 @@ See [hardware migration and OTA](docs/hardware-migration-esp32s3.md).
 2. Build: `pio run` (default: `esp32s3`).
 3. Initial USB installation: `pio run -t upload --upload-port COMx`.
 4. Read the IP address with `pio device monitor --port COMx`.
-5. For OTA, open `http://<ip>/update` and select `.pio/build/esp32s3/firmware.bin`, or run `./upload_firmware.ps1 -DeviceUrl http://<ip>`.
+5. For OTA, select the device in the viewer and choose `Update selected firmware` with `.pio/build/esp32s3/firmware.bin`. CLI updates require both `-DeviceUrl` and `-DeviceId`; see [device management](docs/device-management.md). The deployed legacy S3 requires its device-specific mDNS name for its first managed update.
 
 Logger and viewer continue to work. Flash buffering now uses LittleFS.
 The SHT45 heater cycle, sensor parameters and measurement intervals are retained.
@@ -134,6 +138,11 @@ Viewer: `python logger/viewer.py`.
 The viewer starts with lance selection, automatically discovers
 `_fnc-fogger._tcp.local`, and lists saved offline lances. "Search again" repeats
 discovery manually; automatic discovery runs every 15 seconds.
+The overview also shows hardware profile, last confirmed firmware/build,
+device ID and last successful contact. Saved offline devices retain these
+details. Updates target one explicitly selected online device and are verified
+after restart. See [device management](docs/device-management.md) for persistence
+and update history.
 Install dependencies with `python -m pip install -r logger/requirements.txt`.
 
 Enter a name and location for the selected lance. "Save", changing selection,
@@ -235,7 +244,8 @@ long-term store. `backup.py` consistently backs up a running database.
 ## OTA and tests
 
 Historical Portenta builds generate `firmware.ota`;
-`upload_firmware.ps1 -Environment portenta_h7_m7` requires that format.
+The historical Portenta web updater requires that format; the current
+`upload_firmware.ps1` manages ESP32 targets only.
 ESP32-S3 uses `firmware.bin` as described above.
 
 Tests: `python -m unittest discover -s test -p "test_*.py"`.

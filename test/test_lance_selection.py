@@ -95,6 +95,28 @@ class ChartNavigationTests(unittest.TestCase):
 
 
 class SelectionEditingTests(unittest.TestCase):
+    def test_overview_displays_persisted_firmware_for_offline_devices(self):
+        from logger.viewer_selection import LanceSelection
+        with tempfile.TemporaryDirectory() as directory:
+            registry = LanceRegistry(directory)
+            lance = Lance("111111111111", "one.local", 80)
+            registry.remember(lance, status={"firmware": "3.2.0-esp32c3",
+                                            "hardware_profile": "esp32c3_supermini",
+                                            "build_id": "0123456789ab"})
+            selection = LanceSelection(directory)
+            try:
+                row = selection.tree.item(lance.device_id, "values")
+                columns = selection.tree["columns"]
+                values = dict(zip(columns, row))
+                self.assertEqual(values["firmware"], "3.2.0-esp32c3")
+                self.assertEqual(values["hardware"], "esp32c3_supermini")
+                self.assertEqual(values["build"], "0123456789ab")
+                self.assertEqual(values["status"], "Offline")
+                self.assertNotEqual(values["last_seen"], "-")
+                self.assertEqual(str(selection.update_button["state"]), "disabled")
+            finally:
+                selection._finish()
+
     def test_switching_rows_preserves_edits_and_open_returns_selected_lance(self):
         from logger.viewer_selection import LanceSelection
         with tempfile.TemporaryDirectory() as directory:
