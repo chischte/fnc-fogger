@@ -63,6 +63,14 @@ The current API publishes null terms; it must not claim an output is operating.
 
 ## Viewer data and synchronization
 
+Command-mode graph titles show current fogger ON/OFF durations in seconds
+and the fan's measured RPM. The control object provides `fan.rpm` from the
+tach input and `fogger.on_time_s` / `fogger.off_time_s` from the pulse
+scheduler. These are current configured pulse durations, not countdowns;
+they are never inferred from PI percentages. Missing, invalid or offline
+values display as `—`. Current measurement-only firmware publishes null
+for all three fields until the tach driver and actuator scheduler exist.
+
 The table `control_setpoints` in each lance's measurement DB contains only
 the last device-confirmed setpoints and their confirmation timestamp. The
 device is authoritative. On connection, persisted device settings replace

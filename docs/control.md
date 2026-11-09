@@ -12,6 +12,16 @@ Den CO₂-Regler nur mit einem neuen gültigen Messwert aktualisieren. Für den 
 
 ## Relative Feuchte → Fogger
 
+Die Lüfterdrehzahl wird ausschließlich vom CO₂-PI-Regler bestimmt. Der
+Feuchte-PI-Regler und die Fogger-Steuerung dürfen keine Lüfterdrehzahl
+anfordern oder erhöhen. Der Fogger darf nur laufen, wenn die gemessene
+Lüfterdrehzahl mindestens die experimentell bestimmte zuverlässige
+Mindestdrehzahl erreicht. Fordert der CO₂-Regler wegen ausreichend niedriger
+CO₂-Konzentration keinen Luftaustausch an, bleibt der Fogger unabhängig vom
+Feuchtebedarf aus. Bei Unterschreiten der Mindestdrehzahl wird der Fogger
+sofort ausgeschaltet. Diese Freigabesperre muss beim Anti-Windup des
+Feuchte-PI-Reglers berücksichtigt werden.
+
 Regelfehler = rF-Sollwert − rF-Istwert. Positiver Fehler erhöht den PID-Ausgang zwischen 0 und 100 %. GPIO6 schaltet über den IRLB8721 als Low-Side-Schalter die 24-V-Fogger-Versorgung (Gate an GPIO6, Drain an Fogger-Minus, Source an GND; HIGH fordert EIN an, LOW = AUS). Der Ausgang wird in einem konfigurierbaren Zeitfenster in eine EIN-Dauer übersetzt: t_ein = Stellwert / 100 × Fensterdauer. Kein 25-kHz-Schalten der Fogger-Versorgung.
 
 Fensterdauer und Mindest-EIN-/AUS-Zeiten erst nach Auswahl des Foggers festlegen. Kurze Anforderungen unterhalb der Mindestlaufzeit gezielt unterdrücken oder über Fenster akkumulieren; die gewählte Strategie muss mit dem Anti-Windup abgestimmt werden. Bei 0 % bleibt der Fogger aus; 100 % darf nur bei freigegebenem Dauerbetrieb dauerhaft einschalten. Schutzabschaltungen wirken sofort, auch während einer Mindestlaufzeit.
@@ -30,6 +40,16 @@ SHT45-Werte in festem, konfigurierbarem Takt erfassen; PID nur mit frischen gül
 | Konfigurierte Feuchteobergrenze überschritten | Fogger AUS unabhängig vom PID |
 
 Zeitüberschreitungen relativ zum Sensortakt definieren. Wiederanlauf erst nach gültigen Messungen und beseitigter Fehlerursache mit begrenztem, sprungarmem Ausgang. Fehlerzustände müssen sichtbar bleiben.
+
+## Offener Versuch nach Einbau des Lüfters
+
+- [ ] Sobald der Lüfter installiert ist: mit dem tatsächlichen Luftweg prüfen,
+  ab welcher PWM-Vorgabe und gemessenen Drehzahl er aus dem Stillstand
+  zuverlässig anläuft. Mehrere Starts wiederholen.
+- [ ] Separat die kleinste zuverlässig gehaltene Drehzahl bei bereits
+  laufendem Lüfter bestimmen. Anlauf- und Betriebsgrenze mit Reserve festhalten.
+- [ ] Fogger-Freigabe erst bei per Tacho bestätigter Mindestdrehzahl prüfen;
+  bei Stillstand oder zu geringer Drehzahl muss der Fogger ausschalten.
 
 ## Firmware-Struktur
 

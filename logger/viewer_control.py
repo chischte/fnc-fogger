@@ -1,4 +1,5 @@
 """Command-mode controls and live, memory-only PI diagrams."""
+import math
 import queue
 import textwrap
 
@@ -9,8 +10,24 @@ from matplotlib.widgets import Button
 from .control_data import Setpoints
 from .viewer_stepper import CO2_LEVELS, HUMIDITY_LEVELS, SetpointStepper
 
-TERM_STYLES = (("p", "P", ":"), ("i", "I", "--"), ("sum", "SUM", "-"))
+TERM_STYLES = (("p", "p", ":"), ("i", "i", "--"), ("sum", "sum", "-"))
 CHANNEL_COLORS = {"humidity": "#2878a8", "co2": "#7b2cbf"}
+
+
+def actuator_graph_titles(state):
+    values = state.get("actuators", {}) if state["online"] else {}
+    samples = state.get("samples", [])
+    latest = samples[-1] if samples and state["online"] and state["enabled"] else {}
+
+    def formatted(value, unit):
+        number = "—" if value is None or not math.isfinite(value) else f"{value:g}"
+        return f"{number} {unit}"
+
+    return (f"Humidity PI [%] | sum: {formatted(latest.get('humidity_sum'), '%')} | "
+            f"ON: {formatted(values.get('on_time_s'), 's')} | "
+            f"OFF: {formatted(values.get('off_time_s'), 's')}",
+            f"CO2 PI [%] | sum: {formatted(latest.get('co2_sum'), '%')} | "
+            f"Fan: {formatted(values.get('rpm'), 'rpm')}")
 
 
 class CommandPanel:
@@ -96,6 +113,7 @@ class CommandPanel:
         render_state = (tuple(theme.items()), tuple(limits) if limits is not None else None,
                         setpoints, state["supported"], state["online"], state["enabled"],
                         state["message"], len(samples), samples[-1]["timestamp"] if samples else None,
+                        actuator_graph_titles(state),
                         self.feedback, self.pending, self.dirty, self.visible)
         if render_state == self._last_render_state:
             return setpoints
@@ -130,7 +148,7 @@ class CommandPanel:
     def _draw_graphs(self, state, theme, limits):
         frame = pd.DataFrame(state["samples"])
         for axis, channel, title in zip(self.graphs, ("humidity", "co2"),
-                                         ("Humidity PI [%]", "CO2 PI [%]")):
+                                         actuator_graph_titles(state)):
             axis.clear()
             axis.set_facecolor(theme["plot"])
             axis.set_title(title, fontsize=10, fontweight="bold", color=theme["text"])

@@ -15,6 +15,17 @@ MAX_HUMIDITY_RH = 100
 MAX_CONTROL_SAMPLES = 2160
 
 
+def actuator_telemetry(control):
+    values = {}
+    for section, field in (("fan", "rpm"), ("fogger", "on_time_s"), ("fogger", "off_time_s")):
+        source = control.get(section)
+        value = source.get(field) if isinstance(source, dict) else None
+        values[field] = (float(value) if isinstance(value, (int, float))
+                         and not isinstance(value, bool) and math.isfinite(value)
+                         and value >= 0 else None)
+    return values
+
+
 def telemetry_sample(control):
     sample = {"timestamp": datetime.now(timezone.utc).astimezone(ZoneInfo("Europe/Zurich")).replace(tzinfo=None)}
     for channel in ("humidity", "co2"):
@@ -82,6 +93,7 @@ class ControlMonitor:
         self._last_sample = None
         self._last_boot = None
         self._message = "Waiting for the lance."
+        self._actuators = actuator_telemetry({})
 
     def ingest(self, payload):
         control = payload.get("control")
@@ -90,6 +102,7 @@ class ControlMonitor:
                 self._online = True
                 self._supported = False
                 self._enabled = False
+                self._actuators = actuator_telemetry({})
                 self._message = "Firmware update required to save setpoints."
             return
         setpoints = Setpoints.from_payload(control["setpoints"])
@@ -105,6 +118,7 @@ class ControlMonitor:
             self._persisted = persisted
             self._online = True
             self._enabled = control.get("enabled") is True
+            self._actuators = actuator_telemetry(control)
             self._message = "Controller active" if self._enabled else "Controller not configured – outputs inactive."
             if not persisted:
                 self._message += " Setpoints are factory defaults."
@@ -119,6 +133,7 @@ class ControlMonitor:
     def disconnected(self, message):
         with self._lock:
             self._online = False
+            self._actuators = actuator_telemetry({})
             self._message = message
 
     def snapshot(self):
@@ -126,4 +141,5 @@ class ControlMonitor:
             return {"setpoints": self._setpoints, "supported": self._supported,
                     "online": self._online, "enabled": self._enabled,
                     "persisted": self._persisted, "samples": list(self._samples),
+                    "actuators": dict(self._actuators),
                     "message": self._message}

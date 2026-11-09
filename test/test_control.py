@@ -21,6 +21,36 @@ def control_payload(sequence=1, co2=1200, humidity=92, persisted=True, enabled=F
 
 
 class ControlDataTests(unittest.TestCase):
+    def test_actuator_titles_use_reported_values_and_clear_when_offline(self):
+        from logger.viewer_control import actuator_graph_titles
+
+        payload = control_payload(enabled=True)
+        payload["control"]["fan"] = {"rpm": 1234}
+        payload["control"]["fogger"] = {"on_time_s": 2, "off_time_s": 18}
+        self.monitor.ingest(payload)
+        titles = actuator_graph_titles(self.monitor.snapshot())
+        self.assertIn("1234 rpm", titles[1])
+        self.assertIn("sum: 40 % | Fan:", titles[1])
+        self.assertIn("sum: 30 % | ON:", titles[0])
+        self.assertIn("ON: 2 s | OFF: 18 s", titles[0])
+        self.monitor.disconnected("Offline")
+        self.assertNotIn("1234", actuator_graph_titles(self.monitor.snapshot())[1])
+        self.assertIn("sum: — % | Fan: — rpm", actuator_graph_titles(self.monitor.snapshot())[1])
+        self.assertIn("ON: — s | OFF: — s", actuator_graph_titles(self.monitor.snapshot())[0])
+
+    def test_invalid_or_missing_actuator_values_remain_unavailable(self):
+        payload = control_payload()
+        payload["control"]["fan"] = {"rpm": True}
+        payload["control"]["fogger"] = {"on_time_s": -1, "off_time_s": float("inf")}
+        self.monitor.ingest(payload)
+        self.assertEqual(self.monitor.snapshot()["actuators"],
+                         {"rpm": None, "on_time_s": None, "off_time_s": None})
+        payload["control"]["fan"] = {"rpm": 0}
+        self.monitor.ingest(payload)
+        self.assertEqual(self.monitor.snapshot()["actuators"]["rpm"], 0)
+        self.monitor.ingest(control_payload())
+        self.assertIsNone(self.monitor.snapshot()["actuators"]["rpm"])
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.database = Path(self.temp.name) / "measurements.db"
@@ -124,14 +154,14 @@ class CommandLayoutTests(unittest.TestCase):
                 if button_axis.texts[0].get_text() == "View mode":
                     for axis in charts:
                         self.assertLessEqual(axis.get_position().x1, 0.51)
-                    pi_axes = [axis for axis in fig.axes if axis.get_title().endswith("PI [%]")]
+                    pi_axes = [axis for axis in fig.axes if "PI [%] |" in axis.get_title()]
                     self.assertEqual(len(pi_axes), 2)
                     self.assertTrue(all(axis.get_ylim() == (-100, 100) for axis in pi_axes))
                     for axis in pi_axes:
                         self.assertEqual(axis.spines["bottom"].get_position(), ("data", 0))
                         self.assertEqual([line.get_linestyle() for line in axis.lines], [":", "--", "-"])
                         self.assertEqual([text.get_text() for text in axis.get_legend().get_texts()],
-                                         ["P", "I", "SUM"])
+                                         ["p", "i", "sum"])
                         color = "#2878a8" if axis.get_title().startswith("Humidity") else "#7b2cbf"
                         self.assertTrue(all(line.get_color() == color for line in axis.lines))
                 else:

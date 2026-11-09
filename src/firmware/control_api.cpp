@@ -44,6 +44,8 @@ String buildControlJson(const ControlSettingsStore& store) {
   // Actuators and PI tuning are not installed on the current measurement lance.
   json += ",\"enabled\":false,\"reason\":\"not_configured\"";
   json += ",\"humidity\":{\"p\":null,\"i\":null,\"sum\":null}";
-  json += ",\"co2\":{\"p\":null,\"i\":null,\"sum\":null}}";
+  json += ",\"co2\":{\"p\":null,\"i\":null,\"sum\":null}";
+  json += ",\"fan\":{\"rpm\":null}";
+  json += ",\"fogger\":{\"on_time_s\":null,\"off_time_s\":null}}";
   return json;
 }
