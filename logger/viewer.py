@@ -839,21 +839,21 @@ def main() -> None:
         from logger.viewer_selection import LanceSelection
         from logger.lance_collection import LanceCollector
         from logger import logger as acquisition
+        from logger.background_process import ensure_background_logger
     except ImportError as error:
         print(f"Missing dependency: {error}. Run: pip install -r logger/requirements.txt",
               file=sys.stderr)
         return
 
+    ensure_background_logger(DB_FILE.parent)
     while True:
         selection = LanceSelection(DB_FILE.parent)
         lance = selection.show()
         if lance is None:
             return
         database = selection.registry.measurement_path(lance)
-        from contextlib import closing
-        with closing(acquisition.connect(database)) as db:
-            if database == DB_FILE:
-                acquisition.import_csv(db)
+        # A newly registered device may precede the background worker by one scan.
+        acquisition.connect(database).close()
         collector = LanceCollector(lance, database)
         collector.start()
         title = lance.label + (f" @ {lance.location}" if lance.location else "")

@@ -39,12 +39,16 @@ actual ESP32-C3 SuperMini. Explicitly configure I2C SDA GPIO0 / SCL GPIO1.
 Leave GPIO8 (board LED) and GPIO9 (BOOT) unused; both are boot configuration
 pins. USB uses GPIO18/19 and remains available.
 
-The current actuator assignment is gate GPIO3, fan PWM GPIO5, fan tach GPIO6
-(C3 firmware 3.2.1 and later). GPIO21 was considered for the gate but rejected:
-it is UART0 TX and may output boot messages before application initialization.
+The current actuator assignment is gate GPIO21, fan PWM GPIO5, fan tach GPIO6
+(C3 firmware 3.4.1 and later). GPIO3 was used through firmware 3.4.0.
+GPIO21 is UART0 TX and may actively output boot messages before application
+initialization. Application logging uses native USB; the firmware requests
+GPIO21 LOW at actuator initialization. This does not suppress ROM boot output.
+An external gate-source pull-down helps while the pin is high-impedance but
+cannot override active UART HIGH pulses. A guaranteed boot-time OFF state
+requires separate hardware inhibition or a board-specific ROM logging setup.
+This change does not modify eFuses or strapping pins.
 See [Espressif's boot and pin documentation](https://documentation.espressif.com/esp32-c3_datasheet_en.html).
-An external gate-source pull-down is still required for a defined OFF state
-while GPIO3 is high-impedance during reset.
 
 Pin reference: [Apache NuttX: ESP32-C3 SuperMini](https://nuttx.incubator.apache.org/docs/latest/platforms/risc-v/esp32c3/boards/esp32c3-supermini/index.html).
 
@@ -121,14 +125,14 @@ must remain insulated from GND/enclosure.
              1  2  3
              G  D  S
              |  |  +-------- Supply GND / ESP32 GND
-GPIO3 -------+  |
+GPIO21 -------+  |
                 +----------- Fogger negative
 Buck OUT+ 5 V -------------- Fogger positive
 ```
 
 | Terminal | Connection |
 | --- | --- |
-| Gate, pin 1 left | Direct to ESP32 GPIO3 |
+| Gate, pin 1 left | Direct to ESP32 GPIO21 |
 | Drain, pin 2 middle | Fogger negative |
 | Source, pin 3 right | Supply negative and ESP32 GND |
 | Fogger positive | XZG buck OUT+ (5.0 V) |
@@ -144,7 +148,7 @@ Use a complete 5 V ultrasonic module with its own driver, not a bare piezo eleme
 - Without gate series resistance, GPIO charging currents and ringing are not externally limited; keep wires short and check the real assembly.
 - Fogger uses 5 V from the buck; fan remains directly on 24 V. Only fan and buck input connect to the 24 V net.
 
-Set GPIO3 LOW early. HIGH requests ON; LOW switches off with a powered,
+Set GPIO21 LOW early. HIGH requests ON; LOW switches off with a powered,
 actively driven GPIO. Fixed ON time is 200 ms, OFF time varies (50%: 200 ms
 ON / 200 ms OFF); no 25 kHz fogger PWM. Check minimum run times, restart
 behaviour and independent dry-run protection for the actual module.
@@ -153,7 +157,9 @@ Source: [Infineon IRLB8721 datasheet, pinout and ratings](https://www.infineon.c
 
 ## Upload and OTA
 
-The planned actuator controller is not implemented. The `esp32c3_supermini`
+Firmware 3.3.0 implements startup-only fan/fogger tests and measured tach RPM;
+the PI actuator controller is not implemented. See [commissioning mode](control.md).
+The `esp32c3_supermini`
 profile now prepares sensor operation and WiFi OTA with a 4 MiB partition layout.
 See [device management and USB provisioning](device-management.md).
 The XZG buck keeps the ESP32 supplied with 5 V.

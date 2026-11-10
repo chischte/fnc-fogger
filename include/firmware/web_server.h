@@ -9,14 +9,21 @@
 #include "firmware/measurement_controller.h"
 #include "firmware/network_discovery.h"
 #include "firmware/qspi_storage.h"
+#include "firmware/startup_test.h"
+#include "firmware/manual_control.h"
+#ifdef ARDUINO_ARCH_ESP32
+#include "firmware/i2c_diagnostics.h"
+#endif
 
 class WebServer {
  public:
   WebServer(MeasurementController& measurements, QspiStorage& storage,
-            FirmwareUpdater& firmwareUpdater, ControlSettingsStore& controlSettings);
+            FirmwareUpdater& firmwareUpdater, ControlSettingsStore& controlSettings,
+            const ActuatorStatus* actuators = nullptr, ManualControl* manual = nullptr);
 
   void begin(uint32_t now);
   void poll(uint32_t now);
+  bool firmwareUpdateInProgress() const;
 
  private:
   enum class ClientState {
@@ -43,6 +50,10 @@ class WebServer {
   void finishControlSettings();
 
   String buildApiJson(bool includeHistory) const;
+#ifdef ARDUINO_ARCH_ESP32
+  String buildI2cDiagnosticsJson() const;
+  I2cDiagnostics i2cDiagnostics_;
+#endif
   void startApiResponse();
   void prepareNextHistoryChunk();
   String headerValue(const char* name) const;
@@ -69,6 +80,9 @@ class WebServer {
   WiFiClient client_;
   NetworkDiscovery discovery_;
   ControlSettingsStore& controlSettings_;
+  const ActuatorStatus* actuators_;
+  ManualControl* manual_;
+  bool manualRequest_ = false;
   String controlBody_;
   BacklogReader backlogReader_;
   ClientState clientState_ = ClientState::idle;

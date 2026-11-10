@@ -1,0 +1,15 @@
+Use case: precise-object-edit. Tool: built-in image_gen.
+Edit target: docs/fnc-fogger-layout-v4.png.
+Only panel 3 Sensors / I2C: recolor complete nets, including horizontal buses,
+junction dots, vertical sensor branches and dashed optional SHTC3 branches.
+3V3 = red; GND = black; SDA GPIO0 = blue; SCL GPIO1 = yellow.
+Every sensor's four wires from left to right must be red, black, blue, yellow,
+matching its 3V3 GND SDA SCL pin labels. Keep crossings distinct from junctions.
+Use dark SCL label text for contrast. Preserve all text, wiring geometry,
+other panels, buck IN-/OUT- connection and the existing schematic footer legend.
+
+Visual QA correction: the first generated edit had the middle sensor SDA/SCL
+vertical colors swapped and the optional sensor SDA branch red. Recolor the
+middle SHT45 third/SDA branch entirely blue and fourth/SCL branch entirely
+yellow; recolor optional SHTC3 third/SDA dashed branch entirely blue. Preserve
+all other branches and the optional dashed style.

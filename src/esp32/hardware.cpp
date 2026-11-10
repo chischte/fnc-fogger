@@ -20,11 +20,6 @@ void printDeviceStatus(uint8_t address, const char* name) {
 }  // namespace
 
 void beginEsp32Hardware() {
-#if defined(CONFIG_IDF_TARGET_ESP32C3)
-  // This provisioning firmware does not run the planned actuator controller.
-  digitalWrite(Config::FOGGER_ENABLE_PIN, LOW);
-  pinMode(Config::FOGGER_ENABLE_PIN, OUTPUT);
-#endif
   Serial.print("PSRAM bytes: ");
   Serial.println(ESP.getPsramSize());
   if (!Wire.begin(Config::I2C_SDA_PIN, Config::I2C_SCL_PIN)) {

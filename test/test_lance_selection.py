@@ -1,3 +1,4 @@
+import sqlite3
 import tempfile
 import unittest
 from contextlib import closing
@@ -65,21 +66,23 @@ class LanceRegistryTests(unittest.TestCase):
         self.assertEqual(restored.database_name, original.database_name)
         self.assertEqual(restored.name, "Old lance")
 
-    def test_collection_uses_selected_device_and_stops_cleanly(self):
+    def test_viewer_telemetry_stops_without_writing_measurements(self):
         lance = self.registry.remember(self.lance)
         collector = LanceCollector(lance, self.registry.measurement_path(lance))
 
         def payload(url):
             self.assertEqual(url, self.lance.url + "/api/current")
-            return {"boot_id": 4, "sequence": 2, "boxtemp": 24}
+            return {"device_id": self.lance.device_id, "measurement": {"boot_id": 4, "sequence": 2, "boxtemp": 24}}
 
         with patch("logger.lance_collection.logger.fetch_json", side_effect=payload), \
-                patch.object(collector.stop_event, "wait", side_effect=lambda _: collector.stop()):
+                patch.object(collector.command_event, "wait", side_effect=lambda _: collector.stop()):
             collector.start()
             collector.thread.join(timeout=3)
         self.assertFalse(collector.thread.is_alive())
-        frame = viewer_data.load_data(collector.database, collector.database.with_suffix(".csv"))
-        self.assertEqual(frame["temp_box_c"].tolist(), [24])
+        with closing(sqlite3.connect(collector.database)) as db:
+            tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        self.assertNotIn("measurements", tables)
+        self.assertEqual(collector.latest_status(), "Connected")
 
 
 class ChartNavigationTests(unittest.TestCase):
@@ -109,6 +112,28 @@ class ChartNavigationTests(unittest.TestCase):
 
 
 class SelectionEditingTests(unittest.TestCase):
+    def test_device_id_is_selectable_readonly_and_click_copies_mac(self):
+        from logger.viewer_selection import LanceSelection
+        with tempfile.TemporaryDirectory() as directory:
+            registry = LanceRegistry(directory)
+            device = registry.remember(Lance("b81f3f288aec", "test.local", 80))
+            selection = LanceSelection(directory)
+            try:
+                field = selection.device_id_fields[device.device_id]
+                field.insert(0, "cannot change")
+                self.assertEqual(field.get(), "B8:1F:3F:28:8A:EC")
+                field.selection_range(0, "end")
+                self.assertTrue(field.selection_present())
+                selection._copy_device_id(device.device_id)
+                self.assertEqual(selection.window.clipboard_get(), "B8:1F:3F:28:8A:EC")
+                self.assertEqual(registry.list()[0].device_id, "b81f3f288aec")
+                self.assertEqual(field.cget("readonlybackground"), "#3b8c62")
+                registry.remove(device.device_id)
+                selection._refresh_rows()
+                self.assertEqual(selection.device_id_fields, {})
+            finally:
+                selection._finish()
+
     def test_inline_edits_survive_refresh_and_save_on_selection_change(self):
         from logger.viewer_selection import LanceSelection
         with tempfile.TemporaryDirectory() as directory:

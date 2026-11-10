@@ -16,12 +16,17 @@ constexpr size_t MAX_CONTROL_BODY_BYTES = 96;
 WebServer::WebServer(MeasurementController& measurements,
                      QspiStorage& storage,
                      FirmwareUpdater& firmwareUpdater,
-                     ControlSettingsStore& controlSettings)
+                     ControlSettingsStore& controlSettings, const ActuatorStatus* actuators, ManualControl* manual)
     : measurements_(measurements),
       storage_(storage),
       firmwareUpdater_(firmwareUpdater),
       server_(Config::HTTP_PORT),
-      controlSettings_(controlSettings) {}
+      controlSettings_(controlSettings),
+      actuators_(actuators), manual_(manual) {}
+
+bool WebServer::firmwareUpdateInProgress() const {
+  return clientState_ == ClientState::receivingUpload || restartAfterResponse_;
+}
 
 void WebServer::begin(uint32_t now) {
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -29,6 +34,9 @@ void WebServer::begin(uint32_t now) {
 }
 
 void WebServer::poll(uint32_t now) {
+#ifdef ARDUINO_ARCH_ESP32
+  i2cDiagnostics_.poll(now);
+#endif
   serviceWifi(now);
   discovery_.poll(serverStarted_, now);
   if (!serverStarted_) {
@@ -216,9 +224,23 @@ void WebServer::handleRequest() {
     return;
   }
 
+#ifdef ARDUINO_ARCH_ESP32
+  if ((method == "GET" && path == "/api/i2c") ||
+      (method == "POST" && path == "/api/i2c/scan")) {
+    if (!i2cDiagnostics_.started() || method == "POST") {
+      i2cDiagnostics_.start();
+    }
+    startResponse(200, "application/json", buildI2cDiagnosticsJson());
+    return;
+  }
+#endif
   if (method == "GET" && path == "/api/control") {
-    startResponse(200, "application/json", buildControlJson(controlSettings_));
+    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_));
   } else if (method == "POST" && path == "/api/control/setpoints") {
+    manualRequest_ = false;
+    prepareControlSettings();
+  } else if (method == "POST" && path == "/api/control/manual") {
+    manualRequest_ = true;
     prepareControlSettings();
   } else if (method == "GET" && path == "/api/measurement") {
     startApiResponse();
@@ -240,7 +262,11 @@ void WebServer::handleRequest() {
 }
 
 void WebServer::prepareControlSettings() {
-  if (!controlSettings_.available()) {
+  if (manualRequest_ && (!manual_ || !actuators_ || !actuators_->hardwareReady)) {
+    startResponse(503, "text/plain", "Manual outputs unavailable.");
+    return;
+  }
+  if (!manualRequest_ && !controlSettings_.available()) {
     startResponse(503, "text/plain", "Persistent control settings unavailable.");
     return;
   }
@@ -255,6 +281,23 @@ void WebServer::prepareControlSettings() {
 }
 
 void WebServer::finishControlSettings() {
+  if (manualRequest_) {
+    bool active, renew;
+    uint8_t fan, fogger;
+    if (!parseManualSettings(controlBody_, active, fan, fogger, renew)) {
+      startResponse(422, "text/plain", "Invalid manual outputs.");
+      return;
+    }
+    const bool accepted = renew ? manual_->renew(fan, fogger, millis()) :
+                                 manual_->set(active, fan, fogger, millis());
+    if (!accepted) {
+      startResponse(422, "text/plain", "Invalid manual outputs.");
+      return;
+    }
+    // Output drivers apply this accepted command on the next application poll.
+    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_));
+    return;
+  }
   ControlSettings settings;
   if (!parseControlSettings(controlBody_, settings)) {
     startResponse(422, "text/plain", "Setpoints out of range or malformed.");
@@ -264,7 +307,7 @@ void WebServer::finishControlSettings() {
     startResponse(503, "text/plain", "Setpoints could not be persisted.");
     return;
   }
-  startResponse(200, "application/json", buildControlJson(controlSettings_));
+  startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_));
 }
 
 void WebServer::prepareUpload() {
@@ -301,6 +344,33 @@ void WebServer::finishUpload() {
                 result.restartRequired);
 }
 
+#ifdef ARDUINO_ARCH_ESP32
+String WebServer::buildI2cDiagnosticsJson() const {
+  String json = "{\"sda_gpio\":" + String(Config::I2C_SDA_PIN);
+  json += ",\"scl_gpio\":" + String(Config::I2C_SCL_PIN);
+  json += ",\"running\":";
+  json += i2cDiagnostics_.running() ? "true" : "false";
+  json += ",\"complete\":";
+  json += i2cDiagnostics_.complete() ? "true" : "false";
+  json += ",\"addresses\":[";
+  bool first = true;
+  for (uint8_t address = I2cDiagnostics::FIRST_ADDRESS; address <= I2cDiagnostics::LAST_ADDRESS; ++address) {
+    if (i2cDiagnostics_.status(address) != 0) {
+      continue;
+    }
+    if (!first) {
+      json += ',';
+    }
+    first = false;
+    json += String(address);
+  }
+  json += "],\"sht45_address\":" + String(Config::SHT45_I2C_ADDRESS);
+  json += ",\"sht45_probe_status\":" + String(i2cDiagnostics_.status(Config::SHT45_I2C_ADDRESS));
+  json += '}';
+  return json;
+}
+#endif
+
 String WebServer::buildApiJson(bool includeHistory) const {
   String json;
   json.reserve(2048);
@@ -323,7 +393,7 @@ String WebServer::buildApiJson(bool includeHistory) const {
   json += ",\"storage_ready\":";
   json += storage_.isDataReady() ? "true" : "false";
   json += ",\"scd_errors\":" + String(measurements_.sensorErrorCount());
-  json += ",\"control\":" + buildControlJson(controlSettings_);
+  json += ",\"control\":" + buildControlJson(controlSettings_, actuators_, manual_);
   json += ",\"measurement\":";
   appendMeasurementJson(json, measurements_.current(), measurements_.bootId());
   json += includeHistory ? ",\"history\":[" : "}";

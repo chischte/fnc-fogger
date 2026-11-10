@@ -55,6 +55,28 @@ class Setpoints:
         return cls(float(payload["co2_ppm"]), float(payload["humidity_rh"]))
 
 
+@dataclass(frozen=True)
+class ManualOutputs:
+    active: bool
+    fan_percent: int = 0
+    fogger_percent: int = 0
+
+    def __post_init__(self):
+        for value in (self.fan_percent, self.fogger_percent):
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 100:
+                raise ValueError("Manual outputs must be whole percentages from 0 to 100.")
+        if not isinstance(self.active, bool) or (not self.active and (self.fan_percent or self.fogger_percent)):
+            raise ValueError("Inactive manual outputs must both be zero.")
+
+    @classmethod
+    def from_payload(cls, payload):
+        return cls(payload["active"], payload["fan_percent"], payload["fogger_percent"])
+
+    def fields(self):
+        return {"mode": "manual" if self.active else "off",
+                "fan_percent": self.fan_percent, "fogger_percent": self.fogger_percent}
+
+
 class SetpointRepository:
     def __init__(self, database):
         self.database = Path(database)
@@ -93,6 +115,8 @@ class ControlMonitor:
         self._last_sample = None
         self._last_boot = None
         self._message = "Waiting for the lance."
+        self._manual = None
+        self._manual_supported = False
         self._actuators = actuator_telemetry({})
 
     def ingest(self, payload):
@@ -100,6 +124,8 @@ class ControlMonitor:
         if not isinstance(control, dict) or control.get("version") != 1:
             with self._lock:
                 self._online = True
+                self._manual_supported = False
+                self._manual = None
                 self._supported = False
                 self._enabled = False
                 self._actuators = actuator_telemetry({})
@@ -113,6 +139,9 @@ class ControlMonitor:
         sample_id = (measurement.get("boot_id"), measurement.get("sequence"))
         sample = telemetry_sample(control)
         with self._lock:
+            manual = control.get("manual", {})
+            self._manual_supported = manual.get("supported") is True
+            self._manual = ManualOutputs.from_payload(manual) if self._manual_supported else None
             self._setpoints = setpoints
             self._supported = control.get("settings_supported") is True
             self._persisted = persisted
@@ -120,6 +149,17 @@ class ControlMonitor:
             self._enabled = control.get("enabled") is True
             self._actuators = actuator_telemetry(control)
             self._message = "Controller active" if self._enabled else "Controller not configured – outputs inactive."
+            commissioning = {
+                "manual": "Manual Mode: PI control disabled. Fogger uses a 1-second duty cycle.",
+                "manual_timeout": "Manual connection expired: both outputs stopped. Switch On again to resume.",
+                "startup_test": "Startup hardware test: fan and fogger pulses; PI control disabled.",
+                "startup_test_complete": "Hardware test complete: fan 0%, fogger OFF; PI control disabled.",
+                "manual_full_speed": "Hardware test complete: fan 100%, fogger OFF; PI control disabled.",
+                "startup_test_aborted": "Startup test aborted: fogger OFF; PI control disabled.",
+                "hardware_error": "Actuator hardware initialization failed; fogger OFF.",
+            }
+            if not self._enabled and control.get("reason") in commissioning:
+                self._message = commissioning[control["reason"]]
             if not persisted:
                 self._message += " Setpoints are factory defaults."
             has_measurement = sample_id[0] is not None and sample_id[1] is not None
@@ -141,5 +181,6 @@ class ControlMonitor:
             return {"setpoints": self._setpoints, "supported": self._supported,
                     "online": self._online, "enabled": self._enabled,
                     "persisted": self._persisted, "samples": list(self._samples),
+                    "manual": self._manual, "manual_supported": self._manual_supported,
                     "actuators": dict(self._actuators),
                     "message": self._message}

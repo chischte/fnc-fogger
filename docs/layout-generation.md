@@ -82,3 +82,34 @@ GPIO7, GPIO6, GPIO5. Checked against the
 This is a pin-location illustration, not an exact photograph of the PCB.
 Edited using the built-in image_gen tool and visually checked for contact
 count, signal assignment and readable contrasting labels.
+
+## Buck internal common ground, 2026-11-10
+
+Edited panel 1 with the built-in image_gen tool following the user's marked
+reference: a black line now joins buck IN- and OUT- directly beneath the
+module, representing their internal connection on the installed buck.
+Removed the redundant lower distributor branch and label Buck OUT- (GND).
+The three branches to ESP32 GND, fan pin 1 and MOSFET source remain.
+Visually checked the connection and branch removal. The project reference
+remains `fnc-fogger-layout-v4.png`.
+[Exact edit specification](layout-buck-common-ground-prompt.txt).
+
+## Sensor-bus cable colors, 2026-11-10
+
+Panel 3 now uses red for 3V3, black for GND, blue for SDA GPIO0 and yellow
+for SCL GPIO1, including all three sensors and the dashed optional branches.
+SCL text stays dark for readability. Generated with the built-in image_gen
+tool, visually corrected and checked branch by branch. Only the edited
+sensor-wire region was transferred into the existing diagram so the other
+panels remain unchanged.
+[Edit specification](layout-i2c-net-colors-prompt.txt).
+
+## Gate GPIO21, 2026-11-10
+
+At the user's request, GPIO21 now drives the MOSFET gate instead of GPIO3.
+Panel 2 marks the right top contact GPIO21 / GATE in purple; left fourth GPIO3
+is gray and unused. Panel 5 gate command label is GPIO21. Other functional
+assignments remain unchanged. Edited with built-in image_gen and visually
+checked. [Edit specification](layout-gate-gpio21-prompt.txt).
+Firmware 3.4.1 and hardware.md document the new mapping and UART0 ROM boot
+output limitation. No eFuse changes or physical device upload were performed.

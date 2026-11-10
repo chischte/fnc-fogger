@@ -8,6 +8,7 @@ from matplotlib import dates as mdates
 from matplotlib.widgets import Button
 
 from .control_data import Setpoints
+from .viewer_manual import ManualPanel
 from .viewer_stepper import CO2_LEVELS, HUMIDITY_LEVELS, SetpointStepper
 
 TERM_STYLES = (("p", "p", ":"), ("i", "i", "--"), ("sum", "sum", "-"))
@@ -41,6 +42,7 @@ class CommandPanel:
         self.feedback = ""
         self.changed = False
         self._last_render_state = None
+        self._last_theme = None
         self.graphs = [figure.add_subplot(grid[row, 1]) for row in range(2)]
         self.editor = figure.add_subplot(grid[2, 1])
         self.editor.axis("off")
@@ -52,7 +54,13 @@ class CommandPanel:
         self.humidity.set_val(90)
         self.save = Button(figure.add_axes([0, 0, 0.1, 0.03]), "Save")
         self.save.on_clicked(self._submit)
+        self.manual = ManualPanel(figure, collector, self._refresh_manual)
         self.set_visible(False)
+
+    def _refresh_manual(self):
+        if self._last_theme is not None:
+            self.update(self._last_theme, self.graphs[0].get_xlim())
+            self.figure.canvas.draw_idle()
 
     def _edited(self, _value):
         self.dirty = True
@@ -75,6 +83,7 @@ class CommandPanel:
 
     def layout(self):
         box = self.editor.get_position()
+        self.manual.layout(box)
         for field, y in ((self.co2, 0.62), (self.humidity, 0.38)):
             field.layout([box.x0 + box.width * 0.04, box.y0 + box.height * y,
                           box.width * 0.92, box.height * 0.17])
@@ -87,6 +96,7 @@ class CommandPanel:
             axis.set_visible(visible)
         for widget in (self.co2, self.humidity, self.save):
             widget.set_active(visible and not self.pending)
+        self.manual.set_visible(visible)
         self.layout()
 
     def _read_results(self):
@@ -103,17 +113,19 @@ class CommandPanel:
                 self.dirty = False
 
     def update(self, theme, limits=None):
+        self._last_theme = theme
         self.changed = False
         self._read_results()
         state = self.collector.control.snapshot() if self.collector else {
             "setpoints": None, "samples": [], "supported": False,
             "online": False, "enabled": False, "message": "No lance connected."}
+        manual_state = self.manual.update(state, self.visible, theme)
         setpoints = state["setpoints"]
         samples = state["samples"]
         render_state = (tuple(theme.items()), tuple(limits) if limits is not None else None,
                         setpoints, state["supported"], state["online"], state["enabled"],
                         state["message"], len(samples), samples[-1]["timestamp"] if samples else None,
-                        actuator_graph_titles(state),
+                        actuator_graph_titles(state), manual_state,
                         self.feedback, self.pending, self.dirty, self.visible)
         if render_state == self._last_render_state:
             return setpoints
@@ -124,15 +136,20 @@ class CommandPanel:
             self.humidity.set_val(setpoints.humidity_rh)
             self.last_setpoints = setpoints
         available = self.visible and state["supported"] and state["online"] and not self.pending
-        self.save.set_active(available)
+        self.save.ax.set_visible(self.visible and not self.manual.selected)
+        self.save.set_active(available and not self.manual.selected)
         for field in (self.co2, self.humidity):
-            field.set_active(self.visible and not self.pending)
+            for axis in field.axes:
+                axis.set_visible(self.visible and not self.manual.selected)
+            field.set_active(self.visible and not self.pending and not self.manual.selected)
+        self.heading.set_text("Manual Outputs" if self.manual.selected else "Setpoints")
         self.heading.set_color(theme["text"])
         message = state["message"]
         if setpoints is None:
             message += " Displaying editable defaults; not saved to the device."
-        if self.feedback:
-            message = self.feedback + "\n" + message
+        feedback = self.manual.feedback if self.manual.selected or self.manual.pending else self.feedback
+        if feedback:
+            message = feedback + "\n" + message
         self.status.set_text(textwrap.fill(message, 68))
         self.status.set_color(theme["muted"])
         for field in (self.co2, self.humidity):

@@ -11,7 +11,8 @@ constexpr int I2C_SDA_PIN = 0;
 constexpr int I2C_SCL_PIN = 1;
 constexpr int FAN_PWM_PIN = 5;
 constexpr int FAN_TACH_PIN = 6;
-constexpr int FOGGER_ENABLE_PIN = 3;
+// UART0 TX can emit ROM boot output before application initialization.
+constexpr int FOGGER_ENABLE_PIN = 21;
 #else
 constexpr int I2C_SDA_PIN = 8;
 constexpr int I2C_SCL_PIN = 9;

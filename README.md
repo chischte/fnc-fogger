@@ -9,11 +9,13 @@ the planned ESP32-C3 SuperMini, sensors, fan and fogger assembly. It replaces
 earlier diagrams. See [Hardware](docs/hardware.md) for connection tables and notes.
 
 The plan uses SDA **GPIO0**, SCL **GPIO1**, fan PWM **GPIO5**, fan tach **GPIO6**
-and fogger gate **GPIO3**. Sensors use **3.3 V**. An optional **SHTC3** measures
+and fogger gate **GPIO21**. Sensors use **3.3 V**. An optional **SHTC3** measures
 ambient humidity and temperature on the same I2C bus. The fan uses **24 V**;
 the buck supplies the ESP32 and fogger with **5 V**. The existing ESP32-S3
 uses SDA GPIO8 and SCL GPIO9. The additional `esp32c3_supermini` profile
-prepares sensors and OTA on GPIO0/1; actuator control remains pending.
+supports sensors and OTA on GPIO0/1. Since C3 firmware 3.3.0, startup-only
+fan/fogger tests and tach RPM are available; PI regulation remains pending.
+See [commissioning mode](docs/control.md).
 
 See [device management and first two SuperMini installations](docs/device-management.md)
 for the device overview, firmware storage locations and targeted updates.
@@ -91,7 +93,10 @@ Measurement system for a climate chamber using Arduino Portenta Machine Control:
 
 ## Operation
 
-Logger: `python logger/logger.py`.
+Background logger for all registered devices: `python -m logger.background`.
+On Windows, install login autostart and watchdog with `powershell -File install_logger_autostart.ps1`.
+See [continuous recording](docs/background-logger.md).
+The old `logger/logger.py --url ...` remains a legacy single-device tool.
 
 Different IP: `python logger/logger.py --url http://192.168.31.168`.
 
@@ -162,9 +167,11 @@ closing charts exits the viewer.
 
 An existing `measurements.db` is assigned using the last stored SCD41 serial
 number. Other lances have separate databases at
-`logger/data/devices/<device-id>.db`. While charts are open, the viewer polls
-the selected lance every five seconds and saves new readings. The standalone
-logger remains usable for continuous recording independently of the viewer.
+`logger/data/devices/<device-id>.db`. The independent background logger records
+all registered devices, including when selection/charts are closed. The viewer
+reads these databases and polls only live control telemetry and commands; it
+does not insert measurements. Buffered records are recovered on startup and
+after gaps, with measurement times reconstructed from boot uptime.
 
 The top-right button switches "View mode" / "Command mode". Command mode
 shows measurement curves on the left and Humidity/CO2 PI charts on the right
@@ -310,3 +317,9 @@ its content but streams history one point at a time from a fixed snapshot,
 avoiding a huge JSON string that exhausts the heap and returns incomplete data
 with full history. `/api/backlog/current` retrieves only the current QSPI file;
 `/api/backlog` still returns the previous file as well.
+
+Manual actuator tests are available in Command Mode ? Manual Mode with C3
+firmware 3.4.0: separate 0?100% fan PWM and fogger duty, independent On/Off buttons and Stop All.
+See [manual operation and connection timeout](docs/control.md#manual-mode-firmware-340).
+
+[Grafische Projektarchitektur mit mehreren Geräten](docs/architecture.md).

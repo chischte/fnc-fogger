@@ -1,0 +1,13 @@
+Use case: precise-object-edit.
+Tool: built-in image_gen.
+Edit target: docs/fnc-fogger-layout-v4.png, existing six-panel wiring diagram.
+
+Change only panel 1 (24-V Supply). Add a black ground connection between
+buck IN- and OUT-, along the lower edge of the buck, above the Schematic
+connections caption. Preserve incoming GND at IN- and outgoing GND at OUT-.
+The line represents the buck module's internal common ground connection.
+Remove the redundant lower distributor branch, its endpoint and its label
+"Buck OUT- (GND)". Preserve the other three branches to ESP32 GND,
+Fan Pin 1 (GND), and MOSFET Source (GND), and the vertical ground distributor.
+Do not retain any red markup or cross. Preserve all other panels, labels,
+components, GPIO assignments, wire colors, layout and image dimensions.

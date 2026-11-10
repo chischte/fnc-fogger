@@ -18,7 +18,9 @@ letzte Erreichbarkeit, Geräte-ID und Adresse. Hardwareprofil und Buildkennung
 bleiben intern für die Updateprüfung gespeichert. Die Firmwareanzeige lässt
 den Hardwarezusatz weg, beispielsweise `3.2.1` statt `3.2.1-esp32c3`.
 Die Geräte-ID erscheint als WLAN-MAC mit Großbuchstaben und Doppelpunkten;
-intern bleibt sie unverändert ohne Doppelpunkte gespeichert. Das ändert weder
+sie ist als schreibgeschützter Text markierbar. Ein Klick kopiert die gesamte
+angezeigte MAC-Adresse in die Zwischenablage.
+Intern bleibt sie unverändert ohne Doppelpunkte gespeichert. Das ändert weder
 Gerätezuordnung noch Messdaten oder Updates. Bei `Last seen` steht für heute
 nur die lokale Uhrzeit, für andere Tage zusätzlich das Datum.
 Beschrifte jedes Gerät mit Name und kurzer ID, z. B.
@@ -167,6 +169,28 @@ und [Espressif OTA-Partitionen](https://docs.espressif.com/projects/esp-idf/en/r
 
 ## Prüfung dieser Vorbereitung
 
+### I2C-Diagnose ab C3-Firmware 3.2.2
+
+`GET /api/i2c` startet beim ersten Aufruf einen Scan und liefert dessen Status.
+`POST /api/i2c/scan` startet einen neuen Scan, sofern keiner läuft. Die Firmware
+prüft GPIO0/SDA und GPIO1/SCL mit einer Adresse pro Poll im Bereich 0x08–0x77,
+ohne Befehlsdaten an unbekannte Geräte zu schreiben. `addresses` enthält die
+bestätigten Adressen als Dezimalzahlen. `sht45_probe_status` ist der rohe
+Wire-Status für 0x44: 0 = ACK, 2 = Adress-NACK, 255 = noch nicht geprüft.
+Ein ACK bestätigt die Erreichbarkeit einer Adresse, nicht den Sensortyp.
+
+Am 10. November 2026 wurde 3.2.2 gezielt auf `b81f3f288aec` installiert und
+der Neustart bestätigt. Zwei abgeschlossene Scans fanden ausschließlich
+0x62 (SCD41). 0x44 meldete beide Male Status 2, also kein ACK. Es wurde kein
+zweiter I2C-Teilnehmer gefunden; der SHT45 lieferte weiterhin keine Werte.
+Die Firmwaredatei liegt unter `firmware/fnc-fogger-firmware_3.2.2.bin`.
+
+Nach Austausch des Feuchtesensors am selben Tag antworten 0x44 und 0x62.
+Die SHT45-Probe meldet Status 0 (ACK); Temperatur und Feuchte sind gültig
+(beobachtet 29,01 °C und 48,66 %RH). Der zuvor verwendete Sensor beziehungsweise
+dessen Modul ist damit als Fehlerursache naheliegend; ein interner Defekt wurde
+nicht separat geprüft.
+
 Die spätere Pinänderung ist ab C3-Firmware `3.2.1-esp32c3` vorbereitet:
 MOSFET-Gate GPIO3, FAN PWM GPIO5, FAN TACH GPIO6. Die USB-/OTA-Testprotokolle
 der beiden Minis beschreiben den damals installierten Stand 3.2.0 und bleiben
@@ -185,3 +209,21 @@ Aktorenregelung ist weiterhin nicht implementiert.
   der [erste Mini erfolgreich per USB und OTA getestet](esp32c3-mini-01-test-2026-11-09.md).
   Auch der [zweite Mini, fogger 01](esp32c3-mini-02-test-2026-11-09.md), ist nun
   erfolgreich getestet. Die S3-Lanze wurde nicht aktualisiert.
+
+## Gate assignment revision, 2026-11-10
+
+Firmware 3.4.1 supersedes the historical GPIO3 gate assignment above with
+GPIO21. FAN PWM remains GPIO5, FAN TACH remains GPIO6; I2C remains GPIO0/1.
+GPIO21 is UART0 TX; ROM boot output can precede firmware initialization.
+No eFuse or strapping changes were made. See hardware.md for boot limitations.
+Do not install this firmware until the physical gate wiring matches GPIO21
+and the previously overheated board and possible short circuit are checked.
+
+## Independent recording, 2026-11-11
+
+All registered non-removed devices are now recorded by the background process,
+independently of Viewer/Device Selection lifetime. Device histories keep their
+existing assignments. Windows login autostart, restart settings, watchdog,
+health files and buffer recovery are described in
+[background-logger.md](background-logger.md). Manual command renewal remains
+viewer-scoped; the recording daemon does not control actuators.

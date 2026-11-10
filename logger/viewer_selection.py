@@ -26,6 +26,7 @@ class LanceSelection:
         self.selected_id = None
         self.cell_editor = None
         self.address_links = {}
+        self.device_id_fields = {}
         self.edit_column = None
         self.saving_labels = False
         self.scanning = False
@@ -133,6 +134,41 @@ class LanceSelection:
     def _position_cells(self):
         self._position_editor()
         self._position_address_links()
+        self._position_device_ids()
+
+    def _position_device_ids(self):
+        for device_id in list(self.device_id_fields):
+            if device_id not in self.devices:
+                self.device_id_fields.pop(device_id).destroy()
+        selected = self.tree.selection()
+        for device_id in self.devices:
+            if device_id not in self.device_id_fields:
+                field = tk.Entry(self.tree, justify="center", relief="flat", borderwidth=0,
+                                 highlightthickness=0, exportselection=False,
+                                 font=("Segoe UI Semibold", 10), cursor="xterm")
+                field.insert(0, self._format_device_id(device_id))
+                field.configure(state="readonly")
+                field.bind("<Button-1>", lambda event, target=device_id: self._copy_device_id(target))
+                self.device_id_fields[device_id] = field
+            field = self.device_id_fields[device_id]
+            is_selected = device_id in selected
+            field.configure(readonlybackground="#3b8c62" if is_selected else "white",
+                            foreground="white" if is_selected else "#2a3630")
+            self._place_cell(field, device_id, "device_id")
+
+    def _copy_device_id(self, device_id):
+        if device_id not in self.devices or not self._save_labels():
+            return
+        self.tree.selection_set(device_id)
+        self._select()
+        text = self._format_device_id(device_id)
+        try:
+            self.window.clipboard_clear()
+            self.window.clipboard_append(text)
+        except tk.TclError as error:
+            messagebox.showerror("Copy failed", str(error), parent=self.window)
+            return
+        self.status.set(f"Device ID copied: {text}")
 
     def _position_address_links(self):
         # Treeview cannot style individual cells, so links overlay the address cells.
@@ -151,12 +187,15 @@ class LanceSelection:
             link.configure(text=device.hostname,
                            background="#3b8c62" if is_selected else "white",
                            foreground="white" if is_selected else "#0055cc")
-            bounds = self.tree.bbox(device_id, "address")
-            if bounds:
-                x, y, width, height = bounds
-                link.place(x=x, y=y, width=width, height=height)
-            else:
-                link.place_forget()
+            self._place_cell(link, device_id, "address")
+
+    def _place_cell(self, widget, device_id, column):
+        bounds = self.tree.bbox(device_id, column)
+        if bounds:
+            x, y, width, height = bounds
+            widget.place(x=x, y=y, width=width, height=height)
+        else:
+            widget.place_forget()
 
     def _cell_at(self, event):
         row = self.tree.identify_row(event.y)
@@ -187,7 +226,7 @@ class LanceSelection:
         device_id, column = self._cell_at(event)
         if column in ("name", "location"):
             self._edit_cell(device_id, column)
-        elif column and column != "address":
+        elif column and column not in ("address", "device_id"):
             self._open()
         return "break"
 
@@ -301,7 +340,7 @@ class LanceSelection:
         self.location.set(item.location)
         self.open_button.configure(state="normal")
         self._update_button_state()
-        self._position_address_links()
+        self._position_cells()
 
     def _save_labels(self):
         if self.selected_id is None:

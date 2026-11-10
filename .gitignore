@@ -21,3 +21,6 @@ logger/data/*.err.log
 logger/data/recovery/
 logger/data/lances.db*
 logger/data/devices/
+
+# Background recording runtime state
+logger/data/background*
