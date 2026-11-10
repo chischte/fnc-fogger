@@ -8,8 +8,8 @@ The **fnc-fogger draft 04** wiring diagram is the authoritative reference for
 the planned ESP32-C3 SuperMini, sensors, fan and fogger assembly. It replaces
 earlier diagrams. See [Hardware](docs/hardware.md) for connection tables and notes.
 
-The plan uses SDA **GPIO0**, SCL **GPIO1**, fan PWM **GPIO4**, fan tach **GPIO5**
-and fogger gate **GPIO6**. Sensors use **3.3 V**. An optional **SHTC3** measures
+The plan uses SDA **GPIO0**, SCL **GPIO1**, fan PWM **GPIO5**, fan tach **GPIO6**
+and fogger gate **GPIO3**. Sensors use **3.3 V**. An optional **SHTC3** measures
 ambient humidity and temperature on the same I2C bus. The fan uses **24 V**;
 the buck supplies the ESP32 and fogger with **5 V**. The existing ESP32-S3
 uses SDA GPIO8 and SCL GPIO9. The additional `esp32c3_supermini` profile
@@ -38,6 +38,13 @@ Protocol and conversion: [Sensirion SHTC3 datasheet](https://sensirion.com/resou
 
 ## Current firmware
 
+Current devices are ESP32-C3 SuperMinis. Build with `pio run` (default:
+`esp32c3_supermini`). OTA files are exported as
+`firmware/fnc-fogger-firmware_<version>.bin`, without device information in
+the filename. Hardware compatibility metadata remains embedded in the image.
+
+### Historical ESP32-S3 setup
+
 Current target: **ESP32-S3-DEV-KIT-N8R8**, since 2026-10-24.
 SHT45 and SCD41 use SDA **GPIO8**, SCL **GPIO9**, **3.3 V** supply.
 PT100 has been removed from active firmware.
@@ -53,10 +60,10 @@ See [hardware migration and OTA](docs/hardware-migration-esp32s3.md).
 ## ESP32-S3 installation
 
 1. Copy `include/wifi-credentials.example.h` to `../wifi-credentials.h` and enter WiFi credentials.
-2. Build: `pio run` (default: `esp32s3`).
-3. Initial USB installation: `pio run -t upload --upload-port COMx`.
+2. Build: `pio run -e esp32s3` (legacy target; default is now C3 SuperMini).
+3. Initial USB installation: `pio run -e esp32s3 -t upload --upload-port COMx`.
 4. Read the IP address with `pio device monitor --port COMx`.
-5. For OTA, select the device in the viewer and choose `Update selected firmware` with `.pio/build/esp32s3/firmware.bin`. CLI updates require both `-DeviceUrl` and `-DeviceId`; see [device management](docs/device-management.md). The deployed legacy S3 requires its device-specific mDNS name for its first managed update.
+5. For OTA on this legacy target, select the device in the viewer and choose `Update selected firmware` with the ESP32-S3 BIN under `firmware/legacy/esp32s3/`. CLI updates require `-Environment esp32s3`, `-DeviceUrl` and `-DeviceId`; see [device management](docs/device-management.md). Legacy S3 firmware requires its device-specific mDNS name for its first managed update.
 
 Logger and viewer continue to work. Flash buffering now uses LittleFS.
 The SHT45 heater cycle, sensor parameters and measurement intervals are retained.
@@ -138,15 +145,17 @@ Viewer: `python logger/viewer.py`.
 The viewer starts with lance selection, automatically discovers
 `_fnc-fogger._tcp.local`, and lists saved offline lances. "Search again" repeats
 discovery manually; automatic discovery runs every 15 seconds.
-The overview also shows hardware profile, last confirmed firmware/build,
-device ID and last successful contact. Saved offline devices retain these
+The overview also shows the firmware version without its hardware suffix,
+device ID as an uppercase colon-separated MAC and last successful contact
+(time only for today). Hardware/build metadata remains internal. Saved offline devices retain these
 details. Updates target one explicitly selected online device and are verified
 after restart. See [device management](docs/device-management.md) for persistence
 and update history.
 Install dependencies with `python -m pip install -r logger/requirements.txt`.
 
-Enter a name and location for the selected lance. "Save", changing selection,
-opening charts and closing selection save these details in
+Double-click a Name or Location cell to edit it directly. Enter or leaving
+the field saves; Escape cancels. Clicking Address opens the device in the
+default browser. Opening the viewer or closing selection also saves edits in
 `logger/data/lances.db`. Assignment uses the permanent device ID, not changing
 IP. Charts show name and location at the top. "Home" returns to selection;
 closing charts exits the viewer.

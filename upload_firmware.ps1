@@ -2,7 +2,7 @@ param(
     [Parameter(Mandatory=$true)][string]$DeviceUrl,
     [Parameter(Mandatory=$true)][string]$DeviceId,
     [ValidateSet("esp32s3", "esp32c3_supermini")]
-    [string]$Environment = "esp32s3",
+    [string]$Environment = "esp32c3_supermini",
     [switch]$Yes
 )
 

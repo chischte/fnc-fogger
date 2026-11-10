@@ -30,14 +30,21 @@ load and inrush current. The 24 V and GND nets are drawn without crossings.
 | --- | --- | --- |
 | I2C SDA | 0 | SCD41 and SHT45 SDA |
 | I2C SCL | 1 | SCD41 and SHT45 SCL |
-| FAN_PWM | 4 | Direct to Noctua pin 4; 3.3 V push-pull, 25 kHz |
-| FAN_TACH | 5 | Noctua pin 3; input with internal pull-up to 3.3 V |
-| FOG_EN | 6 | Direct to IRLB8721 gate, pin 1; LOW = OFF, HIGH requests ON |
+| FAN_PWM | 5 | Direct to Noctua pin 4; 3.3 V push-pull, 25 kHz |
+| FAN_TACH | 6 | Noctua pin 3; input with internal pull-up to 3.3 V |
+| FOG_EN | 3 | Direct to IRLB8721 gate, pin 1; LOW = OFF, HIGH requests ON |
 
 GPIO numbers are not physical connector positions. Check availability on the
 actual ESP32-C3 SuperMini. Explicitly configure I2C SDA GPIO0 / SCL GPIO1.
 Leave GPIO8 (board LED) and GPIO9 (BOOT) unused; both are boot configuration
 pins. USB uses GPIO18/19 and remains available.
+
+The current actuator assignment is gate GPIO3, fan PWM GPIO5, fan tach GPIO6
+(C3 firmware 3.2.1 and later). GPIO21 was considered for the gate but rejected:
+it is UART0 TX and may output boot messages before application initialization.
+See [Espressif's boot and pin documentation](https://documentation.espressif.com/esp32-c3_datasheet_en.html).
+An external gate-source pull-down is still required for a defined OFF state
+while GPIO3 is high-impedance during reset.
 
 Pin reference: [Apache NuttX: ESP32-C3 SuperMini](https://nuttx.incubator.apache.org/docs/latest/platforms/risc-v/esp32c3/boards/esp32c3-supermini/index.html).
 
@@ -81,8 +88,8 @@ Sources: [SCD4x datasheet](https://sensirion.com/resource/datasheet/scd4x),
 | --- | --- | --- |
 | 1 | GND / black | Common ground |
 | 2 | +24 V / yellow | Direct to supply +24 V |
-| 3 | TACH / green | GPIO5 with internal 3.3 V pull-up |
-| 4 | PWM / blue | Direct to GPIO4 |
+| 3 | TACH / green | GPIO6 with internal 3.3 V pull-up |
+| 4 | PWM / blue | Direct to GPIO5 |
 
 Check pin numbering against the connector, not an assumed viewing direction.
 The fan receives continuous 24 V; only its PWM input is driven with 3.3 V at
@@ -114,14 +121,14 @@ must remain insulated from GND/enclosure.
              1  2  3
              G  D  S
              |  |  +-------- Supply GND / ESP32 GND
-GPIO6 -------+  |
+GPIO3 -------+  |
                 +----------- Fogger negative
 Buck OUT+ 5 V -------------- Fogger positive
 ```
 
 | Terminal | Connection |
 | --- | --- |
-| Gate, pin 1 left | Direct to ESP32 GPIO6 |
+| Gate, pin 1 left | Direct to ESP32 GPIO3 |
 | Drain, pin 2 middle | Fogger negative |
 | Source, pin 3 right | Supply negative and ESP32 GND |
 | Fogger positive | XZG buck OUT+ (5.0 V) |
@@ -137,7 +144,7 @@ Use a complete 5 V ultrasonic module with its own driver, not a bare piezo eleme
 - Without gate series resistance, GPIO charging currents and ringing are not externally limited; keep wires short and check the real assembly.
 - Fogger uses 5 V from the buck; fan remains directly on 24 V. Only fan and buck input connect to the 24 V net.
 
-Set GPIO6 LOW early. HIGH requests ON; LOW switches off with a powered,
+Set GPIO3 LOW early. HIGH requests ON; LOW switches off with a powered,
 actively driven GPIO. Fixed ON time is 200 ms, OFF time varies (50%: 200 ms
 ON / 200 ms OFF); no 25 kHz fogger PWM. Check minimum run times, restart
 behaviour and independent dry-run protection for the actual module.

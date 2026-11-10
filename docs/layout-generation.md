@@ -59,3 +59,26 @@ Panel 4 fan leads and numbered circles follow the manufacturer's
 4 blue = PWM (GPIO4). Circle 2 uses black lettering; circles 1, 3 and 4
 use white lettering. The schematic net colors outside the fan panel remain
 unchanged. Edited using the built-in image_gen tool.
+
+## Actuator GPIO reassignment, 2026-11-09
+
+The current assignment supersedes the earlier GPIO4/5/6 mapping above:
+FAN_PWM GPIO5, FAN_TACH GPIO6, MOSFET gate GPIO3. Updated the three controller
+table rows, the two Noctua connection labels and the gate signal box using
+the built-in image_gen tool. Wire colors and sensor pins remain unchanged.
+The initially requested GPIO21 gate was replaced by GPIO3 with user approval
+because GPIO21 is UART0 TX and may output boot messages before firmware starts.
+Firmware 3.2.1-esp32c3 prepares this mapping; device installation is separate.
+
+## Direct board callouts
+
+Replaced the controller connection table with direct colored leaders to a
+simplified component-side SuperMini illustration, USB-C at the bottom.
+Exactly eight contacts are shown on each side. Used pins are prominent and
+unused pins are gray. Left top-to-bottom: GPIO0, GPIO1, GPIO2, GPIO3, GPIO4,
+3V3, GND, 5V. Right top-to-bottom: GPIO21, GPIO20, GPIO10, GPIO9, GPIO8,
+GPIO7, GPIO6, GPIO5. Checked against the
+[Apache NuttX SuperMini header reference](https://nuttx.apache.org/docs/latest/platforms/risc-v/esp32c3/boards/esp32c3-supermini/index.html).
+This is a pin-location illustration, not an exact photograph of the PCB.
+Edited using the built-in image_gen tool and visually checked for contact
+count, signal assignment and readable contrasting labels.

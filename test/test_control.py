@@ -145,13 +145,13 @@ class CommandLayoutTests(unittest.TestCase):
             charts = [axis for axis in fig.axes if axis.get_title() in
                       ("Humidity [%RH]", "CO2 [ppm]", "Temperature [°C]")]
             button_axis = next(axis for axis in fig.axes if any(
-                text.get_text() == "Command mode" for text in axis.texts))
+                text.get_text() == "Command Mode" for text in axis.texts))
             x, y = button_axis.transAxes.transform((0.5, 0.5))
             for _ in range(2):
                 for event in ("button_press_event", "button_release_event"):
                     fig.canvas.callbacks.process(event, MouseEvent(event, fig.canvas, x, y, button=1))
                 fig.canvas.draw()
-                if button_axis.texts[0].get_text() == "View mode":
+                if button_axis.texts[0].get_text() == "View Mode":
                     for axis in charts:
                         self.assertLessEqual(axis.get_position().x1, 0.51)
                     pi_axes = [axis for axis in fig.axes if "PI [%] |" in axis.get_title()]

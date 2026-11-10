@@ -9,7 +9,9 @@ namespace Config {
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
 constexpr int I2C_SDA_PIN = 0;
 constexpr int I2C_SCL_PIN = 1;
-constexpr int FOGGER_ENABLE_PIN = 6;
+constexpr int FAN_PWM_PIN = 5;
+constexpr int FAN_TACH_PIN = 6;
+constexpr int FOGGER_ENABLE_PIN = 3;
 #else
 constexpr int I2C_SDA_PIN = 8;
 constexpr int I2C_SCL_PIN = 9;

@@ -1,7 +1,7 @@
 # Geräteverwaltung und OTA
 
-Stand: 9. November 2026. Die bestehende ESP32-S3-Lanze bleibt in Betrieb.
-Das zusätzliche Profil `esp32c3_supermini` bereitet ESP32-C3 SuperMinis mit
+Stand: 10. November 2026. Aktuell werden ausschließlich ESP32-C3 SuperMinis eingesetzt.
+Das Standardprofil `esp32c3_supermini` bereitet ESP32-C3 SuperMinis mit
 4 MiB Flash für Sensorbetrieb und WLAN-Updates vor. Die reale Flashgröße muss
 bei der ersten USB-Einrichtung bestätigt werden. Die bestehende S3-Lanze wurde
 nicht aktualisiert. Der erste Mini wurde inzwischen erfolgreich eingerichtet;
@@ -13,12 +13,23 @@ inzwischen per USB eingerichtet und OTA-getestet. Beide sind in der Geräteverwa
 
 Start: `python logger/viewer.py`.
 
-Der Startbildschirm zeigt Name, Standort, Online/Offline, Hardwareprofil,
-zuletzt bestätigte Firmwareversion, Buildkennung, letzte Erreichbarkeit,
-dauerhafte Geräte-ID und Adresse. Die Geräte-ID ist die WLAN-MAC ohne
-Doppelpunkte. Beschrifte jedes Gerät mit Name und kurzer ID, z. B.
+Der Startbildschirm zeigt Name, Standort, `online`/`offline`, Firmwareversion,
+letzte Erreichbarkeit, Geräte-ID und Adresse. Hardwareprofil und Buildkennung
+bleiben intern für die Updateprüfung gespeichert. Die Firmwareanzeige lässt
+den Hardwarezusatz weg, beispielsweise `3.2.1` statt `3.2.1-esp32c3`.
+Die Geräte-ID erscheint als WLAN-MAC mit Großbuchstaben und Doppelpunkten;
+intern bleibt sie unverändert ohne Doppelpunkte gespeichert. Das ändert weder
+Gerätezuordnung noch Messdaten oder Updates. Bei `Last seen` steht für heute
+nur die lokale Uhrzeit, für andere Tage zusätzlich das Datum.
+Beschrifte jedes Gerät mit Name und kurzer ID, z. B.
 `Lanze 02 – 445566`. Namen und Standorte sind frei wählbar; die ID bleibt
 bei einem IP-Wechsel gleich. Ein Ersatzcontroller bekommt eine neue ID.
+
+Name und Location werden direkt in der Tabelle per Doppelklick bearbeitet.
+Enter oder das Verlassen des Feldes speichert automatisch, Escape verwirft
+die Eingabe. Separate Benennungsfelder und ein Save-Button sind nicht nötig.
+Die Adressspalte öffnet per Klick die Geräteoberfläche im Standardbrowser;
+beim Darüberfahren zeigt der Mauszeiger die Linkfunktion an.
 
 Die Suche läuft alle 15 Sekunden, solange die Geräteauswahl geöffnet ist.
 mDNS findet neue Geräte; bekannte Geräte werden ebenfalls über ihre gespeicherte
@@ -27,6 +38,13 @@ letzten Suchlauf, nicht lediglich eine mDNS-Ankündigung. Bei sieben nicht
 erreichbaren Geräten kann ein Suchlauf wegen der Netzwerk-Timeouts länger
 dauern. Offline-Einträge behalten ihren zuletzt bestätigten Firmwarestand.
 Der Viewer ist kein ständig laufender Überwachungsdienst, wenn er geschlossen ist.
+
+Nicht mehr verwendete Offline-Geräte lassen sich über `Remove offline device`
+nach einer Rückfrage aus der Liste entfernen. Die Schaltfläche ist erst nach
+einem erfolgreichen Suchlauf verfügbar und während einer Suche oder eines
+Firmwareupdates deaktiviert. Messdateien, Updateverlauf und die interne
+Zuordnung der Messdaten bleiben erhalten. Meldet sich das Gerät später wieder
+im Netzwerk, erscheint es mit seinem bisherigen Namen und seiner Historie erneut.
 
 ## Wo die Informationen gespeichert werden
 
@@ -37,8 +55,9 @@ Der Viewer ist kein ständig laufender Überwachungsdienst, wenn er geschlossen 
 | `logger/data/devices/<device-id>.db` | Messwerte je Gerät; die bereits zugeordnete historische `measurements.db` bleibt erhalten |
 | `include/firmware/identity.h` | Firmwareversionen und Hardwareprofilnamen im Quellcode |
 | `tools/build_identity.py` | Erzeugt eine 12-stellige Kennung aus Firmwarequellen, Projektkonfiguration, Partitionstabellen, Buildskript und Zielprofil |
-| `.pio/build/<profil>/firmware.bin` | Installierbare Anwendung, einschließlich Profil, Version und Buildkennung |
-| `.pio/build/<profil>/firmware.json` | Automatisch erzeugtes Manifest mit Profil, Version, Buildkennung, Dateigröße und SHA256 der konkreten BIN-Datei |
+| `firmware/fnc-fogger-firmware_<version>.bin` | Zum Hochladen exportierte Anwendung für ESP32-C3 SuperMinis; Profil und Buildkennung bleiben intern gespeichert |
+| Gleichnamige `.json` in `firmware/` | Manifest mit Profil, Version, Buildkennung, Dateigröße und SHA256 der konkreten BIN-Datei |
+| `.pio/build/<profil>/firmware.bin` und `.json` | Interne PlatformIO-Builddateien; die OTA-Kopie liegt im Projektroot unter `firmware/` |
 | `platformio.ini` | Getrennte Buildprofile für ESP32-S3 und ESP32-C3 SuperMini |
 | `include/config.h` | Profilabhängige Pinbelegung und Speicherlimits |
 | `partitions_esp32s3.csv`, `partitions_esp32c3.csv` | Flashaufteilung pro Hardwareprofil |
@@ -54,8 +73,9 @@ bestehende Namen und Messdatenzuordnungen. Der Viewer zeigt Zeitangaben lokal an
 
 Firmwareversion und Buildkennung beschreiben den laufenden Stand. Die SHA256
 im Manifest und Updateprotokoll identifiziert zusätzlich die genaue Datei.
-Buildausgaben werden beim nächsten Build ersetzt; für reproduzierbare
-Auslieferungsnachweise BIN und JSON gemeinsam archivieren.
+Interne Buildausgaben werden beim nächsten Build ersetzt; die benannten
+Exporte anderer Versionen in `firmware/` bleiben erhalten. Ein erneuter Build
+derselben Version ersetzt deren BIN und JSON. BIN und JSON gemeinsam archivieren.
 
 ## Gezielt aktualisieren
 
@@ -137,7 +157,7 @@ getrennt erhalten. Der Plattform-Basistyp ist `esp32-c3-devkitm-1`, angepasst
 für native USB-Kommunikation und die SuperMini-Pinbelegung.
 
 Diese Firmware bereitet Sensoren, Geräteverwaltung und OTA vor. Die geplante
-Lüfter-/Neblerregelung ist noch nicht implementiert. GPIO6 wird beim C3-Start
+Lüfter-/Neblerregelung ist noch nicht implementiert. GPIO3 wird beim C3-Start
 auf LOW gesetzt; ein externer Gate-Pulldown gemäß Hardwaredokumentation bleibt
 für Reset/Boot erforderlich. Erste USB-/OTA-Tests ohne angeschlossene Aktoren
 durchführen. Fehlende Sensoren verhindern den WLAN-/OTA-Betrieb nicht.
@@ -146,6 +166,13 @@ Technische Grundlagen: [PlatformIO C3-Profil](https://docs.platformio.org/en/lat
 und [Espressif OTA-Partitionen](https://docs.espressif.com/projects/esp-idf/en/release-v4.4/esp32c3/api-reference/system/ota.html).
 
 ## Prüfung dieser Vorbereitung
+
+Die spätere Pinänderung ist ab C3-Firmware `3.2.1-esp32c3` vorbereitet:
+MOSFET-Gate GPIO3, FAN PWM GPIO5, FAN TACH GPIO6. Die USB-/OTA-Testprotokolle
+der beiden Minis beschreiben den damals installierten Stand 3.2.0 und bleiben
+historisch unverändert. Die Pinänderung ist damit noch nicht auf den Geräten
+installiert. Lüfter-PWM und Tacho sind als Pinzuordnung vorbereitet; die
+Aktorenregelung ist weiterhin nicht implementiert.
 
 - Beide Profile mit PlatformIO erfolgreich gebaut: `esp32s3` und `esp32c3_supermini`.
 - BIN-Metadaten und SHA256 stimmen mit den erzeugten JSON-Manifesten überein.

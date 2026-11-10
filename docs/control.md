@@ -11,7 +11,7 @@ output to the experimentally established reliable minimum and configured
 maximum; apply anti-windup using the actual constrained output.
 
 ESP32 directly drives the Noctua NF-A4x10 24V PWM using non-inverted 3.3 V
-push-pull PWM at 25 kHz. GPIO5 reads tach using the internal pull-up; no
+push-pull PWM at 25 kHz. GPIO6 reads tach using the internal pull-up; no
 external tach resistor is planned. Tach detects a stopped fan after a startup
 grace period. The viewer displays measured tach RPM, never RPM inferred from PI output.
 
@@ -34,8 +34,8 @@ Immediately switch the fogger off below minimum fan speed. Account for this
 interlock in humidity-PI anti-windup.
 
 Control error = humidity setpoint minus measured humidity. Positive error
-increases output between 0 and 100%. GPIO6 drives an IRLB8721 low-side switch
-for the 5 V fogger supply (gate to GPIO6, drain to fogger negative, source to
+increases output between 0 and 100%. GPIO3 drives an IRLB8721 low-side switch
+for the 5 V fogger supply (gate to GPIO3, drain to fogger negative, source to
 GND; HIGH requests ON, LOW = OFF).
 
 The fogger uses a fixed **200 ms ON time** and variable OFF time. For demand

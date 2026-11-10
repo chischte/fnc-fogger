@@ -4,6 +4,10 @@ import ctypes
 import sys
 from contextlib import nullcontext
 from ctypes import wintypes
+if __package__:
+    from .window_icon import set_window_icon
+else:
+    from window_icon import set_window_icon
 
 
 MONITOR_DEFAULT_TO_NEAREST = 2
@@ -17,6 +21,8 @@ GWL_EXSTYLE = -20
 WS_EX_APPWINDOW = 0x00040000
 WS_EX_TOOLWINDOW = 0x00000080
 GA_ROOT = 2
+SW_HIDE = 0
+SW_SHOWNA = 8
 
 
 class MonitorInfo(ctypes.Structure):
@@ -84,7 +90,7 @@ def startup_window_size() -> tuple[int, int]:
     )
 
 
-def ensure_taskbar_entry(window) -> None:
+def ensure_taskbar_entry(window, refresh=False) -> None:
     user32 = ctypes.WinDLL("user32", use_last_error=True)
     user32.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
     user32.GetAncestor.restype = wintypes.HWND
@@ -95,13 +101,21 @@ def ensure_taskbar_entry(window) -> None:
     hwnd = user32.GetAncestor(window.winfo_id(), GA_ROOT)
     style = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
     taskbar_style = (style | WS_EX_APPWINDOW) & ~WS_EX_TOOLWINDOW
-    if style == taskbar_style:
+    if style == taskbar_style and not refresh:
         return
     ctypes.set_last_error(0)
     previous = user32.SetWindowLongW(hwnd, GWL_EXSTYLE, taskbar_style)
     error = ctypes.get_last_error()
     if not previous and error:
         raise ctypes.WinError(error)
+    # Explorer needs a visibility transition to notice styles changed after mapping.
+    user32.IsWindowVisible.argtypes = [wintypes.HWND]
+    user32.IsWindowVisible.restype = wintypes.BOOL
+    user32.ShowWindow.argtypes = [wintypes.HWND, ctypes.c_int]
+    user32.ShowWindow.restype = wintypes.BOOL
+    if refresh and user32.IsWindowVisible(hwnd) and not window.overrideredirect():
+        user32.ShowWindow(hwnd, SW_HIDE)
+        user32.ShowWindow(hwnd, SW_SHOWNA)
 
 
 
@@ -109,12 +123,14 @@ class TkViewerWindow:
     def __init__(self, figure):
         self.canvas = figure.canvas
         self.window = self.canvas.manager.window
+        set_window_icon(self.window)
         self.toolbar = self.canvas.manager.toolbar
         self._native_fullscreen_toggle = self.canvas.manager.full_screen_toggle
         self._restore_geometry = None
         self._restore_state = None
         self._drag_offset = None
         self._theme = None
+        self._taskbar_registered = False
         self.zoom_button = None
         self.fullscreen_button = None
         self._fullscreen_icon = None
@@ -147,7 +163,9 @@ class TkViewerWindow:
     def _on_window_map(self, event) -> None:
         if event.widget is self.window:
             try:
-                ensure_taskbar_entry(self.window)
+                refresh = not self._taskbar_registered and not self.window.overrideredirect()
+                self._taskbar_registered = True
+                ensure_taskbar_entry(self.window, refresh=refresh)
             except OSError as exc:
                 print(f"Could not restore taskbar entry: {exc}", file=sys.stderr)
 

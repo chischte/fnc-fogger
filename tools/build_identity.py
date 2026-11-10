@@ -2,6 +2,7 @@
 import hashlib
 import json
 import re
+import shutil
 from pathlib import Path
 
 Import("env")
@@ -28,6 +29,15 @@ def write_manifest(source, target, env):
     manifest = dict(hardware_profile=profile, firmware=version, build_id=build_id,
                     sha256=hashlib.sha256(data).hexdigest(), size_bytes=len(data), file=binary.name)
     binary.with_suffix(".json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    export_directory = Path(env.subst("$PROJECT_DIR")) / "firmware"
+    if profile != "esp32c3_supermini":
+        export_directory = export_directory / "legacy" / profile
+    export_directory.mkdir(parents=True, exist_ok=True)
+    release_version = version.removesuffix("-esp32c3").removesuffix("-esp32s3")
+    export = export_directory / f"fnc-fogger-firmware_{release_version}.bin"
+    shutil.copyfile(binary, export)
+    manifest["file"] = export.name
+    export.with_suffix(".json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
 
 env.AddPostAction("$BUILD_DIR/${PROGNAME}.bin", write_manifest)

@@ -43,6 +43,8 @@ class LanceRegistry:
             for column in ("firmware", "hardware_profile", "build_id", "last_seen"):
                 if column not in columns:
                     db.execute(f"ALTER TABLE lances ADD COLUMN {column} TEXT NOT NULL DEFAULT ''")
+            if "removed" not in columns:
+                db.execute("ALTER TABLE lances ADD COLUMN removed INTEGER NOT NULL DEFAULT 0")
             db.execute("""CREATE TABLE IF NOT EXISTS firmware_updates(
                 id INTEGER PRIMARY KEY, device_id TEXT NOT NULL, recorded_at TEXT NOT NULL,
                 version TEXT NOT NULL, build_id TEXT NOT NULL, hardware_profile TEXT NOT NULL,
@@ -59,7 +61,7 @@ class LanceRegistry:
             return [Lance(*row) for row in db.execute(
                 "SELECT device_id,hostname,port,name,location,database_name,"
                 "firmware,hardware_profile,build_id,last_seen "
-                "FROM lances ORDER BY name,device_id")]
+                "FROM lances WHERE removed=0 ORDER BY name,device_id")]
 
     def remember(self, lance, sensor_serial=None, status=None):
         if not re.fullmatch(r"[0-9a-f]{12}", lance.device_id):
@@ -74,7 +76,7 @@ class LanceRegistry:
                 database_name = "measurements.db"
             db.execute("""INSERT INTO lances(device_id,hostname,port,database_name)
                 VALUES(?,?,?,?) ON CONFLICT(device_id) DO UPDATE SET
-                hostname=excluded.hostname,port=excluded.port""",
+                hostname=excluded.hostname,port=excluded.port,removed=0""",
                        (lance.device_id, lance.hostname, lance.port, database_name))
             if status is not None:
                 db.execute("""UPDATE lances SET firmware=?,hardware_profile=?,build_id=?,last_seen=?
@@ -103,6 +105,11 @@ class LanceRegistry:
 
     def measurement_path(self, lance):
         return self.directory / lance.database_name
+
+    def remove(self, device_id):
+        # Keep the database assignment so historical measurements cannot be reassigned.
+        with self._connect() as db:
+            db.execute("UPDATE lances SET removed=1 WHERE device_id=?", (device_id,))
 
     def record_update(self, device_id, image, phase, detail=""):
         with self._connect() as db:

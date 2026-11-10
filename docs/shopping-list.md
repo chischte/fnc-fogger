@@ -3,8 +3,8 @@
 | Quantity | Part | Purpose |
 | --- | --- | --- |
 | 1 | XZG DC/DC buck, pictured compact variant | 24 V to 5.0 V for ESP32 and fogger |
-| 1 | [Noctua NF-A4x10 24V PWM](https://www.noctua.at/en/products/nf-a4x10-24v-pwm/specifications) | Direct 24 V supply; PWM to GPIO4 |
-| 1 | IRLB8721, already available | Fogger low-side switch; gate directly to GPIO6 |
+| 1 | [Noctua NF-A4x10 24V PWM](https://www.noctua.at/en/products/nf-a4x10-24v-pwm/specifications) | Direct 24 V supply; PWM to GPIO5 |
+| 1 | IRLB8721, already available | Fogger low-side switch; gate directly to GPIO3 |
 | As needed | Wires, terminals, fuse, insulation | Power and assembly |
 | As needed | Dupont cables | Sensor and signal wiring |
 

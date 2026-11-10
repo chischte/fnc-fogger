@@ -563,6 +563,8 @@ def draw(fig: "plt.Figure", box_axes: list, chart_axes: list,
 # Entry point
 # ---------------------------------------------------------------------------
 
+@plt.rc_context({"font.family": "Segoe UI" if sys.platform == "win32" else "DejaVu Sans",
+                 "font.weight": "semibold", "axes.labelweight": "semibold"})
 def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None) -> bool:
     render = partial(draw, database=database, csv=csv,
                      control_monitor=collector.control if collector else None)
@@ -575,12 +577,12 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None) -
     fig.canvas.manager.set_window_title(title)
     title_text = fig.text(0.5, 0.955, title, color=current_theme()["text"],
                           fontsize=12, fontweight="semibold", ha="center", va="center")
-    home_axis = fig.add_axes([0.02, 0.935, 0.12, 0.04])
-    home_button = Button(home_axis, "Home", color=current_theme()["button_off"],
+    home_axis = fig.add_axes([0.02, 0.935, 0.18, 0.04])
+    home_button = Button(home_axis, "Lance Selection", color=current_theme()["button_off"],
                          hovercolor=current_theme()["grid"])
     home_button.label.set_color(current_theme()["text"])
     mode_axis = fig.add_axes([0.77, 0.935, 0.21, 0.04])
-    mode_button = Button(mode_axis, "Command mode", color=current_theme()["button_off"],
+    mode_button = Button(mode_axis, "Command Mode", color=current_theme()["button_off"],
                          hovercolor=current_theme()["grid"])
     mode_button.label.set_color(current_theme()["text"])
     command_mode = False
@@ -627,7 +629,7 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None) -
     def _toggle_mode(_event):
         nonlocal command_mode
         command_mode = not command_mode
-        mode_button.label.set_text("View mode" if command_mode else "Command mode")
+        mode_button.label.set_text("View Mode" if command_mode else "Command Mode")
         for row, axis in enumerate(chart_axes):
             axis.set_subplotspec(gs_charts[row, 0] if command_mode else gs_charts[row, :])
         command_panel.set_visible(command_mode)
@@ -774,14 +776,16 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None) -
         )
         last_plot_revision = data_cache.revision
 
-    connection_text = fig.text(0.5, 0.925, "Connecting …" if collector else "",
-                               ha="center", fontsize=8, color=current_theme()["muted"])
+    connection_text = fig.text(0.5, 0.925, "connecting …" if collector else "",
+                               ha="center", fontsize=8.5, fontweight="medium", color=current_theme()["muted"])
     last_setpoints = None
     last_card_state = None
 
     def _connection_status():
         nonlocal last_setpoints, last_card_state
         status = collector.latest_status() if collector else None
+        if status:
+            status = status[:1].lower() + status[1:]
         if status and status != connection_text.get_text():
             connection_text.set_text(status)
             connection_text.set_color(current_theme()["muted"])
