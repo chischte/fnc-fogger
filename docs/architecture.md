@@ -5,38 +5,7 @@ Entkopplung von Logger und Viewer. Geräte 3–7 sind als zukünftige Erweiterun
 markiert, nicht als bereits angeschlossene Geräte. Online-/Offline-Zustände
 sind bewusst nicht Teil dieser statischen Architekturübersicht.
 
-```mermaid
-flowchart TB
-    subgraph devices["ESP32-C3-Geräte · gemeinsames WLAN"]
-        esp1["Lanze · …27:CA:14<br/>Sensoren + lokaler Messpuffer"]
-        esp2["Primus Popinus · …28:8A:EC<br/>Sensoren, Lüfter, Fogger + Messpuffer"]
-        espn["Weitere Geräte 3–7<br/>zukünftige Erweiterung"]
-    end
-
-    subgraph pc["Windows-PC"]
-        tasks["Windows-Aufgaben<br/>Start bei Anmeldung + Überwachung"]
-        registry[("lances.db<br/>Geräte, Namen, Orte, Firmwarestände")]
-        log["Hintergrundlogger<br/>sammelt alle registrierten Geräte"]
-        db1[("27ca14.db<br/>Messhistorie der Lanze")]
-        db2[("288aec.db<br/>Messhistorie von Primus Popinus")]
-        dbn[("Je weiterem Gerät eine eigene .db<br/>zukünftige Erweiterung")]
-        viewer["Viewer<br/>Device Selection · Diagramme · Manual Mode · OTA"]
-    end
-
-    esp1 -->|Messwerte + Puffernachladung| log
-    esp2 -->|Messwerte + Puffernachladung| log
-    espn -.-> log
-    tasks -->|startet / startet neu| log
-    registry -->|Geräteliste| log
-    log -->|speichert| db1
-    log -->|speichert| db2
-    log -.-> dbn
-    db1 -->|liest Historie| viewer
-    db2 -->|liest Historie| viewer
-    dbn -.-> viewer
-    registry <-->|Auswahl und Gerätenamen| viewer
-    viewer -. "Live-Status, Befehle und OTA: direkt zum gewählten Gerät" .-> devices
-```
+![Projektarchitektur: ESP32-C3-Geräte, Hintergrundlogger, SQLite und Viewer](diagrams/architecture.svg)
 
 ## Messdaten
 

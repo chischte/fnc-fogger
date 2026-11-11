@@ -1,14 +1,38 @@
 # fnc-fogger
 
-Messung und manuelle Ansteuerung mehrerer ESP32-C3 SuperMinis mit unabhängigem
-Hintergrundlogger und Viewer. PI-Regelung ist noch nicht implementiert.
+**Mehrere Geräte messen. Der Logger zeichnet auf. Der Viewer macht die Daten sichtbar.**
+
+Ein modulares System für CO₂-, Temperatur- und Feuchtemessung mit ESP32-C3
+SuperMinis, dauerhafter Aufzeichnung und manueller Lüfter-/Fogger-Ansteuerung.
+
+![Firmware: ESP32-C3 / C++](https://img.shields.io/badge/Firmware-ESP32--C3_%2F_C%2B%2B-167d8d)
+![Desktop: Python](https://img.shields.io/badge/Desktop-Python-3166bc)
+![Speicherung: SQLite](https://img.shields.io/badge/Speicherung-SQLite-aa681b)
+![Betrieb: Windows](https://img.shields.io/badge/Betrieb-Windows-6877af)
 
 Einstieg: **[Dokumentationsübersicht](docs/README.md)** ·
 [Architektur](docs/architecture.md) · [Geräteverwaltung](docs/device-management.md)
 
+## Das System auf einen Blick
+
+![Architektur mit mehreren ESP32-C3-Geräten, unabhängigem Logger, SQLite und Viewer](docs/diagrams/architecture.svg)
+
+| Bestandteil | Aufgabe |
+| --- | --- |
+| **ESP32-C3** | Sensoren auslesen, Messwerte puffern und Lüfter/Fogger ansteuern. |
+| **Hintergrundlogger** | Alle registrierten Geräte unabhängig vom Viewer aufzeichnen; verfügbare Puffer nachladen. |
+| **SQLite** | Geräte zentral verwalten und Messhistorien pro Gerät getrennt speichern. |
+| **Viewer** | Geräte auswählen, Daten darstellen, Ausgänge manuell bedienen und Firmware gezielt aktualisieren. |
+
+Aktuell stehen Messung, Aufzeichnung, Manual Mode und OTA zur Verfügung.
+Der Ausbau auf ungefähr sieben Geräte ist vorgesehen. **PI-Regelung ist noch
+nicht implementiert.** Details zu Datenwegen und Betrieb stehen in der
+[Architekturbeschreibung](docs/architecture.md).
+
 ## Anschlussplan
 
 ![fnc-fogger wiring diagram, draft 04](docs/fnc-fogger-layout-v4.png)
+
 
 Der Plan und die [Hardwarehinweise](docs/hardware.md) beschreiben den aktuellen
 C3-Aufbau: SDA GPIO0, SCL GPIO1, Lüfter-PWM GPIO5, Lüfter-Tacho GPIO6 und

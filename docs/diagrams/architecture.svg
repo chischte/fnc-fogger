@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700" role="img" aria-labelledby="title desc">
+<title id="title">fnc-fogger: Architektur mit mehreren ESP32-C3-Geräten</title>
+<desc id="desc">Mehrere ESP32-C3 liefern Messwerte an einen unabhängigen Hintergrundlogger. Dieser speichert pro Gerät eine SQLite-Datenbank. Der Viewer liest die Historie und sendet Bedienbefehle und OTA direkt an das ausgewählte Gerät. Windows startet und überwacht den Logger.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10Z" fill="#526b84"/></marker></defs>
+<rect width="1200" height="700" rx="20" fill="#f6f8fc"/>
+<g font-family="Segoe UI, Arial, sans-serif">
+<text x="40" y="48" fill="#142c43" font-size="27" font-weight="700">Ein System. Mehrere Geräte. Eine gemeinsame Übersicht.</text>
+<text x="40" y="78" fill="#526b84" font-size="16">ESP32-C3 · WLAN / HTTP · Python · SQLite</text>
+<rect x="380" y="112" width="780" height="516" rx="18" fill="#edf2f9" stroke="#d4dfed"/>
+<text x="404" y="143" fill="#526b84" font-size="14" font-weight="700" letter-spacing="1">WINDOWS-PC</text>
+<text x="40" y="143" fill="#526b84" font-size="14" font-weight="700" letter-spacing="1">GERÄTE IM WLAN</text>
+<rect x="40" y="170" width="270" height="115" rx="12" fill="#ffffff" stroke="#167d8d"/>
+<rect x="55" y="190" width="4" height="24" rx="2" fill="#167d8d"/>
+<text x="70" y="208" fill="#142c43" font-size="20" font-weight="700">ESP32-C3 · Gerät 01</text>
+<text x="70" y="237" fill="#435a70" font-size="15">Sensoren + Messpuffer</text>
+<text x="70" y="261" fill="#435a70" font-size="15">Lanze · …27:CA:14</text>
+<rect x="40" y="309" width="270" height="115" rx="12" fill="#ffffff" stroke="#167d8d"/>
+<rect x="55" y="329" width="4" height="24" rx="2" fill="#167d8d"/>
+<text x="70" y="347" fill="#142c43" font-size="20" font-weight="700">ESP32-C3 · Gerät 02</text>
+<text x="70" y="376" fill="#435a70" font-size="15">Sensoren + Lüfter / Fogger</text>
+<text x="70" y="400" fill="#435a70" font-size="15">Primus Popinus · …28:8A:EC</text>
+<rect x="40" y="448" width="270" height="110" rx="12" fill="#ffffff" stroke="#167d8d" stroke-dasharray="6 5"/>
+<rect x="55" y="468" width="4" height="24" rx="2" fill="#167d8d"/>
+<text x="70" y="486" fill="#142c43" font-size="20" font-weight="700">Geräte 03–07</text>
+<text x="70" y="515" fill="#435a70" font-size="15">Geplante Erweiterung</text>
+<text x="70" y="539" fill="#435a70" font-size="15">Je Gerät ein eigener Messpuffer</text>
+<rect x="425" y="170" width="300" height="95" rx="12" fill="#ffffff" stroke="#6877af"/>
+<rect x="440" y="190" width="4" height="24" rx="2" fill="#6877af"/>
+<text x="455" y="208" fill="#142c43" font-size="20" font-weight="700">Windows-Autostart</text>
+<text x="455" y="237" fill="#435a70" font-size="15">Anmeldung + Watchdog</text>
+<rect x="425" y="323" width="300" height="115" rx="12" fill="#ffffff" stroke="#167d8d"/>
+<rect x="440" y="343" width="4" height="24" rx="2" fill="#167d8d"/>
+<text x="455" y="361" fill="#142c43" font-size="20" font-weight="700">Hintergrundlogger</text>
+<text x="455" y="390" fill="#435a70" font-size="15">Alle registrierten Geräte</text>
+<text x="455" y="414" fill="#435a70" font-size="15">Messwerte + Puffernachladung</text>
+<rect x="425" y="493" width="300" height="110" rx="12" fill="#fffaf1" stroke="#aa681b"/>
+<rect x="440" y="513" width="4" height="24" rx="2" fill="#aa681b"/>
+<text x="455" y="531" fill="#142c43" font-size="20" font-weight="700">SQLite · Messhistorien</text>
+<text x="455" y="560" fill="#435a70" font-size="15">Eine Datenbank pro Gerät</text>
+<text x="455" y="584" fill="#435a70" font-size="15">logger/data/devices/</text>
+<rect x="810" y="170" width="310" height="115" rx="12" fill="#fffaf1" stroke="#aa681b"/>
+<rect x="825" y="190" width="4" height="24" rx="2" fill="#aa681b"/>
+<text x="840" y="208" fill="#142c43" font-size="20" font-weight="700">SQLite · Geräteverzeichnis</text>
+<text x="840" y="237" fill="#435a70" font-size="15">Namen, Orte, IDs, Firmware</text>
+<text x="840" y="261" fill="#435a70" font-size="15">logger/data/lances.db</text>
+<rect x="810" y="390" width="310" height="145" rx="12" fill="#f7faff" stroke="#3166bc"/>
+<rect x="825" y="410" width="4" height="24" rx="2" fill="#3166bc"/>
+<text x="840" y="428" fill="#142c43" font-size="20" font-weight="700">Viewer</text>
+<text x="840" y="457" fill="#435a70" font-size="15">Device Selection + Diagramme</text>
+<text x="840" y="481" fill="#435a70" font-size="15">Manual Mode: Lüfter / Fogger</text>
+<text x="840" y="505" fill="#435a70" font-size="15">OTA: ausgewähltes Gerät</text>
+<path d="M310 228 H345 V380 H425" fill="none" stroke="#526b84" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M310 367 H345" fill="none" stroke="#526b84" stroke-width="2" marker-end="url(#arrow)"/>
+<path d="M310 503 H345 V400 H425" fill="none" stroke="#526b84" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="7 5"/>
+<path d="M575 265 V323" fill="none" stroke="#526b84" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="643" y="297" text-anchor="middle" fill="#435a70" font-size="14">Start / Neustart</text>
+<path d="M575 438 V493" fill="none" stroke="#526b84" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="623" y="471" text-anchor="middle" fill="#435a70" font-size="14">speichert</text>
+<path d="M725 548 H775 V490 H810" fill="none" stroke="#526b84" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="785" y="573" text-anchor="middle" fill="#435a70" font-size="14">liest Historie</text>
+<path d="M965 285 V390" fill="none" stroke="#526b84" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="965" y="344" text-anchor="middle" fill="#435a70" font-size="14">Auswahl / Metadaten</text>
+<path d="M810 228 H765 V305 H675 V323" fill="none" stroke="#526b84" stroke-width="2" marker-end="url(#arrow)"/>
+<text x="770" y="298" text-anchor="middle" fill="#435a70" font-size="14">Geräteliste</text>
+<path d="M965 535 V656 H18 V367 H40" fill="none" stroke="#526b84" stroke-width="2" marker-end="url(#arrow)" stroke-dasharray="7 5"/>
+<text x="598" y="650" text-anchor="middle" fill="#435a70" font-size="14">Direkt zum gewählten Gerät: Live-Status · manuelle Befehle · Firmware-Update</text>
+<text x="40" y="687" fill="#526b84" font-size="14">Der Logger zeichnet auch bei geschlossenem Viewer auf. Geräte 03–07 sind geplant; die Grafik zeigt keine Live-Zustände.</text></g></svg>
