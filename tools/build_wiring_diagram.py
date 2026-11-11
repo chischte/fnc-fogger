@@ -27,7 +27,7 @@ def build():
     artwork = "\n".join(artwork)
     elements = [f'''<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1600" height="1210" viewBox="0 0 1600 1210" role="img" aria-labelledby="title desc">
 <title id="title">fnc-fogger · ESP32-C3 wiring · GPIO3 gate · firmware 3.4.2</title>
-<desc id="desc">Six panels show 24 V power with a 5 V buck converter, ESP32-C3 pin connections, parallel I2C sensors, Noctua fan pinout, IRLB8721 fogger switching and implemented firmware behavior. Component illustrations are embedded; all wiring and labels are vector elements. Gate GPIO3, PWM GPIO5, tach GPIO6, SDA GPIO0, SCL GPIO1.</desc>
+<desc id="desc">Six panels show 24V power with a 5V buck converter, ESP32-C3 pin connections, parallel I2C sensors, Noctua fan pinout, IRLB8721 fogger switching and implemented firmware behavior. Component illustrations are embedded; all wiring and labels are vector elements. Gate GPIO3, PWM GPIO5, tach GPIO6, SDA GPIO0, SCL GPIO1.</desc>
 <defs><linearGradient id="header" x2="1" y2="1"><stop stop-color="#1253a2"/><stop offset="1" stop-color="#173e77"/></linearGradient>
 {artwork}
 </defs><rect width="1600" height="1210" fill="#f2f6fb"/>
@@ -65,33 +65,33 @@ def build():
 
     text(30,51,'fnc-fogger',43,weight='700')
     text(284,51,'Wiring Diagram',36,weight='600')
-    text(30,84,'ESP32-C3 SuperMini · 24 V fan / 5 V fogger · firmware 3.4.2',20,color='#526b84')
+    text(30,84,'ESP32-C3 SuperMini · 24V fan / 5V fogger · firmware 3.4.2',20,color='#526b84')
     box(1222,24,348,58,'#e9e2f5','none')
     text(1396,61,'GATE GPIO3  ·  REV 06',23,'#65309f','700','middle')
 
     panel(20,115,520,490,1,'24-V Supply')
-    text(46,204,'+24 V DC',21,COLORS['24v'],'700')
+    text(46,204,'24V DC',21,COLORS['24v'],'700')
     text(46,338,'GND',21,COLORS['gnd'],'700')
     component('buck',192,250,180,125)
-    text(282,235,'XZG buck · 24 V → 5 V',18,weight='600',anchor='middle')
+    text(282,235,'XZG buck · 24V → 5V',18,weight='600',anchor='middle')
     text(180,278,'IN+',14,anchor='middle')
     text(364,270,'OUT+',14,anchor='end')
-    wire([(55,224),(165,224),(165,299),(202,299)],'24v')
-    wire([(165,299),(165,190),(300,190)],'24v');dot(165,299,'24v',7)
-    dot(165,224,'24v',7)
+    wire([(55,224),(145,224),(145,299),(202,299)],'24v')
+    wire([(145,299),(145,190),(300,190)],'24v');dot(145,299,'24v',7)
+    dot(145,224,'24v',7)
     text(310,196,'Fan pin 2',18,COLORS['24v'],'600')
     wire([(362,299),(400,299),(400,255),(505,255)],'5v')
-    wire([(400,299),(400,310),(505,310)],'5v');dot(400,299,'5v',7)
-    text(410,242,'5 V → ESP32',17,COLORS['5v'],'600')
-    text(410,337,'5 V → Fogger +',16,COLORS['5v'],'600')
+    wire([(400,299),(400,325),(505,325)],'5v');dot(400,299,'5v',7)
+    text(426,242,'5V ESP32',17,COLORS['5v'],'600')
+    text(426,312,'5V Fogger',16,COLORS['5v'],'600')
     # IN− and OUT− share the module ground; no redundant external loop.
     wire([(55,356),(202,356),(362,356),(500,356)],'gnd')
     wire([(202,329),(202,356)],'gnd')
     wire([(362,329),(362,356)],'gnd')
     text(184,389,'IN−',16,anchor='middle');text(371,389,'OUT−',16,anchor='middle')
-    for y,label in [(422,'ESP32 GND'),(459,'Fan pin 1 · GND'),(496,'MOSFET source · pin 3')]:
+    for y,label in [(422,'I² GND'),(459,'Fan GND'),(496,'Mosfet source')]:
         wire([(111,356),(111,y),(194,y)],'gnd');dot(111,y,'gnd',7);text(210,y+6,label,18)
-    text(500,386,'I²C GND',18,COLORS['gnd'],'600','end')
+    text(500,386,'ESP32 GND',18,COLORS['gnd'],'600','end')
     for x in (111,202,362):
         dot(x,356,'gnd',7)
 
@@ -135,35 +135,35 @@ def build():
 
     panel(20,625,500,444,4,'Noctua NF-A4x10 24V PWM')
     component('noctua',36,711,245,185)
-    pins=[('1','gnd','GND','Common GND'),('2','scl','+24 V','Supply +24 V'),('3','tach','TACH','GPIO6'),('4','pwm','PWM','GPIO5')]
+    pins=[('1','gnd','GND','Common GND'),('2','scl','24V','Supply 24V'),('3','tach','TACH','GPIO6'),('4','pwm','PWM','GPIO5')]
     for i,(number,color,label,target) in enumerate(pins):
         y=731+i*62
         elements.append(f'<circle cx="310" cy="{y}" r="15" fill="{COLORS[color]}"/>')
         text(310,y+6,number,18,'#172838' if color=='scl' else '#fff','700','middle')
         text(337,y+5,label,20,weight='700');text(337,y+27,target,17)
-    note(38,984,464,['PWM: 3.3 V push-pull · 25 kHz','Tach: 2 pulses / revolution · internal 3.3 V pull-up'])
+    note(38,984,464,['PWM: 3.3V push-pull · 25 kHz','Tach: 2 pulses / revolution · internal 3.3V pull-up'])
 
     panel(535,625,510,444,5,'Fogger · IRLB8721')
     component('irlb8721',559,725,107,192)
-    for y,label,target,color in [(754,'GPIO3','Gate · pin 1','gate'),(809,'Fogger −','Drain · pin 2','gnd'),(864,'GND','Source · pin 3','gnd'),(919,'+5 V','Fogger +','5v')]:
+    for y,label,target,color in [(754,'GPIO3','Gate','gate'),(809,'Fogger −','Drain','gnd'),(864,'GND','Source','gnd'),(919,'5V','Fogger','5v')]:
         box(686,y-23,117,36,'#fff',COLORS[color],6)
         text(744,y+2,label,20,COLORS[color],'700','middle')
         wire([(803,y-5),(882,y-5)],color);text(893,y+1,target,20)
     for x, label in [(592,'G'),(612,'D'),(632,'S')]:
         text(x,943,label,20,weight='700',anchor='middle')
-    note(553,975,474,['HIGH = ON · LOW = OFF · gate-source pull-down needed','Complete 5 V fogger module with its own driver.'])
+    note(553,975,474,['HIGH = ON · LOW = OFF · gate-source pull-down needed','Complete 5V fogger module with its own driver.'])
 
     panel(1060,625,520,444,6,'Operation · firmware + OTA')
     text(1083,703,'IMPLEMENTED',14,'#167d69','700')
     for i,line in enumerate(['Sensor sampling + local measurement buffer','Fan PWM / RPM + manual fogger output','Startup: fan 3 s, fogger pulses 100 ms ON / OFF','Manual Mode: independent 0–100% outputs','Manual commands expire after 30 s without renewal','First installation: USB · later updates: OTA']):
         text(1083,738+i*34,'• '+line,17)
     box(1080,946,480,95,'#fff4e3','none',8)
-    text(1094,973,'PI CONTROL: PLANNED',17,'#8d591b','700')
-    text(1094,1000,'No automatic PI regulation or water-level detection.',16)
-    text(1094,1024,'Use water and check the physical assembly before testing.',15)
+    text(1094,973,'PI CONTROL',17,'#8d591b','700')
+    text(1094,1000,'CO₂ PI controls the fan.',16)
+    text(1094,1024,'Humidity PI controls the fogger.',16)
 
     box(20,1090,1560,49,'#fff','#d6e1ee')
-    for x,color,label in [(43,'24v','+24 V'),(227,'5v','+5 V'),(401,'3v3','3.3 V'),(573,'gnd','GND'),(738,'sda','SDA / PWM'),(967,'scl','SCL / fan +'),(1212,'gate','GATE'),(1392,'tach','TACH')]:
+    for x,color,label in [(43,'24v','24V'),(227,'5v','5V'),(401,'3v3','3.3V'),(573,'gnd','GND'),(738,'sda','SDA / PWM'),(967,'scl','SCL / fan +'),(1212,'gate','GATE'),(1392,'tach','TACH')]:
         wire([(x,1115),(x+36,1115)],color,width=7);text(x+47,1121,label,17,weight='600')
     text(30,1171,'REV 06 · 11 Nov 2026 · Editable vector wiring + embedded component artwork · Firmware mapping: GPIO3 / GPIO5 / GPIO6',17,color='#526b84')
     text(30,1195,'Check board pinout, load currents and insulation. Component artwork is illustrative; verify the actual hardware.',16,color='#526b84')
