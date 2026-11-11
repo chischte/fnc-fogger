@@ -8,7 +8,7 @@ Dateinamen: `fnc-fogger-firmware_<version>.bin`, zum Beispiel
 `fnc-fogger-firmware_3.2.1.bin`. Aktuell werden nur ESP32-C3 SuperMinis eingesetzt;
 `pio run` und das Uploadskript verwenden deshalb standardmäßig dieses Profil.
 Das gleichnamige JSON enthält die Dateigröße, Prüfsumme und Firmwaredaten.
-Im Viewer das gewünschte Gerät auswählen, `Update selected firmware` öffnen
+Im Viewer das gewünschte Gerät auswählen, `Update Firmware` öffnen
 und die passende BIN-Datei auswählen. Die Dateiauswahl startet in diesem Ordner.
 
 Hardwareprofil und Buildkennung bleiben im Image und JSON für die
@@ -22,3 +22,8 @@ frühere Hardwareprofile werden unter `legacy/<profil>/` exportiert.
 Die Dateien werden lokal aufbewahrt und nicht in Git eingecheckt. Sie können
 eingebaute WLAN-Zugangsdaten enthalten. Ältere Builds bleiben erhalten und
 werden nicht automatisch installiert.
+
+Vorbereiteter Stand: **3.4.2**, MOSFET-Gate **GPIO3**, FAN PWM GPIO5 und
+FAN TACH GPIO6. Vor der Installation die Gate-Leitung an GPIO3 anschließen.
+Der [SVG-Anschlussplan](../docs/fnc-fogger-wiring.svg) und die
+[Pinbelegung](../docs/hardware.md) zeigen GPIO3. Kein automatischer Upload.

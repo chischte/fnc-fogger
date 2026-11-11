@@ -54,11 +54,19 @@ not suppress actively driven UART pulses. See hardware.md for the limitation.
 Firmware is prepared for this new wiring; installation is deferred while the
 previously overheated controller and wiring are being checked.
 
+### Gate pin revision, firmware 3.4.2
+
+The gate returns to GPIO3, avoiding GPIO21's UART0 TX boot output. Fan PWM
+remains GPIO5, tach remains GPIO6, and startup/manual behavior is unchanged.
+The firmware is prepared, not installed. Move the physical gate connection
+to GPIO3 before installing this version. Check the previously overheated
+controller and wiring before powering the assembly.
+
 ## Implemented commissioning mode, firmware 3.3.2
 
 The C3 now drives fan PWM on GPIO5 at 25 kHz, counts falling tach edges on
-GPIO6 with the internal 3.3 V pull-up, and switches the fogger gate on GPIO21 in firmware 3.4.1 and later
-(GPIO3 in the original 3.3.x/3.4.0 releases).
+GPIO6 with the internal 3.3 V pull-up, and switches the fogger gate on GPIO3 in firmware 3.4.2
+(GPIO21 in 3.4.1; GPIO3 in the original 3.3.x/3.4.0 releases).
 Noctua specifies two tach pulses per revolution; RPM is calculated from the
 actual pulse count and elapsed time in one-second windows.
 
@@ -131,8 +139,8 @@ Immediately switch the fogger off below minimum fan speed. Account for this
 interlock in humidity-PI anti-windup.
 
 Control error = humidity setpoint minus measured humidity. Positive error
-increases output between 0 and 100%. GPIO21 drives an IRLB8721 low-side switch
-for the 5 V fogger supply (gate to GPIO21, drain to fogger negative, source to
+increases output between 0 and 100%. GPIO3 drives an IRLB8721 low-side switch
+for the 5 V fogger supply (gate to GPIO3, drain to fogger negative, source to
 GND; HIGH requests ON, LOW = OFF).
 
 The fogger uses a fixed **200 ms ON time** and variable OFF time. For demand

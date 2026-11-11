@@ -8,7 +8,7 @@ Für die Bedienung und den aktuellen Aufbau reichen diese Dokumente:
 | Daueraufzeichnung, Windows-Autostart und Überwachung | [Hintergrundlogger](background-logger.md) |
 | Geräteauswahl, Namen, Firmware und OTA | [Geräteverwaltung](device-management.md) |
 | Verkabelung, Pinbelegung und elektrische Hinweise | [Hardware](hardware.md) |
-| Grafischer Anschlussplan | [Wiring Diagram](fnc-fogger-layout-v4.png) |
+| Grafischer Anschlussplan | [Wiring Diagram](fnc-fogger-wiring.svg) |
 | Manual Mode, Starttest und geplante Regelung | [Steuerung](control.md) |
 | Ausgewählte Bauteile | [Bauteilliste](shopping-list.md) |
 

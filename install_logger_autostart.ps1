@@ -8,8 +8,7 @@ $action = New-ScheduledTaskAction -Execute $pythonw -Argument '-m logger.backgro
 $trigger = New-ScheduledTaskTrigger -AtLogOn -User $user
 Register-ScheduledTask -TaskName 'fnc-fogger-logger' -Action $action -Trigger $trigger -Settings $settings -Principal $principal -Description 'Record all registered FNC Fogger devices independently of the viewer.' -Force | Out-Null
 
-$watchdogScript = Join-Path $root 'check_logger.ps1'
-$watchdogAction = New-ScheduledTaskAction -Execute "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -Argument "-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$watchdogScript`"" -WorkingDirectory $root
+$watchdogAction = New-ScheduledTaskAction -Execute $pythonw -Argument '-m logger.watchdog' -WorkingDirectory $root
 $watchdogTrigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 2)
 $watchdogSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 1) -MultipleInstances IgnoreNew
 Register-ScheduledTask -TaskName 'fnc-fogger-logger-watchdog' -Action $watchdogAction -Trigger $watchdogTrigger -Settings $watchdogSettings -Principal $principal -Description 'Restart FNC Fogger logger when its heartbeat is stale or task stopped.' -Force | Out-Null

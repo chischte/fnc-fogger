@@ -21,6 +21,11 @@ The installer creates two tasks for the current user, with ordinary privileges:
   heartbeat older than 90 seconds causes a restart. Per-device worker crashes
   are also restarted by the Python supervisor within ten seconds.
 
+The watchdog runs via `pythonw -m logger.watchdog`. It launches the existing
+PowerShell health check with `CREATE_NO_WINDOW`, preventing the brief blue
+console flash that can occur with PowerShell's `-WindowStyle Hidden` alone.
+Health-check failures are recorded in `logger/data/watchdog.log`.
+
 This is login autostart, not an unattended service before login. Windows must
 be awake and connected. No power or sleep settings are changed by installation.
 The installer backs up and disables the obsolete `fastnchip-sensor-logger`

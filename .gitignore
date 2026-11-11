@@ -24,3 +24,4 @@ logger/data/devices/
 
 # Background recording runtime state
 logger/data/background*
+logger/data/watchdog.log

@@ -227,3 +227,11 @@ existing assignments. Windows login autostart, restart settings, watchdog,
 health files and buffer recovery are described in
 [background-logger.md](background-logger.md). Manual command renewal remains
 viewer-scoped; the recording daemon does not control actuators.
+
+## Gate assignment revision, firmware 3.4.2
+
+The prepared C3 firmware returns the MOSFET gate to GPIO3. PWM GPIO5, tach
+GPIO6 and I2C GPIO0/1 remain unchanged. Firmware 3.4.1's GPIO21 assignment
+above is historical. No device has been updated by this change. Match the
+physical gate wiring to GPIO3 before installing 3.4.2, and check the previously
+overheated controller and wiring before use.

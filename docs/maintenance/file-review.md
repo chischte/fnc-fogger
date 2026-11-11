@@ -30,7 +30,7 @@ sie. Sie sind keine ausführbaren Tests und keine notwendige Quelle für das
 fertige PNG. Die Bild-Änderungshistorie bleibt ohne Prompt-Verweise bestehen;
 frühere Prompt-Inhalte sind über Git abrufbar.
 
-`docs/layout-generation.md` wurde nach `docs/diagrams/README.md` verschoben. Das aktuelle Bild `docs/fnc-fogger-layout-v4.png` bleibt an seinem bekannten Ort und wird weiterhin von README und Hardwaredokumentation verwendet.
+`docs/layout-generation.md` wurde nach `docs/diagrams/README.md` verschoben. Die frühere PNG `docs/fnc-fogger-layout-v4.png` bleibt als historische Fassung erhalten. Die aktuelle SVG-Fassung verwendet separat generierte Komponentenbilder. README und Hardwaredokumentation verwenden inzwischen den editierbaren SVG-Plan `docs/fnc-fogger-wiring.svg`.
 
 ## Historische Unterlagen: verbleibendes Archiv
 
