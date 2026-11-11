@@ -1,6 +1,6 @@
 # Geräteverwaltung und OTA
 
-Stand: 10. November 2026. Aktuell werden ausschließlich ESP32-C3 SuperMinis eingesetzt.
+Stand: 11. November 2026. Aktuell werden ausschließlich ESP32-C3 SuperMinis eingesetzt.
 Das Standardprofil `esp32c3_supermini` bereitet ESP32-C3 SuperMinis mit
 4 MiB Flash für Sensorbetrieb und WLAN-Updates vor. Die reale Flashgröße muss
 bei der ersten USB-Einrichtung bestätigt werden. Die bestehende S3-Lanze wurde
@@ -11,10 +11,64 @@ inzwischen per USB eingerichtet und OTA-getestet. Beide sind in der Geräteverwa
 
 ## Geräteübersicht im Viewer
 
+Device Overview zeigt je registriertem Gerät eine Diagrammspalte mit dem
+Titel `Name @ Location` und drei Kurven: korrigierte SHT45-Feuchte, SCD41-CO₂
+und SHT45-Temperatur. Alle Spalten verwenden dasselbe aktuelle 30-Minuten-Fenster
+in Schweizer Ortszeit. Die Y-Achsen bleiben fest: 85–100 %RH, 0–15.000 ppm und
+20–30 °C. Zusatzsensoren, gepunktete/gestrichelte Kurven, Messwertkarten,
+PI-Anzeigen, Zoom und Command Mode gehören nur zum vollständigen Viewer.
+
+Die Übersicht startet im Dark Mode; der Button schaltet zwischen dunkel und
+hell um und zeigt jeweils den Zielmodus (Light Mode oder Dark Mode). Ein manueller
+Refresh-Button entfällt; die Geräteerkennung läuft automatisch. Full Screen beziehungsweise F11 schaltet Vollbild, Escape verlässt es.
+Bei vielen Geräten lassen sich die Spalten horizontal scrollen. Ein Klick auf
+eines der drei Diagramme öffnet genau dieses Gerät. Die verfügbaren Aktionen
+Update Firmware und Remove Offline Device stehen zentriert nebeneinander unter
+den Diagrammen, gleich breit und ohne reservierte Leerflächen.
+Update Firmware ist nur sichtbar, wenn im lokalen `firmware/`-Ordner eine
+validierte BIN mit passendem Hardwareprofil und höherer Versionsnummer liegt.
+Gleiche Version mit anderer Buildkennung zählt nicht als neuer. Unbekannte
+Geräteversionen erhalten erst nach Erkennung ein Angebot. Bei einem offline
+Gerät bleibt ein vorhandenes neueres Update sichtbar, aber deaktiviert.
+Remove Offline Device erscheint nur nach bestätigter Offline-Erkennung; während
+einer Suche oder eines Updates bleibt die sichtbare Schaltfläche deaktiviert.
+Der Firmwarekatalog wird bei den regelmäßigen Suchläufen alle 15 Sekunden neu gelesen.
+
+Während eines Firmwareupdates sind Navigation,
+Titelbearbeitung und weitere Geräteaktionen gesperrt. Der vollständige
+Viewer bleibt unverändert verfügbar.
+
+Die Diagramme lesen nur die jeweilige SQLite-Messdatei und aktualisieren sich
+alle zehn Sekunden. Der Datenabruf läuft außerhalb des UI-Threads und ist auf
+die jüngsten 5.000 Datensätze je Gerät begrenzt. Fehlende Sensorwerte werden
+nicht durch andere Sensoren ersetzt. Ohne Messungen im Zeitfenster erscheint
+`No recent measurements`; ein Datenbankfehler erscheint als `history unavailable`.
+Offline-Geräte bleiben mit ihren Metadaten sichtbar. Die Übersicht zeichnet
+selbst nichts auf und sendet keine Aktorbefehle. Der Hintergrundlogger bleibt
+für die Aufzeichnung zuständig.
+
+Die frühere Tabelle entfällt. Der zentrierte Spaltenkopf besteht aus:
+
+1. `name @ location` in etwas größerer Schrift und Kleinschreibung;
+2. `online` oder `last seen ...`.
+
+Unter den Diagrammen, über den Aktionsbuttons, stehen die kopierbare MAC-Adresse
+und Firmware im Format `<MAC> | Firmware <version>` mit je
+einem Leerzeichen um den Trennstrich. Die vertikalen Diagrammabstände sind kompakt;
+der Abstand zur Infozeile darunter ist reduziert.
+
+Last seen erscheint nur bei offline-Geräten. Die Adresse wird nicht als Link
+angezeigt; sie bleibt für Geräteerkennung und Updates intern gespeichert.
+Die Kleinschreibung verändert keine gespeicherten Namen oder Locations.
+Alle drei Diagramme zeigen ihre Zeitbeschriftungen. Die große
+Seitenüberschrift entfällt. Light Mode beziehungsweise Dark Mode und Full Screen stehen unten
+horizontal zentriert direkt über den Statusmeldungen. Der Fenstertitel bleibt
+`Device Overview`; der Rücksprungbutton im Viewer heißt `device overview`.
+
 Start: `python logger/viewer.py`.
 
-Der Startbildschirm zeigt Name, Standort, `online`/`offline`, Firmwareversion,
-letzte Erreichbarkeit, Geräte-ID und Adresse. Hardwareprofil und Buildkennung
+Der Startbildschirm zeigt Name, Standort, `online` beziehungsweise `last seen`, Firmwareversion,
+letzte Erreichbarkeit offline und Geräte-ID. Hardwareprofil und Buildkennung
 bleiben intern für die Updateprüfung gespeichert. Die Firmwareanzeige lässt
 den Hardwarezusatz weg, beispielsweise `3.2.1` statt `3.2.1-esp32c3`.
 Die Geräte-ID erscheint als WLAN-MAC mit Großbuchstaben und Doppelpunkten;
@@ -27,11 +81,12 @@ Beschrifte jedes Gerät mit Name und kurzer ID, z. B.
 `Lanze 02 – 445566`. Namen und Standorte sind frei wählbar; die ID bleibt
 bei einem IP-Wechsel gleich. Ein Ersatzcontroller bekommt eine neue ID.
 
-Name und Location werden direkt in der Tabelle per Doppelklick bearbeitet.
-Enter oder das Verlassen des Feldes speichert automatisch, Escape verwirft
-die Eingabe. Separate Benennungsfelder und ein Save-Button sind nicht nötig.
-Die Adressspalte öffnet per Klick die Geräteoberfläche im Standardbrowser;
-beim Darüberfahren zeigt der Mauszeiger die Linkfunktion an.
+Ein einfacher Klick auf `Name @ Location` verwandelt den Titel direkt in
+zwei Eingabefelder. Enter oder ein Klick außerhalb speichert beide Werte;
+der Wechsel zwischen den beiden Feldern speichert noch nicht. Escape
+verwirft die Änderung. Ein Aktualisierungslauf überschreibt keine laufende
+Eingabe. Separate Benennungsfelder oder ein Save-Button sind nicht vorhanden.
+
 
 Die Suche läuft alle 15 Sekunden, solange die Geräteauswahl geöffnet ist.
 mDNS findet neue Geräte; bekannte Geräte werden ebenfalls über ihre gespeicherte
@@ -41,7 +96,7 @@ erreichbaren Geräten kann ein Suchlauf wegen der Netzwerk-Timeouts länger
 dauern. Offline-Einträge behalten ihren zuletzt bestätigten Firmwarestand.
 Der Viewer ist kein ständig laufender Überwachungsdienst, wenn er geschlossen ist.
 
-Nicht mehr verwendete Offline-Geräte lassen sich über `Remove offline device`
+Nicht mehr verwendete Offline-Geräte lassen sich über `Remove Offline Device`
 nach einer Rückfrage aus der Liste entfernen. Die Schaltfläche ist erst nach
 einem erfolgreichen Suchlauf verfügbar und während einer Suche oder eines
 Firmwareupdates deaktiviert. Messdateien, Updateverlauf und die interne
@@ -235,3 +290,17 @@ GPIO6 and I2C GPIO0/1 remain unchanged. Firmware 3.4.1's GPIO21 assignment
 above is historical. No device has been updated by this change. Match the
 physical gate wiring to GPIO3 before installing 3.4.2, and check the previously
 overheated controller and wiring before use.
+
+## Neuer C3 per USB eingerichtet, 11. November 2026
+
+Gerät `B8:1F:3F:27:F4:E0` wurde auf COM9 als ESP32-C3, Revision 0.4, mit
+4 MiB Flash bestätigt und per USB mit `3.4.2-esp32c3`, Build `619163873d9a`,
+eingerichtet. Flash-Prüfsummen wurden verifiziert. WLAN und Geräteidentität
+wurden unter `fnc-fogger-27f4e0.local` (bei Einrichtung `192.168.31.220`)
+bestätigt. Die OTA-Uploadseite `/update` antwortet mit HTTP 200.
+
+Das Gerät ist in der Geräteverwaltung registriert; seine eigene Messdatei ist
+`logger/data/devices/b81f3f27f4e0.db`. Name und Location bleiben frei wählbar.
+Weitere OTA-Updates führt der Benutzer selbst über Update Firmware im Viewer
+aus. Bei dieser Einrichtung wurde kein OTA-Upload durchgeführt. Pinbelegung:
+Gate GPIO3, FAN PWM GPIO5, FAN TACH GPIO6, SDA GPIO0 und SCL GPIO1.

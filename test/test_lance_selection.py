@@ -1,7 +1,7 @@
 import sqlite3
 import tempfile
 import unittest
-from contextlib import closing
+from contextlib import closing, contextmanager
 from pathlib import Path
 from unittest.mock import patch
 
@@ -94,7 +94,7 @@ class ChartNavigationTests(unittest.TestCase):
             fig = plt.gcf()
             fig.canvas.draw()
             home = next(axis for axis in fig.axes if any(
-                text.get_text() == "Lance Selection" for text in axis.texts))
+                text.get_text() == "device overview" for text in axis.texts))
             x, y = home.transAxes.transform((0.5, 0.5))
             for event in ("button_press_event", "button_release_event"):
                 fig.canvas.callbacks.process(event, MouseEvent(event, fig.canvas, x, y, button=1))
@@ -112,219 +112,201 @@ class ChartNavigationTests(unittest.TestCase):
 
 
 class SelectionEditingTests(unittest.TestCase):
-    def test_device_id_is_selectable_readonly_and_click_copies_mac(self):
+    @staticmethod
+    @contextmanager
+    def selection_window(count=1):
         from logger.viewer_selection import LanceSelection
         with tempfile.TemporaryDirectory() as directory:
             registry = LanceRegistry(directory)
-            device = registry.remember(Lance("b81f3f288aec", "test.local", 80))
+            for number in range(1, count + 1):
+                registry.remember(Lance(f"{number:012x}", f"device-{number}.local", 80),
+                                  status={"firmware": "3.2.0-esp32c3",
+                                          "hardware_profile": "esp32c3_supermini"})
             selection = LanceSelection(directory)
+            for callback in selection.window.tk.call("after", "info"):
+                selection.window.after_cancel(callback)
             try:
-                field = selection.device_id_fields[device.device_id]
-                field.insert(0, "cannot change")
-                self.assertEqual(field.get(), "B8:1F:3F:28:8A:EC")
-                field.selection_range(0, "end")
-                self.assertTrue(field.selection_present())
-                selection._copy_device_id(device.device_id)
-                self.assertEqual(selection.window.clipboard_get(), "B8:1F:3F:28:8A:EC")
-                self.assertEqual(registry.list()[0].device_id, "b81f3f288aec")
-                self.assertEqual(field.cget("readonlybackground"), "#3b8c62")
-                registry.remove(device.device_id)
-                selection._refresh_rows()
-                self.assertEqual(selection.device_id_fields, {})
-            finally:
-                selection._finish()
-
-    def test_inline_edits_survive_refresh_and_save_on_selection_change(self):
-        from logger.viewer_selection import LanceSelection
-        with tempfile.TemporaryDirectory() as directory:
-            registry = LanceRegistry(directory)
-            first = registry.remember(Lance("111111111111", "one.local", 80))
-            second = registry.remember(Lance("222222222222", "two.local", 80))
-            selection = LanceSelection(directory)
-            try:
-                selection._edit_cell(first.device_id, "name")
-                selection.cell_editor.insert(0, "Lance A")
-                selection._refresh_rows()
-                self.assertEqual(selection.cell_editor.get(), "Lance A")
-                selection._commit_edit()
-                selection._edit_cell(first.device_id, "location")
-                selection.cell_editor.insert(0, "Lab")
-                selection.tree.selection_set(second.device_id)
-                selection._select()
-                saved = {item.device_id: item for item in registry.list()}
-                self.assertEqual((saved[first.device_id].name, saved[first.device_id].location),
-                                 ("Lance A", "Lab"))
-                self.assertEqual(saved[second.device_id].name, "")
-                self.assertIsNone(selection.cell_editor)
-            finally:
-                selection._finish()
-
-    def test_escape_discards_edit_and_failed_save_retains_editor(self):
-        from logger.viewer_selection import LanceSelection
-        with tempfile.TemporaryDirectory() as directory:
-            registry = LanceRegistry(directory)
-            lance = registry.remember(Lance("111111111111", "one.local", 80))
-            selection = LanceSelection(directory)
-            try:
-                selection._edit_cell(lance.device_id, "name")
-                selection.cell_editor.insert(0, "Discard this")
-                selection._cancel_edit()
-                selection._save_labels()
-                self.assertEqual(registry.list()[0].name, "")
-                selection._edit_cell(lance.device_id, "location")
-                selection.cell_editor.insert(0, "Keep this")
-                with patch.object(selection.registry, "save_labels", side_effect=OSError("Disk full")), \
-                        patch("logger.viewer_selection.messagebox.showerror") as error:
-                    self.assertFalse(selection._save_labels())
-                    error.assert_called_once()
-                self.assertEqual(selection.cell_editor.get(), "Keep this")
-                self.assertTrue(selection._save_labels())
-                self.assertEqual(registry.list()[0].location, "Keep this")
-            finally:
-                selection._finish()
-
-    def test_click_address_opens_correct_device_in_browser(self):
-        from types import SimpleNamespace
-        from logger.viewer_selection import LanceSelection
-        with tempfile.TemporaryDirectory() as directory:
-            registry = LanceRegistry(directory)
-            lance = registry.remember(Lance("111111111111", "one.local", 8080))
-            selection = LanceSelection(directory)
-            try:
-                for callback in selection.window.tk.call("after", "info"):
-                    selection.window.after_cancel(callback)
-                selection.window.deiconify()
-                selection.window.update()
-                selection.tree.see(lance.device_id)
-                selection.tree.update_idletasks()
-                selection.tree.xview_moveto(1)
-                selection.tree.update_idletasks()
-                x, y, width, height = selection.tree.bbox(lance.device_id, "address")
-                event = SimpleNamespace(x=x + width // 2, y=y + height // 2)
-                with patch("logger.viewer_selection.webbrowser.open", return_value=True) as browser:
-                    selection._click_address(event)
-                    browser.assert_called_once_with("http://one.local:8080", new=2)
-                    browser.reset_mock()
-                    link = selection.address_links[lance.device_id]
-                    self.assertEqual(link.cget("foreground"), "white")
-                    self.assertEqual(link.cget("background"), "#3b8c62")
-                    self.assertIn("underline", link.cget("font"))
-                    link.event_generate("<ButtonRelease-1>")
-                    browser.assert_called_once_with("http://one.local:8080", new=2)
-            finally:
-                selection._finish()
-
-    def test_last_seen_uses_local_date_and_device_id_is_display_only(self):
-        from datetime import datetime, timedelta
-        from logger.viewer_selection import LanceSelection
-        now = datetime.now().astimezone()
-        yesterday = now - timedelta(days=1)
-        self.assertEqual(LanceSelection._format_last_seen(now.isoformat()), now.strftime("%H:%M:%S"))
-        self.assertEqual(LanceSelection._format_last_seen(yesterday.isoformat()),
-                         yesterday.strftime("%Y-%m-%d %H:%M:%S"))
-        self.assertEqual(LanceSelection._format_last_seen(""), "-")
-        self.assertEqual(LanceSelection._format_device_id("b81f3f27ca14"), "B8:1F:3F:27:CA:14")
-        self.assertEqual(LanceSelection._format_firmware("3.2.1-esp32c3"), "3.2.1")
-
-    def test_remove_offline_device_and_last_row_clears_selection(self):
-        from logger.viewer_selection import LanceSelection
-        with tempfile.TemporaryDirectory() as directory:
-            registry = LanceRegistry(directory)
-            lance = registry.remember(Lance("111111111111", "one.local", 80))
-            selection = LanceSelection(directory)
-            try:
-                selection._select()
-                selection.has_scanned = True
-                selection._update_button_state()
-                self.assertEqual(str(selection.remove_button["state"]), "normal")
-                with patch("logger.viewer_selection.messagebox.askyesno", return_value=True):
-                    selection._remove()
-                self.assertEqual(registry.list(), [])
-                self.assertFalse(selection.tree.exists(lance.device_id))
-                self.assertIsNone(selection.selected_id)
-                self.assertEqual(selection.name.get(), "")
-                self.assertEqual(str(selection.open_button["state"]), "disabled")
-                self.assertEqual(str(selection.remove_button["state"]), "disabled")
-            finally:
-                selection._finish()
-
-    def test_removal_requires_confirmed_offline_status_and_confirmation(self):
-        from logger.viewer_selection import LanceSelection
-        with tempfile.TemporaryDirectory() as directory:
-            registry = LanceRegistry(directory)
-            lance = registry.remember(Lance("111111111111", "one.local", 80))
-            selection = LanceSelection(directory)
-            try:
-                selection._select()
-                with patch("logger.viewer_selection.messagebox.askyesno") as confirm:
-                    selection._remove()
-                    selection.has_scanned = True
-                    selection.online.add(lance.device_id)
-                    selection._remove()
-                    selection.online.clear()
-                    selection.scanning = True
-                    selection._remove()
-                    selection.scanning = False
-                    selection.updating = True
-                    selection._remove()
-                    confirm.assert_not_called()
-                selection.updating = False
-                with patch("logger.viewer_selection.messagebox.askyesno", return_value=False):
-                    selection._remove()
-                self.assertEqual(len(registry.list()), 1)
-            finally:
-                selection._finish()
-
-    def test_overview_displays_persisted_firmware_for_offline_devices(self):
-        from logger.viewer_selection import LanceSelection
-        with tempfile.TemporaryDirectory() as directory:
-            registry = LanceRegistry(directory)
-            lance = Lance("111111111111", "one.local", 80)
-            registry.remember(lance, status={"firmware": "3.2.0-esp32c3",
-                                            "hardware_profile": "esp32c3_supermini",
-                                            "build_id": "0123456789ab"})
-            selection = LanceSelection(directory)
-            try:
-                row = selection.tree.item(lance.device_id, "values")
-                columns = selection.tree["columns"]
-                values = dict(zip(columns, row))
-                self.assertEqual(values["firmware"], "3.2.0")
-                self.assertNotIn("hardware", values)
-                self.assertNotIn("build", values)
-                self.assertEqual(values["device_id"], "11:11:11:11:11:11")
-                self.assertEqual(values["status"], "offline")
-                for column in columns:
-                    self.assertEqual(str(selection.tree.column(column, "anchor")),
-                                     "w" if column == "name" else "center")
-                self.assertNotEqual(values["last_seen"], "-")
-                self.assertEqual(str(selection.update_button["state"]), "disabled")
-            finally:
-                selection._finish()
-
-    def test_switching_rows_preserves_edits_and_open_returns_selected_lance(self):
-        from logger.viewer_selection import LanceSelection
-        with tempfile.TemporaryDirectory() as directory:
-            registry = LanceRegistry(directory)
-            first = registry.remember(Lance("111111111111", "one.local", 80))
-            second = registry.remember(Lance("222222222222", "two.local", 80))
-            selection = LanceSelection(directory)
-            try:
-                selection.tree.selection_set(first.device_id)
-                selection._select()
-                selection.name.set("Chamber A")
-                selection.location.set("Lab")
-                selection.tree.selection_set(second.device_id)
-                selection._select()
-                selection.tree.selection_set(first.device_id)
-                selection._select()
-                self.assertEqual(selection.name.get(), "Chamber A")
-                self.assertEqual(selection.location.get(), "Lab")
-                selection._open()
-                self.assertEqual(selection.result.device_id, first.device_id)
-                self.assertEqual(selection.result.name, "Chamber A")
-                saved = {item.device_id: item for item in LanceRegistry(directory).list()}
-                self.assertIn(second.device_id, saved)
-                self.assertEqual(saved[first.device_id].location, "Lab")
+                yield selection, registry
             finally:
                 if not selection.stop.is_set():
                     selection._finish()
+
+    def test_device_id_is_selectable_readonly_and_click_copies_mac(self):
+        with self.selection_window() as (selection, registry):
+            device = registry.list()[0]
+            field = selection.overview.columns[device.device_id].identity.device_id
+            field.insert(0, "cannot change")
+            self.assertEqual(field.get(), "00:00:00:00:00:01")
+            field.selection_range(0, "end")
+            self.assertTrue(field.selection_present())
+            selection._copy_device_id(device.device_id)
+            self.assertEqual(selection.window.clipboard_get(), field.get())
+            registry.remove(device.device_id)
+            selection._refresh_devices()
+            self.assertEqual(selection.overview.columns, {})
+
+    def test_title_click_becomes_editor_and_edits_survive_refresh(self):
+        with self.selection_window() as (selection, registry):
+            device = registry.list()[0]
+            header = selection.overview.columns[device.device_id].header
+            selection.window.update()
+            header.title.event_generate("<Button-1>")
+            self.assertTrue(header.editing)
+            header.name.set("Lance A")
+            header.location.set("Lab")
+            selection._refresh_devices()
+            self.assertEqual(header.name.get(), "Lance A")
+            self.assertTrue(header.commit_edit())
+            saved = registry.list()[0]
+            self.assertEqual((saved.name, saved.location), ("Lance A", "Lab"))
+            self.assertEqual(header.title.cget("text"), "lance a @ lab")
+            self.assertFalse(header.editing)
+
+    def test_escape_discards_edit_and_failed_save_retains_editor(self):
+        with self.selection_window() as (selection, registry):
+            header = next(iter(selection.overview.columns.values())).header
+            header.begin_edit()
+            header.name.set("Discard")
+            header.cancel_edit()
+            self.assertEqual(registry.list()[0].name, "")
+            header.begin_edit()
+            header.location.set("Keep")
+            with patch.object(selection.registry, "save_labels", side_effect=OSError("Disk full")), \
+                    patch("logger.viewer_selection.messagebox.showerror") as error:
+                self.assertFalse(header.commit_edit())
+                error.assert_called_once()
+            self.assertTrue(header.editing)
+            self.assertEqual(header.location.get(), "Keep")
+            self.assertTrue(header.commit_edit())
+            self.assertEqual(registry.list()[0].location, "Keep")
+
+    def test_header_status_shows_last_seen_only_when_offline_and_has_no_link(self):
+        from dataclasses import replace
+        from datetime import datetime
+        from logger.viewer_device_header import format_last_seen
+        with self.selection_window() as (selection, registry):
+            device = replace(registry.list()[0], last_seen=datetime.now().astimezone().isoformat())
+            header = selection.overview.columns[device.device_id].header
+            header.update(device, True)
+            self.assertEqual(header.status.cget("text"), "online")
+            header.update(device, False)
+            self.assertEqual(header.status.cget("text"), "last seen " + format_last_seen(device.last_seen))
+            self.assertEqual(selection.overview.columns[device.device_id].identity.firmware.cget("text"), "Firmware 3.2.0")
+            self.assertFalse(hasattr(header, "address"))
+
+    def test_last_seen_uses_local_date_and_device_id_is_display_only(self):
+        from datetime import datetime, timedelta
+        from logger.viewer_device_header import format_last_seen, format_device_id, format_firmware
+        now = datetime.now().astimezone()
+        yesterday = now - timedelta(days=1)
+        self.assertEqual(format_last_seen(now.isoformat()), now.strftime("%H:%M:%S"))
+        self.assertEqual(format_last_seen(yesterday.isoformat()), yesterday.strftime("%Y-%m-%d %H:%M:%S"))
+        self.assertEqual(format_last_seen(""), "-")
+        self.assertEqual(format_device_id("b81f3f27ca14"), "B8:1F:3F:27:CA:14")
+        self.assertEqual(format_firmware("3.2.1-esp32c3"), "3.2.1")
+
+    def test_remove_button_removes_only_its_offline_column(self):
+        with self.selection_window(2) as (selection, registry):
+            device = registry.list()[1]
+            selection.has_scanned = True
+            selection._update_button_state()
+            column = selection.overview.columns[device.device_id]
+            self.assertEqual(str(column.remove_button["state"]), "normal")
+            with patch("logger.viewer_selection.messagebox.askyesno", return_value=True):
+                column.remove_button.invoke()
+            self.assertEqual(len(registry.list()), 1)
+            self.assertNotIn(device.device_id, selection.overview.columns)
+
+    def test_removal_requires_confirmed_offline_status_and_confirmation(self):
+        with self.selection_window() as (selection, registry):
+            device_id = registry.list()[0].device_id
+            with patch("logger.viewer_selection.messagebox.askyesno") as confirm:
+                selection._remove(device_id)
+                selection.has_scanned = True
+                selection.online.add(device_id)
+                selection._remove(device_id)
+                selection.online.clear()
+                selection.scanning = True
+                selection._remove(device_id)
+                selection.scanning = False
+                selection.updating = True
+                selection._remove(device_id)
+                confirm.assert_not_called()
+            selection.updating = False
+            with patch("logger.viewer_selection.messagebox.askyesno", return_value=False):
+                selection._remove(device_id)
+            self.assertEqual(len(registry.list()), 1)
+
+    def test_metadata_is_in_footer_and_redundant_controls_are_absent(self):
+        with self.selection_window() as (selection, registry):
+            device = registry.list()[0]
+            column = selection.overview.columns[device.device_id]
+            self.assertIn("Firmware 3.2.0", column.identity.firmware.cget("text"))
+            self.assertIn("last seen", column.header.status.cget("text"))
+            self.assertFalse(hasattr(column.header, "address"))
+            self.assertFalse(hasattr(selection, "tree"))
+            self.assertFalse(hasattr(column, "open_button"))
+            self.assertEqual(column.identity.frame.grid_info()["row"], 2)
+            self.assertEqual(column.identity.separator.cget("text"), " | ")
+            self.assertEqual(selection.window.title(), "Device Overview")
+            self.assertFalse(hasattr(selection, "heading"))
+            selection.window.deiconify()
+            selection.window.update()
+            controls = selection.theme_button.master
+            self.assertFalse(hasattr(selection, "scan_button"))
+            self.assertIs(controls, selection.fullscreen_button.master)
+            self.assertAlmostEqual(controls.winfo_x() + controls.winfo_width() / 2,
+                                   controls.master.winfo_width() / 2, delta=1)
+            self.assertGreater(controls.winfo_y(), selection.overview.frame.winfo_y())
+            self.assertEqual(str(column.update_button["state"]), "disabled")
+
+    def test_opening_another_device_commits_pending_title_edit(self):
+        with self.selection_window(2) as (selection, registry):
+            first, second = registry.list()
+            header = selection.overview.columns[first.device_id].header
+            header.begin_edit()
+            header.name.set("Chamber A")
+            header.location.set("Lab")
+            selection._open_device(second.device_id)
+            self.assertEqual(selection.result.device_id, second.device_id)
+            saved = {device.device_id: device for device in registry.list()}
+            self.assertEqual((saved[first.device_id].name, saved[first.device_id].location), ("Chamber A", "Lab"))
+
+    def test_firmware_button_targets_its_column_and_retains_confirmation(self):
+        from types import SimpleNamespace
+        with self.selection_window(2) as (selection, registry):
+            target = registry.list()[1]
+            selection.online = set(selection.devices)
+            selection.firmware_versions = {"esp32c3_supermini": (3, 4, 2)}
+            selection._update_button_state()
+            image = SimpleNamespace(profile="esp32c3_supermini", version="3.4.2", build_id="0123456789ab")
+            with patch("logger.viewer_selection.filedialog.askopenfilename", return_value="firmware.bin"), \
+                    patch("logger.viewer_selection.firmware_update.read_image", return_value=image), \
+                    patch("logger.viewer_selection.messagebox.askyesno", return_value=True) as confirm, \
+                    patch("logger.viewer_selection.threading.Thread") as thread:
+                selection.overview.columns[target.device_id].update_button.invoke()
+            self.assertIn(target.device_id, confirm.call_args.args[1])
+            self.assertEqual(thread.call_args.kwargs["args"][0].device_id, target.device_id)
+            self.assertTrue(selection.updating)
+
+    def test_action_visibility_depends_on_version_and_offline_status(self):
+        with self.selection_window(2) as (selection, registry):
+            first, second = registry.list()
+            registry.remember(second, status={"firmware": "3.4.2-esp32c3",
+                                              "hardware_profile": "esp32c3_supermini"})
+            selection.has_scanned = True
+            selection.online = {first.device_id}
+            selection.firmware_versions = {"esp32c3_supermini": (3, 4, 2)}
+            selection._refresh_devices()
+            first_column = selection.overview.columns[first.device_id]
+            second_column = selection.overview.columns[second.device_id]
+            self.assertEqual(first_column.update_button.winfo_manager(), "grid")
+            self.assertEqual(first_column.remove_button.winfo_manager(), "")
+            self.assertEqual(second_column.update_button.winfo_manager(), "")
+            self.assertEqual(second_column.remove_button.winfo_manager(), "grid")
+            selection.online.add(second.device_id)
+            selection.firmware_versions = {}
+            selection._update_button_state()
+            self.assertEqual(first_column.update_button.winfo_manager(), "")
+            self.assertEqual(second_column.remove_button.winfo_manager(), "")
+            self.assertEqual(second_column.buttons.winfo_manager(), "")

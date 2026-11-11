@@ -66,6 +66,14 @@ dieser Puffer ist begrenzt; bereits überschriebene Daten sind verloren.
 
 ## Viewer und manuelle Bedienung
 
+**Device Overview** zeigt alle registrierten Geräte mit je drei reduzierten
+Messkurven nebeneinander: Feuchte, CO₂ und Temperatur. Gemeinsames
+30-Minuten-Fenster, feste Y-Skalen, Dark Mode und Vollbild; ein Klick auf eine
+Kurve öffnet den vollständigen Viewer dieses Geräts.
+Geräteinfos stehen direkt unter dem Spaltentitel. Namen und Location lassen
+sich per Klick im Titel bearbeiten; Firmware-Update und Entfernen eines
+Offline-Geräts sind direkt in dessen Spalte verfügbar.
+
 ### View Mode
 
 CO₂, Feuchte und Temperatur als zeitliche Verläufe – mit aktuellen Messwerten,
@@ -81,9 +89,9 @@ Die Aufnahme zeigt den Stand ohne konfigurierte PI-Regelung.
 
 ![Command Mode: Messkurven, Sollwerte und vorbereitete Reglerdiagramme](docs/screenshots/command-mode.png)
 
-Device Selection findet Geräte im WLAN. Name und Location lassen sich direkt
-bearbeiten. Die Adresse öffnet die Geräte-Webseite; ein Klick auf die Geräte-ID
-kopiert sie. Open Viewer zeigt die Messhistorie des ausgewählten Geräts.
+Device Overview findet Geräte im WLAN. Ein Klick auf den Titel erlaubt das
+direkte Bearbeiten von Name und Location. Ein Klick auf die MAC-Adresse
+kopiert sie. Ein Klick auf ein Diagramm öffnet die Messhistorie des zugehörigen Geräts.
 
 Command Mode → Manual Mode bietet getrennte 0–100-%-Regler und On/Off-Buttons
 für Lüfter und Fogger. Änderungen eingeschalteter Ausgänge werden direkt
@@ -98,7 +106,7 @@ Siehe [Manual Mode, Starttest und Regelungskonzept](docs/control.md).
    und die eigenen WLAN-Zugangsdaten eintragen. Die echte Datei nicht committen.
 2. C3 bauen: `pio run -e esp32c3_supermini` oder kurz `pio run`.
 3. Erstinstallation über USB: `pio run -e esp32c3_supermini -t upload --upload-port COMx`.
-4. Spätere Updates in Device Selection mit Update Firmware auf das ausdrücklich
+4. Spätere Updates in Device Overview mit Update Firmware auf das ausdrücklich
    ausgewählte Gerät laden; Geräte-ID, Hardwareprofil und Neustart werden geprüft.
 
 BIN und Manifest werden als `firmware/fnc-fogger-firmware_<version>.bin` bzw.

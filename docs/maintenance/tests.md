@@ -1,16 +1,16 @@
 # Tests und vorhandene Testergebnisse
 
-Stand: 11. November 2026, nach dem Portenta-Cleanup.
+Stand: 11. November 2026, nach Portenta-Cleanup und Geräteübersicht.
 
 ## 1. Ausführbare Softwaretests: behalten
 
 Das sind **Prüfprogramme, keine alten Ergebnisdateien**. Sie laufen nicht im
 normalen Logger-/Viewer-/Firmwarebetrieb. Ein Löschen spart kaum Platz,
 verhindert aber, dass wir spätere Änderungen auf dieselben Fehler prüfen.
-Alle 16 Gruppen prüfen weiterhin verwendete ESP32-, Logger- oder Viewer-Funktionen.
+Alle 17 Gruppen prüfen weiterhin verwendete ESP32-, Logger- oder Viewer-Funktionen.
 Ich empfehle, diese Gruppen zu behalten. Es wurde keine Testgruppe gelöscht.
 
-Letzter Durchlauf nach dem Cleanup: **101 Tests, alle bestanden**; keine Gruppe
+Letzter Durchlauf nach dem Cleanup: **113 Tests, alle bestanden**; keine Gruppe
 übersprungen. Beide verbleibenden Firmwareprofile (`esp32c3_supermini` und
 `esp32s3`) wurden nach dem Cleanup erfolgreich gebaut. Es wurde keine
 Firmware auf ein Gerät geladen.
@@ -25,13 +25,14 @@ Fake-Hardware und ersetzen keinen realen elektrischen Hardwaretest.
 
 | Testdatei | Testmethoden | Zweck |
 | --- | ---: | --- |
+| [test_device_overview.py](../../test/test_device_overview.py) | 7 | Nur-Lese-Abfragen, Gerätetrennung, Hauptlinien und feste Skalen, Diagrammklicks, Dark Mode/Vollbild, OTA-Sperre und sieben Gerätespalten. |
 | [test_background_logger.py](../../test/test_background_logger.py) | 8 | Daueraufzeichnung ohne Viewer, Puffernachladung, Messzeitpunkte, Geräte-ID, Prozesssperre und Heartbeat. |
 | [test_control.py](../../test/test_control.py) | 12 | Sollwertübertragung, Bestätigung, Live-Telemetrie, Reglerdiagramme und Wertedarstellung. |
 | [test_control_settings.py](../../test/test_control_settings.py) | 1 | Sollwerte nach Neustart, NVS-Fehler, Wertebereiche und Speicherung als zusammengehöriges Paar. |
 | [test_esp32_ota.py](../../test/test_esp32_ota.py) | 1 | Echte ESP32-Updater-Logik gegen Fake-Flash: Schreibfehler, Profilprüfung, Abschluss und Neustart. |
-| [test_firmware_management.py](../../test/test_firmware_management.py) | 6 | Falsche Geräte-/Chipzuordnung verhindern, Firmware-Metadaten und OTA-Neustartbestätigung. |
+| [test_firmware_management.py](../../test/test_firmware_management.py) | 9 | Falsche Geräte-/Chipzuordnung verhindern, Firmware-Metadaten und OTA-Neustartbestätigung. |
 | [test_i2c_diagnostics.py](../../test/test_i2c_diagnostics.py) | 1 | I²C-Scan, gefundene Adressen und nicht blockierender Ablauf. |
-| [test_lance_selection.py](../../test/test_lance_selection.py) | 17 | Geräteverwaltung, Datenbankzuordnung, Namen, Entfernen, Zwischenablage, Navigation und Viewer ohne Messdatenschreibzugriff. |
+| [test_lance_selection.py](../../test/test_lance_selection.py) | 19 | Geräteverwaltung, Datenbankzuordnung, Titelbearbeitung, Entfernen pro Spalte, Firmware-Zielauswahl, Zwischenablage, Navigation und Viewer ohne Messdatenschreibzugriff. |
 | [test_logger.py](../../test/test_logger.py) | 12 | SQLite-Schema, Deduplizierung, Messwertfelder sowie Import/Export und historische Datenverträglichkeit. |
 | [test_manual_control.py](../../test/test_manual_control.py) | 6 | Manual Mode, direkte Reglerwerte, getrennte Schalter, Stop All, Befehlsbestätigung und Verbindungsverlust. |
 | [test_sensor_recovery.py](../../test/test_sensor_recovery.py) | 1 | Echter SCD41/SHT45/SHTC3-Code mit Fake-Sensoren: Ausfall, Wiederanschluss, CRC, Heizung und Abkühlzeit. |

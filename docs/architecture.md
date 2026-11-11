@@ -31,8 +31,9 @@ S3-Lanze und wird nicht mit den aktiven C3-Geräten vermischt.
 
 ## Viewer und Gerätebedienung
 
-Der Viewer liest Messhistorien aus SQLite. Er schreibt keine Messungen und
-sein Schließen beendet den Hintergrundlogger nicht. Device Selection liest
+Device Overview zeigt eine reduzierte Diagrammspalte pro Gerät. Wie der
+vollständige Viewer liest diese Übersicht Messhistorien ausschließlich aus SQLite. Er schreibt keine Messungen und
+sein Schließen beendet den Hintergrundlogger nicht. Device Overview liest
 und aktualisiert die zentrale Geräteverwaltung; mDNS und Statusabfragen
 finden beziehungsweise prüfen Geräte im WLAN.
 
@@ -72,7 +73,9 @@ Details zu Betrieb, Dateien und Wiederherstellung:
 | Daueraufzeichnung aller registrierten Geräte | `logger/background.py` |
 | Messzeit und deduplizierte Puffernachladung | `logger/measurement_recording.py` |
 | Geräteverwaltung und Datenbankzuordnung | `logger/lance_registry.py` |
-| Diagramme und Geräteauswahl | `logger/viewer.py`, `logger/viewer_selection.py` |
+| Diagramme und Geräteauswahl | `logger/viewer.py`, `logger/viewer_selection.py`, `logger/viewer_overview.py`, `logger/viewer_device_header.py` |
+| Begrenzte Nur-Lese-Abfragen für die Geräteübersicht | `logger/overview_data.py` |
+| Gemeinsame Diagrammfarben und feste Skalen | `logger/viewer_style.py` |
 | Viewer-Live-Status und direkte Befehle | `logger/lance_collection.py` |
 | Manuelle Bedienung | `logger/viewer_manual.py` |
 | Windows-Autostart und Überwachung | `install_logger_autostart.ps1`, `check_logger.ps1` |

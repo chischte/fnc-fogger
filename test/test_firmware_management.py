@@ -90,3 +90,35 @@ class FirmwareManagementTests(unittest.TestCase):
         with closing(sqlite3.connect(registry.path)) as db:
             self.assertEqual(db.execute("SELECT phase,sha256 FROM firmware_updates").fetchone(),
                              ("verified", self.image.sha256))
+
+
+class FirmwareCatalogTests(unittest.TestCase):
+    def test_version_comparison_is_numeric_and_ignores_hardware_suffix(self):
+        from logger.firmware_catalog import release_version
+        self.assertGreater(release_version("3.10.0"), release_version("3.9.9-esp32c3"))
+        self.assertEqual(release_version("3.4.2"), release_version("3.4.2-esp32c3"))
+        self.assertIsNone(release_version("unknown"))
+
+    def test_only_a_newer_compatible_version_is_offered(self):
+        from dataclasses import replace
+        from logger.firmware_catalog import has_newer_firmware
+        device = Lance("112233445566", "test.local", 80, firmware="3.4.2-esp32c3",
+                       hardware_profile="esp32c3_supermini")
+        for versions in [{}, {"esp32s3": (9, 0, 0)}, {"esp32c3_supermini": (3, 4, 2)},
+                         {"esp32c3_supermini": (3, 4, 1)}]:
+            self.assertFalse(has_newer_firmware(device, versions))
+        self.assertTrue(has_newer_firmware(device, {"esp32c3_supermini": (3, 4, 3)}))
+        self.assertFalse(has_newer_firmware(replace(device, firmware="unknown"),
+                                           {"esp32c3_supermini": (3, 4, 3)}))
+
+    def test_catalog_validates_images_instead_of_trusting_filenames(self):
+        from logger.firmware_catalog import available_versions
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            header = bytearray(24)
+            header[0] = 0xE9
+            header[12] = 5
+            for name, version in [("first.bin", "3.9.0"), ("second.bin", "3.10.0-esp32c3")]:
+                (root / name).write_bytes(header + f"FNC_FW|esp32c3_supermini|{version}|0123456789ab|END".encode())
+            (root / "fnc-fogger-firmware_99.0.0.bin").write_bytes(b"not a firmware image")
+            self.assertEqual(available_versions(root), {"esp32c3_supermini": (3, 10, 0)})
