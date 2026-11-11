@@ -66,6 +66,21 @@ dieser Puffer ist begrenzt; bereits überschriebene Daten sind verloren.
 
 ## Viewer und manuelle Bedienung
 
+### View Mode
+
+CO₂, Feuchte und Temperatur als zeitliche Verläufe – mit aktuellen Messwerten,
+wählbarem Zeitfenster und Vergleich zwischen Innenraum- und Umgebungssensoren.
+
+![View Mode: Messwerte und Zeitverläufe für Feuchte, CO₂ und Temperatur](docs/screenshots/view-mode.png)
+
+### Command Mode
+
+Messkurven neben Sollwerten und den vorbereiteten Reglerdiagrammen.
+Über Manual Mode lassen sich Lüfter und Fogger getrennt bedienen.
+Die Aufnahme zeigt den Stand ohne konfigurierte PI-Regelung.
+
+![Command Mode: Messkurven, Sollwerte und vorbereitete Reglerdiagramme](docs/screenshots/command-mode.png)
+
 Device Selection findet Geräte im WLAN. Name und Location lassen sich direkt
 bearbeiten. Die Adresse öffnet die Geräte-Webseite; ein Klick auf die Geräte-ID
 kopiert sie. Open Viewer zeigt die Messhistorie des ausgewählten Geräts.
