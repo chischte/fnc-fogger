@@ -5,8 +5,8 @@ Das Standardprofil `esp32c3_supermini` bereitet ESP32-C3 SuperMinis mit
 4 MiB Flash für Sensorbetrieb und WLAN-Updates vor. Die reale Flashgröße muss
 bei der ersten USB-Einrichtung bestätigt werden. Die bestehende S3-Lanze wurde
 nicht aktualisiert. Der erste Mini wurde inzwischen erfolgreich eingerichtet;
-siehe [USB-/OTA-Test des ersten Minis](esp32c3-mini-01-test-2026-11-09.md).
-Auch der [zweite Mini, fogger 01](esp32c3-mini-02-test-2026-11-09.md), ist
+siehe [USB-/OTA-Test des ersten Minis](archive/esp32c3-mini-01-test-2026-11-09.md).
+Auch der [zweite Mini, fogger 01](archive/esp32c3-mini-02-test-2026-11-09.md), ist
 inzwischen per USB eingerichtet und OTA-getestet. Beide sind in der Geräteverwaltung gespeichert.
 
 ## Geräteübersicht im Viewer
@@ -206,8 +206,8 @@ Aktorenregelung ist weiterhin nicht implementiert.
 - Die USB-Erkennung zeigte am 9. November 2026 keinen angeschlossenen ESP32.
   Erstinstallation, tatsächliche Flashgröße, WLAN und OTA an beiden Minis
   waren zu diesem Zeitpunkt noch auf Hardware zu prüfen. Anschließend wurde
-  der [erste Mini erfolgreich per USB und OTA getestet](esp32c3-mini-01-test-2026-11-09.md).
-  Auch der [zweite Mini, fogger 01](esp32c3-mini-02-test-2026-11-09.md), ist nun
+  der [erste Mini erfolgreich per USB und OTA getestet](archive/esp32c3-mini-01-test-2026-11-09.md).
+  Auch der [zweite Mini, fogger 01](archive/esp32c3-mini-02-test-2026-11-09.md), ist nun
   erfolgreich getestet. Die S3-Lanze wurde nicht aktualisiert.
 
 ## Gate assignment revision, 2026-11-10

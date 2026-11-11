@@ -34,9 +34,7 @@ void WebServer::begin(uint32_t now) {
 }
 
 void WebServer::poll(uint32_t now) {
-#ifdef ARDUINO_ARCH_ESP32
   i2cDiagnostics_.poll(now);
-#endif
   serviceWifi(now);
   discovery_.poll(serverStarted_, now);
   if (!serverStarted_) {
@@ -175,7 +173,6 @@ void WebServer::readMultipartHeaderByte(char byte) {
     startResponse(500, "text/plain", "Cannot open OTA file.");
     return;
   }
-#ifdef ARDUINO_ARCH_ESP32
   // Content-Length includes the multipart header and closing boundary.
   const size_t trailerBytes = boundary_.length() + 6;
   if (expectedBodyBytes_ <= receivedBodyBytes_ + trailerBytes) {
@@ -184,7 +181,6 @@ void WebServer::readMultipartHeaderByte(char byte) {
     return;
   }
   firmwareUpdater_.setExpectedSize(expectedBodyBytes_ - receivedBodyBytes_ - trailerBytes);
-#endif
   clientState_ = ClientState::receivingUpload;
 }
 
@@ -224,7 +220,6 @@ void WebServer::handleRequest() {
     return;
   }
 
-#ifdef ARDUINO_ARCH_ESP32
   if ((method == "GET" && path == "/api/i2c") ||
       (method == "POST" && path == "/api/i2c/scan")) {
     if (!i2cDiagnostics_.started() || method == "POST") {
@@ -233,7 +228,6 @@ void WebServer::handleRequest() {
     startResponse(200, "application/json", buildI2cDiagnosticsJson());
     return;
   }
-#endif
   if (method == "GET" && path == "/api/control") {
     startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_));
   } else if (method == "POST" && path == "/api/control/setpoints") {
@@ -344,7 +338,6 @@ void WebServer::finishUpload() {
                 result.restartRequired);
 }
 
-#ifdef ARDUINO_ARCH_ESP32
 String WebServer::buildI2cDiagnosticsJson() const {
   String json = "{\"sda_gpio\":" + String(Config::I2C_SDA_PIN);
   json += ",\"scl_gpio\":" + String(Config::I2C_SCL_PIN);
@@ -369,7 +362,6 @@ String WebServer::buildI2cDiagnosticsJson() const {
   json += '}';
   return json;
 }
-#endif
 
 String WebServer::buildApiJson(bool includeHistory) const {
   String json;
@@ -382,12 +374,10 @@ String WebServer::buildApiJson(bool includeHistory) const {
   json += FirmwareIdentity::BUILD;
   json += "\",\"firmware_metadata\":\"";
   json += FirmwareIdentity::METADATA;
-#ifdef ARDUINO_ARCH_ESP32
   String deviceId = WiFi.macAddress();
   deviceId.replace(":", "");
   deviceId.toLowerCase();
   json += "\",\"device_id\":\"" + deviceId;
-#endif
   json += "\",\"sensor_ready\":";
   json += measurements_.sensorReady() ? "true" : "false";
   json += ",\"storage_ready\":";

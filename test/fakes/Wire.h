@@ -66,4 +66,3 @@ struct TwoWire {
   }
 };
 inline TwoWire Wire{0};
-inline TwoWire Wire1{1};

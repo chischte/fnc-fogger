@@ -1,5 +1,8 @@
 # Hardware migration, 2026-10-24
 
+> Historischer Bericht. Der beschriebene Stand kann vom heutigen Projekt abweichen.
+> Aktuelle Anleitungen: [Dokumentationsübersicht](../README.md).
+
 Through commit `e215ccc`, the project used Arduino Portenta Machine Control.
 The local tag `portenta-machine-control-final` marks the complete previous
 state with PT100 and Portenta OTA.
@@ -33,7 +36,7 @@ Store WiFi credentials in `../wifi-credentials.h` as before. Then open
 (no merged/factory BIN or Portenta file). Alternatively run
 `./upload_firmware.ps1 -DeviceUrl http://<device-hostname> -DeviceId <12-digit-device-id>`.
 The current managed updater also checks the hardware profile and confirms
-the running firmware after restart; see [device management](device-management.md).
+the running firmware after restart; see [device management](../device-management.md).
 The ESP32 Update library validates the image and activates the other app
 partition only on success. Aborting leaves the current firmware running.
 The update page still has no login and is intended for trusted local WiFi.

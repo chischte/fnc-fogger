@@ -1,5 +1,8 @@
 # Command mode and persistent setpoints
 
+> Historischer Bericht. Der beschriebene Stand kann vom heutigen Projekt abweichen.
+> Aktuelle Anleitungen: [Dokumentationsübersicht](../README.md).
+
 ## Current scope
 
 The present lance only measures. Firmware 3.1.4 adds persistent setpoints and

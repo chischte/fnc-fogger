@@ -1,6 +1,5 @@
 #include "firmware/control_settings_store.h"
 
-#ifdef ARDUINO_ARCH_ESP32
 #include <Preferences.h>
 
 namespace {
@@ -13,10 +12,8 @@ struct StoredSettings {
   ControlSettings values;
 };
 }  // namespace
-#endif
 
 void ControlSettingsStore::begin() {
-#ifdef ARDUINO_ARCH_ESP32
   Preferences storage;
   available_ = storage.begin(STORAGE_NAMESPACE, false);
   if (!available_) {
@@ -30,7 +27,6 @@ void ControlSettingsStore::begin() {
     settings_ = stored.values;
     persisted_ = true;
   }
-#endif
 }
 
 bool ControlSettingsStore::save(const ControlSettings& settings) {
@@ -40,7 +36,6 @@ bool ControlSettingsStore::save(const ControlSettings& settings) {
   if (persisted_ && settings == settings_) {
     return true;
   }
-#ifdef ARDUINO_ARCH_ESP32
   Preferences storage;
   if (!storage.begin(STORAGE_NAMESPACE, false)) {
     return false;
@@ -56,7 +51,4 @@ bool ControlSettingsStore::save(const ControlSettings& settings) {
   settings_ = settings;
   persisted_ = true;
   return true;
-#else
-  return false;
-#endif
 }

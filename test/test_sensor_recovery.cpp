@@ -78,7 +78,7 @@ int main() {
   assert(replacement.scdTemperatureOffset == Config::SCD41_TEMPERATURE_OFFSET_C);
   assert(fakeScd.starts == 2);
 
-  // A missing device must not prevent PT100 sampling; retries also find Wire1.
+  // Recover a disconnected SCD41 on the same configured ESP32 I2C bus.
   fakeScd.present = false;
   uint32_t now = recovery + 11000;
   for (int i = 0; i < Config::SCD_MAX_CONSECUTIVE_ERRORS; ++i) {
@@ -89,15 +89,14 @@ int main() {
   }
   assert(!sensor.isReady());
   fakeScd.present = true;
-  fakeScd.bus = 1;
+  fakeScd.bus = 0;
   fakeScd.serial = 3;
   fakeScd.measuring = false;
   const uint32_t started = now - 5000;
   finishInitialization(sensor, started);
-  finishInitialization(sensor, started + Config::SCD_WAKE_DELAY_MS + Config::SCD_STOP_DELAY_MS);
-  Measurement otherBus;
-  sensor.read(otherBus, now + 6000);
-  assert(otherBus.co2Valid && otherBus.scdSerialNumber == 3);
+  Measurement reconnected;
+  sensor.read(reconnected, now + 6000);
+  assert(reconnected.co2Valid && reconnected.scdSerialNumber == 3);
 
   SensorManager combined;
   fakeSht = FakeSht{};
@@ -139,7 +138,7 @@ int main() {
   raw.poll(10010);
   assert(!raw.read(rawTemperature, rawHumidity, 10010));
   fakeSht.shortResponse = false;
-  fakeSht.bus = 1;
+  fakeSht.bus = 0;
   fakeSht.humidity = 65535;
   raw.poll(15000);
   raw.poll(15010);

@@ -1,5 +1,8 @@
 # SHT45 comparison without heater
 
+> Historischer Bericht. Der beschriebene Stand kann vom heutigen Projekt abweichen.
+> Aktuelle Anleitungen: [Dokumentationsübersicht](../README.md).
+
 Trial started at 2026-10-25T01:34:26+02:00 (Europe/Zurich).
 Firmware `3.1.1-esp32s3-noheater`, installed by OTA on `192.168.31.211`.
 

@@ -60,12 +60,9 @@ constexpr bool SCD41_ASC_ENABLED = false;
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
 constexpr size_t PERSISTENT_LOG_MAX_BYTES = 256U * 1024U;
 constexpr size_t OTA_MAX_FILE_BYTES = 0x180000;
-#elif defined(ARDUINO_ARCH_ESP32)
+#else
 constexpr size_t PERSISTENT_LOG_MAX_BYTES = 1536U * 1024U;
 constexpr size_t OTA_MAX_FILE_BYTES = 2U * 1024U * 1024U;
-#else
-constexpr size_t PERSISTENT_LOG_MAX_BYTES = 4U * 1024U * 1024U;
-constexpr size_t OTA_MAX_FILE_BYTES = 5U * 1024U * 1024U;
 #endif
 constexpr const char* FIRMWARE_VERSION = FirmwareIdentity::VERSION;
 

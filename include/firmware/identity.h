@@ -10,9 +10,11 @@
 #elif defined(ARDUINO_ARCH_ESP32)
 #define FNC_HARDWARE_PROFILE "esp32s3"
 #define FNC_FIRMWARE_VERSION "3.2.0-esp32s3"
+#elif defined(FNC_HOST_TEST)
+#define FNC_HARDWARE_PROFILE "host_test"
+#define FNC_FIRMWARE_VERSION "development"
 #else
-#define FNC_HARDWARE_PROFILE "portenta_h7_m7"
-#define FNC_FIRMWARE_VERSION "3.1.0-portenta"
+#error "Only ESP32 firmware targets are supported"
 #endif
 
 namespace FirmwareIdentity {

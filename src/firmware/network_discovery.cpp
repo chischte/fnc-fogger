@@ -1,6 +1,5 @@
 #include "firmware/network_discovery.h"
 
-#ifdef ARDUINO_ARCH_ESP32
 #include <ESPmDNS.h>
 #include <WiFi.h>
 
@@ -12,10 +11,8 @@ constexpr uint32_t RETRY_INTERVAL_MS = 10000;
 constexpr char SERVICE_NAME[] = "fnc-fogger";
 constexpr char SERVICE_PROTOCOL[] = "tcp";
 }  // namespace
-#endif
 
 void NetworkDiscovery::poll(bool connected, uint32_t now) {
-#ifdef ARDUINO_ARCH_ESP32
   if (!connected) {
     if (started_) {
       MDNS.end();
@@ -52,5 +49,4 @@ void NetworkDiscovery::poll(bool connected, uint32_t now) {
   MDNS.addServiceTxt(SERVICE_NAME, SERVICE_PROTOCOL, "build", FirmwareIdentity::BUILD);
   started_ = true;
   Serial.println("mDNS: http://" + hostname + ".local");
-#endif
 }

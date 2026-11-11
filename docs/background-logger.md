@@ -97,4 +97,4 @@ several seconds before the first newly observed row; an initial fixed-duration
 check was too early, so the final check waited for a real sequence advance.
 The final code passed all 101 tests.
 
-Grafische ‹bersicht: [Mehrger‰te-Architektur](architecture.md).
+Grafische √úbersicht: [Mehrger√§te-Architektur](architecture.md).

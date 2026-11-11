@@ -6,9 +6,6 @@
 #include "firmware/time_utils.h"
 
 namespace {
-constexpr uint8_t PRIMARY_I2C_BUS = 0;
-constexpr uint8_t SECONDARY_I2C_BUS = 1;
-
 void printScdError(const char* operation, int16_t error) {
   char message[96];
   errorToString(error, message, sizeof(message));
@@ -22,7 +19,7 @@ void SensorManager::begin(uint32_t now) {
   sht45_.begin(now);
   shtc3_.begin(now);
   shtReading_.readAt = now - Config::SHT45_READ_INTERVAL_MS;
-  startInitialization(PRIMARY_I2C_BUS, now);
+  startInitialization(now);
 }
 
 void SensorManager::poll(uint32_t now) {
@@ -33,7 +30,7 @@ void SensorManager::poll(uint32_t now) {
     if (hasElapsed(now, lastScdMeasurementAt_,
                    Config::SCD_MEASUREMENT_TIMEOUT_MS)) {
       Serial.println("SCD4x measurement timeout; searching again");
-      startInitialization(PRIMARY_I2C_BUS, now);
+      startInitialization(now);
     }
     return;
   }
@@ -43,7 +40,7 @@ void SensorManager::poll(uint32_t now) {
   }
   if (hasElapsed(now, lastInitializationAt_,
                  Config::SENSOR_RETRY_INTERVAL_MS)) {
-    startInitialization(PRIMARY_I2C_BUS, now);
+    startInitialization(now);
   }
 }
 
@@ -84,17 +81,13 @@ uint16_t SensorManager::errorCount() const {
   return errorCount_;
 }
 
-void SensorManager::startInitialization(uint8_t busIndex, uint32_t now) {
+void SensorManager::startInitialization(uint32_t now) {
   ready_ = false;
   scdTemperatureOffset_ = NAN;
   scdSerialNumber_ = 0;
-  busIndex_ = busIndex;
-  TwoWire& bus = busForIndex(busIndex_);
-#ifndef ARDUINO_ARCH_ESP32
-  bus.begin();
-#endif
-  bus.setClock(Config::I2C_CLOCK_HZ);
-  scd4x_.begin(bus, SCD41_I2C_ADDR_62);
+
+  Wire.setClock(Config::I2C_CLOCK_HZ);
+  scd4x_.begin(Wire, SCD41_I2C_ADDR_62);
   scd4x_.wakeUp();
   stateStartedAt_ = now;
   initializationState_ = InitializationState::waitingAfterWake;
@@ -117,7 +110,7 @@ void SensorManager::continueInitialization(uint32_t now) {
 void SensorManager::finishInitialization(uint32_t now) {
   uint64_t serialNumber = 0;
   if (scd4x_.getSerialNumber(serialNumber)) {
-    tryNextBus(now);
+    scheduleRetry(now);
     return;
   }
 
@@ -125,13 +118,13 @@ void SensorManager::finishInitialization(uint32_t now) {
       Config::SCD41_TEMPERATURE_OFFSET_C);
   if (error) {
     printScdError("offset", error);
-    tryNextBus(now);
+    scheduleRetry(now);
     return;
   }
   error = scd4x_.getTemperatureOffset(scdTemperatureOffset_);
   if (error) {
     printScdError("read offset", error);
-    tryNextBus(now);
+    scheduleRetry(now);
     return;
   }
   error = scd4x_.setSensorAltitude(Config::SCD41_ALTITUDE_M);
@@ -144,7 +137,7 @@ void SensorManager::finishInitialization(uint32_t now) {
     printScdError("ASC", error);
   }
   if (scd4x_.startPeriodicMeasurement()) {
-    tryNextBus(now);
+    scheduleRetry(now);
     return;
   }
 
@@ -153,17 +146,10 @@ void SensorManager::finishInitialization(uint32_t now) {
   scdSerialNumber_ = serialNumber;
   errorCount_ = 0;
   initializationState_ = InitializationState::idle;
-  Serial.print("SCD4x: ");
-  Serial.println(busName(busIndex_));
+  Serial.println("SCD4x: Wire");
 }
 
-void SensorManager::tryNextBus(uint32_t now) {
-#ifndef ARDUINO_ARCH_ESP32
-  if (busIndex_ == PRIMARY_I2C_BUS) {
-    startInitialization(SECONDARY_I2C_BUS, now);
-    return;
-  }
-#endif
+void SensorManager::scheduleRetry(uint32_t now) {
   initializationState_ = InitializationState::idle;
   lastInitializationAt_ = now;
   Serial.println("SCD4x unavailable; retry scheduled");
@@ -205,17 +191,5 @@ void SensorManager::recordScdError(const char* operation, int16_t error,
   if (errorCount_ < Config::SCD_MAX_CONSECUTIVE_ERRORS) {
     return;
   }
-  startInitialization(PRIMARY_I2C_BUS, now);
-}
-
-TwoWire& SensorManager::busForIndex(uint8_t busIndex) {
-#ifdef ARDUINO_ARCH_ESP32
-  return Wire;
-#else
-  return busIndex == PRIMARY_I2C_BUS ? Wire : Wire1;
-#endif
-}
-
-const char* SensorManager::busName(uint8_t busIndex) const {
-  return busIndex == PRIMARY_I2C_BUS ? "Wire" : "Wire1";
+  startInitialization(now);
 }

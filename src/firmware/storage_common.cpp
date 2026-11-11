@@ -6,13 +6,9 @@
 #include "firmware/measurement_json.h"
 
 namespace {
-#ifdef ARDUINO_ARCH_ESP32
 constexpr char LOG_PATH[] = "/littlefs/MEASUREMENTS.NDJSON";
 constexpr char OLD_LOG_PATH[] = "/littlefs/MEASUREMENTS.OLD";
-#else
-constexpr char LOG_PATH[] = "/data/MEASUREMENTS.NDJSON";
-constexpr char OLD_LOG_PATH[] = "/data/MEASUREMENTS.OLD";
-#endif
+
 constexpr const char* BACKLOG_PATHS[] = {OLD_LOG_PATH, LOG_PATH};
 constexpr size_t BACKLOG_FILE_COUNT = sizeof(BACKLOG_PATHS) / sizeof(BACKLOG_PATHS[0]);
 }  // namespace

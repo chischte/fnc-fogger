@@ -11,9 +11,7 @@
 #include "firmware/qspi_storage.h"
 #include "firmware/startup_test.h"
 #include "firmware/manual_control.h"
-#ifdef ARDUINO_ARCH_ESP32
 #include "firmware/i2c_diagnostics.h"
-#endif
 
 class WebServer {
  public:
@@ -50,10 +48,8 @@ class WebServer {
   void finishControlSettings();
 
   String buildApiJson(bool includeHistory) const;
-#ifdef ARDUINO_ARCH_ESP32
   String buildI2cDiagnosticsJson() const;
   I2cDiagnostics i2cDiagnostics_;
-#endif
   void startApiResponse();
   void prepareNextHistoryChunk();
   String headerValue(const char* name) const;

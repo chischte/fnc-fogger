@@ -24,15 +24,13 @@ class SensorManager {
     waitingAfterStop,
   };
 
-  void startInitialization(uint8_t busIndex, uint32_t now);
+  void startInitialization(uint32_t now);
   void continueInitialization(uint32_t now);
   void finishInitialization(uint32_t now);
-  void tryNextBus(uint32_t now);
+  void scheduleRetry(uint32_t now);
   void readSht(Measurement& measurement, uint32_t now);
   void readScd(Measurement& measurement, uint32_t now);
   void recordScdError(const char* operation, int16_t error, uint32_t now);
-  TwoWire& busForIndex(uint8_t busIndex);
-  const char* busName(uint8_t busIndex) const;
 
   struct ShtReading {
     float temperature = NAN;
@@ -52,7 +50,6 @@ class SensorManager {
   uint32_t lastScdMeasurementAt_ = 0;
   uint64_t scdSerialNumber_ = 0;
   uint16_t errorCount_ = 0;
-  uint8_t busIndex_ = 0;
   bool ready_ = false;
   float scdTemperatureOffset_ = NAN;
 };

@@ -1,4 +1,4 @@
-"""Reliable Portenta logger: QSPI backfill -> SQLite -> optional CSV export."""
+"""Single-device logger and shared helpers: flash backfill -> SQLite -> optional CSV export."""
 import argparse
 import csv
 import json
@@ -174,7 +174,7 @@ def main() -> None:
             export_csv(db); print(f"Exported {CSV_FILE}"); return
         try:
             recovered = sum(insert(db, row) for row in fetch_backlog(args.url + "/api/backlog"))
-            print(f"Recovered {recovered} buffered rows from Portenta.")
+            print(f"Recovered {recovered} buffered rows from the device.")
         except Exception as exc:
             print(f"Backfill unavailable: {exc}", file=sys.stderr)
         print(f"Logging {args.url} to {DB_FILE}")
