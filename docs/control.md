@@ -5,7 +5,7 @@ This specifies future firmware; PI tuning is not yet established.
 ## Manual Mode, firmware 3.4.0
 
 Open the viewer's Command Mode, then select Manual Mode. Entry sets both
-outputs to zero. Fan [%] controls GPIO5 PWM duty from 0 to 100, rather than
+outputs to zero. Fan [%] controls the configured fan PWM duty from 0 to 100, rather than
 closed-loop RPM; actual measured RPM remains visible in the CO2 graph title.
 Fogger [%] controls a one-second time-proportioned cycle: 25% means 250 ms ON
 and 750 ms OFF, 0% stays OFF, 100% stays ON. Each output has its own On/Off button.
@@ -62,6 +62,17 @@ The firmware is prepared, not installed. Move the physical gate connection
 to GPIO3 before installing this version. Check the previously overheated
 controller and wiring before powering the assembly.
 
+### Fan pin revision, firmware 3.4.3
+
+Fan PWM moves to GPIO10 and fan tach to GPIO7. Gate GPIO3 and I2C GPIO0/1
+remain unchanged. PWM is still non-inverted 25 kHz; tach retains its internal
+3.3 V pull-up and two pulses per revolution. Startup and manual-mode timing
+are unchanged. GPIO8 and GPIO9 remain unused boot configuration pins; see
+[hardware pin assignments](hardware.md#proposed-gpio-assignments).
+The image is prepared for manual OTA installation after rewiring; no device
+is updated automatically. Earlier version-specific pin assignments below
+remain historical.
+
 ## Implemented commissioning mode, firmware 3.3.2
 
 The C3 now drives fan PWM on GPIO5 at 25 kHz, counts falling tach edges on
@@ -116,7 +127,7 @@ output to the experimentally established reliable minimum and configured
 maximum; apply anti-windup using the actual constrained output.
 
 ESP32 directly drives the Noctua NF-A4x10 24V PWM using non-inverted 3.3 V
-push-pull PWM at 25 kHz. GPIO6 reads tach using the internal pull-up; no
+push-pull PWM at 25 kHz. GPIO7 reads tach using the internal pull-up (firmware 3.4.3); no
 external tach resistor is planned. Tach detects a stopped fan after a startup
 grace period. The viewer displays measured tach RPM, never RPM inferred from PI output.
 

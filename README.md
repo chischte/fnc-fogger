@@ -31,12 +31,12 @@ nicht implementiert.** Details zu Datenwegen und Betrieb stehen in der
 
 ## Anschlussplan
 
-![fnc-fogger wiring diagram, revision 06 — GPIO3 gate](docs/fnc-fogger-wiring.svg)
+![fnc-fogger wiring diagram, revision 07 — GPIO3 gate](docs/fnc-fogger-wiring.svg)
 
 
 Der Plan und die [Hardwarehinweise](docs/hardware.md) beschreiben den aktuellen
-C3-Aufbau: SDA GPIO0, SCL GPIO1, Lüfter-PWM GPIO5, Lüfter-Tacho GPIO6 und
-MOSFET-Gate GPIO3 (ab Firmware 3.4.2). Sensoren werden mit 3,3 V versorgt; der Buck versorgt ESP32
+C3-Aufbau: SDA GPIO0, SCL GPIO1, Lüfter-PWM GPIO10, Lüfter-Tacho GPIO7 und
+MOSFET-Gate GPIO3 (Firmware 3.4.3). Sensoren werden mit 3,3 V versorgt; der Buck versorgt ESP32
 und Fogger mit 5 V, der Lüfter bleibt an 24 V.
 
 Der SVG-Anschlussplan kombiniert editierbare Texte und Leitungen mit

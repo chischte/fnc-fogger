@@ -41,8 +41,8 @@ int main() {
   StartupActuators hardware;
   static_assert(Config::FOGGER_ENABLE_PIN == 3, "Gate must use GPIO3");
   hardware.begin(0);
-  assert(hardware.status().hardwareReady && pwmPin == 5);
-  assert(pinModes[6] == INPUT_PULLUP && pinValues[3] == LOW);
+  assert(hardware.status().hardwareReady && pwmPin == 10);
+  assert(pinModes[7] == INPUT_PULLUP && pinValues[3] == LOW);
   hardware.poll(1000, false);
   assert(pinValues[3] == HIGH && pwmDuty == 255);
   for (unsigned pulse = 0; pulse < 100; ++pulse) tachHandler(tachInstance);

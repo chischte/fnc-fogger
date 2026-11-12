@@ -27,8 +27,8 @@ def build():
         artwork.append(f'<image id="{name}" width="{width}" height="{height}" xlink:href="data:{mime_type};base64,{data}"/>')
     artwork = "\n".join(artwork)
     elements = [f'''<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1600" height="1090" viewBox="0 0 1600 1090" role="img" aria-labelledby="title desc">
-<title id="title">fnc-fogger · ESP32-C3 wiring · GPIO3 gate · firmware 3.4.2</title>
-<desc id="desc">Six panels show 24V power with a 5V buck converter, ESP32-C3 pin connections, parallel I2C sensors, Noctua fan pinout, IRLB8721 fogger switching and implemented firmware behavior. Component illustrations are embedded; all wiring and labels are vector elements. Gate GPIO3, PWM GPIO5, tach GPIO6, SDA GPIO0, SCL GPIO1.</desc>
+<title id="title">fnc-fogger · ESP32-C3 wiring · GPIO3 gate · firmware 3.4.3</title>
+<desc id="desc">Six panels show 24V power with a 5V buck converter, ESP32-C3 pin connections, parallel I2C sensors, Noctua fan pinout, IRLB8721 fogger switching and implemented firmware behavior. Component illustrations are embedded; all wiring and labels are vector elements. Gate GPIO3, PWM GPIO10, tach GPIO7, SDA GPIO0, SCL GPIO1.</desc>
 <defs><linearGradient id="header" x2="1" y2="1"><stop stop-color="#1253a2"/><stop offset="1" stop-color="#173e77"/></linearGradient>
 {artwork}
 </defs><rect width="1600" height="1090" fill="#f2f6fb"/>
@@ -66,7 +66,7 @@ def build():
 
     text(30,51,'fnc-fogger',43,weight='700')
     text(284,51,'Wiring Diagram',36,weight='600')
-    text(1570,51,'ESP32-C3 SuperMini · 24V fan / 5V fogger · firmware 3.4.2 · REV 06 · 11 Nov 2026',18,color='#526b84',anchor='end')
+    text(1570,51,'ESP32-C3 SuperMini · 24V fan / 5V fogger · firmware 3.4.3 · REV 07 · 12 Nov 2026',18,color='#526b84',anchor='end')
 
     panel(20,115,520,490,1,'24-V Supply')
     text(46,204,'24V DC',21,COLORS['24v'],'700')
@@ -98,7 +98,7 @@ def build():
     panel(555,115,430,490,2,'ESP32-C3 SuperMini')
     component('esp32-c3',682,200,176,375)
     left = [('GPIO0 / SDA','sda'),('GPIO1 / SCL','scl'),('GPIO2',None),('GPIO3 / GATE','gate'),('GPIO4',None),('3V3','3v3'),('GND','gnd'),('5V / BUCK +','5v')]
-    right = [('GPIO21',None),('GPIO20',None),('GPIO10',None),('GPIO9',None),('GPIO8',None),('GPIO7',None),('GPIO6 / TACH','tach'),('GPIO5 / PWM','pwm')]
+    right = [('GPIO21',None),('GPIO20',None),('GPIO10 / PWM','pwm'),('GPIO9',None),('GPIO8',None),('GPIO7 / TACH','tach'),('GPIO6',None),('GPIO5',None)]
     # The two enclosing panels keep each pin row aligned and easy to scan.
     box(572,252,108,246,'#f6f9fd','#d6e1ee',10)
     box(860,252,108,246,'#f6f9fd','#d6e1ee',10)
@@ -123,18 +123,19 @@ def build():
         text(center,233,name,23,weight='700',anchor='middle')
         text(center,258,detail,16,anchor='middle')
         component(asset,center-65,273,130,114)
-    buses=[('3V3','3v3',417),('GND','gnd',448),('SDA · GPIO0','sda',479),('SCL · GPIO1','scl',510)]
-    for index,(label,signal,y) in enumerate(buses):
+    buses=[('GND','gnd',417),('3V3','3v3',448),('SDA · GPIO0','sda',479),('SCL · GPIO1','scl',510)]
+    qwiic_pin_offsets = {'gnd': -20, '3v3': -7, 'sda': 7, 'scl': 21}
+    for label,signal,y in buses:
         text(1021,y+6,label,15,COLORS[signal] if signal!='scl' else '#665200','600')
         wire([(1120,y),(1552,y)],signal)
         for sensor_index,(center,_,_,_) in enumerate(sensors):
-            x=center+(-20,-7,7,21)[index]
+            x=center+qwiic_pin_offsets[signal]
             wire([(x,377),(x,y)],signal,sensor_index==2);dot(x,y,signal)
 
 
     panel(20,625,500,444,4,'Noctua NF-A4x10 24V PWM')
     component('noctua',50,711,270,230)
-    pins=[('1','gnd','GND','Common GND'),('2','scl','24V','Supply 24V'),('3','tach','TACH','GPIO6'),('4','pwm','PWM','GPIO5')]
+    pins=[('1','gnd','GND','Common GND'),('2','scl','24V','Supply 24V'),('3','tach','TACH','GPIO7'),('4','pwm','PWM','GPIO10')]
     for i,(number,color,label,target) in enumerate(pins):
         y=731+i*62
         elements.append(f'<circle cx="340" cy="{y}" r="15" fill="{COLORS[color]}"/>')

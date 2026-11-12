@@ -23,7 +23,8 @@ Die Dateien werden lokal aufbewahrt und nicht in Git eingecheckt. Sie können
 eingebaute WLAN-Zugangsdaten enthalten. Ältere Builds bleiben erhalten und
 werden nicht automatisch installiert.
 
-Vorbereiteter Stand: **3.4.2**, MOSFET-Gate **GPIO3**, FAN PWM GPIO5 und
-FAN TACH GPIO6. Vor der Installation die Gate-Leitung an GPIO3 anschließen.
+Vorbereiteter Stand: **3.4.3**, MOSFET-Gate **GPIO3**, FAN PWM GPIO10 und
+FAN TACH GPIO7. Vor der Installation die Lüftersignale entsprechend umlegen.
+GPIO8 und GPIO9 bleiben als Boot-Konfigurationspins frei.
 Der [SVG-Anschlussplan](../docs/fnc-fogger-wiring.svg) und die
 [Pinbelegung](../docs/hardware.md) zeigen GPIO3. Kein automatischer Upload.

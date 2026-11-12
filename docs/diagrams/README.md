@@ -6,10 +6,10 @@ Zurück zur [Dokumentationsübersicht](../README.md).
 
 ## Aktueller Stand
 
-ESP32-C3 SuperMini mit SDA GPIO0, SCL GPIO1, Fan PWM GPIO5, Fan TACH GPIO6
-und MOSFET-Gate GPIO3 (Firmware 3.4.2). Die Controller-Grafik zeigt die Kontakte direkt am
+ESP32-C3 SuperMini mit SDA GPIO0, SCL GPIO1, Fan PWM GPIO10, Fan TACH GPIO7
+und MOSFET-Gate GPIO3 (Firmware 3.4.3). Die Controller-Grafik zeigt die Kontakte direkt am
 Board; sie ist eine Pinpositions-Illustration, keine exakte Fotografie.
-Die aktuelle Revision 06 ist ein SVG: Beschriftungen, Leitungen und
+Die aktuelle Revision 07 ist ein SVG: Beschriftungen, Leitungen und
 Pinzuordnungen sind editierbare Vektorelemente. Die Bauteilbilder wurden
 separat in hoher Auflösung neu generiert und sind
 als Rastergrafiken eingebettet. Es sind fotorealistische Illustrationen, keine
@@ -20,6 +20,9 @@ Der Fan liegt an 24 V, ESP32 und Fogger an Buck OUT+ mit 5 V. Buck IN− und
 OUT− sind im verwendeten Modul intern verbunden und im Plan entsprechend
 dargestellt. Sensorleitungen: 3,3 V rot, GND schwarz, SDA blau, SCL gelb.
 Der optionale SHTC3 ist gestrichelt am gemeinsamen Sensorbus dargestellt.
+Die vier Sensorabgänge sind schematisch nach Qwiic geordnet: GND schwarz,
+3V3 rot, SDA blau, SCL gelb. Das ist keine verifizierte Lötpad-Reihenfolge
+der dargestellten Breakouts; dafür gelten die Beschriftungen der realen Module.
 
 ## Wesentliche Bildänderungen
 
@@ -34,6 +37,8 @@ Der optionale SHTC3 ist gestrichelt am gemeinsamen Sensorbus dargestellt.
 | 11. November 2026 | SVG-Neuaufbau mit eingebetteten Bauteilbildern; Gate GPIO3 und implementierten Firmwarefunktionen |
 | 11. November 2026 | Revision 06: neue hochauflösende Bauteilillustrationen, eingerahmte Pin-Felder, bereinigte Abstände und Hinweise |
 
+| 12. November 2026 | Revision 07: Fan PWM GPIO10, Fan TACH GPIO7, kompakter Buck und überarbeitete Lüftergrafik |
+
 ## Bearbeiten und reproduzieren
 
 Quelle: [tools/build_wiring_diagram.py](../../tools/build_wiring_diagram.py).
@@ -45,7 +50,7 @@ python tools/build_wiring_diagram.py
 
 Der Generator benötigt nur die Python-Standardbibliothek. Er zeichnet Texte,
 Leitungen und Markierungen als SVG. Die neuen Komponentenbilder und ihre
-Ausschnitt-Metadaten liegen in `docs/diagrams/components/`. Die WebP-Dateien
+Ausschnitt-Metadaten liegen in `docs/diagrams/components/`. Die PNG- und WebP-Dateien
 sind in hoher Qualität bei voller Bildauflösung kodiert; es erfolgt keine erneute KI-Bearbeitung beim Build.
 `docs/fnc-fogger-layout-v4.png` bleibt als historische Fassung erhalten. Das erzeugte SVG ist eigenständig und
 benötigt beim Anzeigen keine externen Bilddateien. Koordinaten und Ausschnitte

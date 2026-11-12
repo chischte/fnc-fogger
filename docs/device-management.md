@@ -304,3 +304,14 @@ Das Gerät ist in der Geräteverwaltung registriert; seine eigene Messdatei ist
 Weitere OTA-Updates führt der Benutzer selbst über Update Firmware im Viewer
 aus. Bei dieser Einrichtung wurde kein OTA-Upload durchgeführt. Pinbelegung:
 Gate GPIO3, FAN PWM GPIO5, FAN TACH GPIO6, SDA GPIO0 und SCL GPIO1.
+
+## Lüfter-Pinbelegung, Firmware 3.4.3, 12. November 2026
+
+Vorbereitete C3-Belegung: FAN PWM GPIO10, FAN TACH GPIO7, MOSFET-Gate GPIO3,
+SDA GPIO0 und SCL GPIO1. Die ältere Firmware 3.4.2 verwendet weiterhin
+PWM GPIO5 und TACH GPIO6. Vor dem Update die Lüfter-Signalleitungen passend
+umlegen. GPIO8 und GPIO9 bleiben frei; Details in
+[Hardware](hardware.md#proposed-gpio-assignments).
+
+OTA-Datei: `firmware/fnc-fogger-firmware_3.4.3.bin`. Kein automatischer Upload;
+die Installation erfolgt gezielt über Update Firmware am gewünschten Gerät.
