@@ -11,14 +11,15 @@ from zoneinfo import ZoneInfo
 
 MAX_CO2_PPM = 20000
 MIN_HUMIDITY_RH = 70
-MAX_HUMIDITY_RH = 100
+MAX_HUMIDITY_RH = 99
 MAX_CONTROL_SAMPLES = 2160
 
 
 def actuator_telemetry(control):
     values = {}
     for section, field in (("fan", "rpm"), ("fan", "pwm_percent"),
-                           ("fogger", "on_time_s"), ("fogger", "off_time_s")):
+                           ("fogger", "on_time_s"), ("fogger", "off_time_s"),
+                           ("fogger", "duty_percent")):
         source = control.get(section)
         value = source.get(field) if isinstance(source, dict) else None
         values[field] = (float(value) if isinstance(value, (int, float))
@@ -120,9 +121,12 @@ class ControlMonitor:
         self._manual_supported = False
         self._manual_timeout_ms = 30000
         self._automatic_supported = False
+        self._pi_reset_supported = False
+        self._pi_reset_count = 0
         self._fogger_enabled = True
         self._fault = False
         self._parameters = {}
+        self._calibration = {}
         self._actuators = actuator_telemetry({})
 
     def ingest(self, payload):
@@ -155,6 +159,9 @@ class ControlMonitor:
             self._online = True
             self._enabled = control.get("enabled") is True
             self._automatic_supported = control.get("automatic_supported") is True
+            self._pi_reset_supported = control.get("pi_reset_supported") is True
+            self._pi_reset_count = control.get("pi_reset_count", 0)
+            self._calibration = dict(control.get("humidity_calibration", {}))
             self._fogger_enabled = control.get("fogger_enabled", True) is True
             self._fault = control.get("fault") is True
             parameters = control.get("parameters", {})
@@ -174,12 +181,14 @@ class ControlMonitor:
                 "automatic_waiting": "PI control starting.",
                 "automatic_ventilation_only": "CO2 PI active; fogger disabled.",
                 "automatic_no_co2_demand": "CO2 below start threshold: fan and fogger OFF.",
-                "automatic_wifi_lost": "Device Wi-Fi lost: PI stopped. Start explicitly to resume.",
+                "automatic_wifi_lost": ("Device Wi-Fi lost: outputs stopped; PI resumes after reconnection."
+                                        if control.get("automatic_default") else
+                                        "Device Wi-Fi lost: PI stopped. Start explicitly to resume."),
                 "automatic_update": "Firmware update: PI stopped.",
                 "automatic_hardware_error": "PI fault: actuator hardware unavailable.",
                 "automatic_co2_invalid": "PI fault: CO2 invalid or stale. Fan fault speed; fogger OFF.",
                 "automatic_co2_condensation_risk": "PI fault: SCD41 humidity at least 95%; CO2 unreliable. Fogger OFF.",
-                "automatic_fan_stalled": "PI fault: fan tach below minimum. Fogger OFF.",
+                "automatic_fan_stalled": "PI fault: no fan tach at running duty. Fogger OFF.",
                 "automatic_humidity_invalid": "Humidity invalid or stale: fogger OFF.",
                 "automatic_waiting_for_fan": "Waiting for fan tach: fogger OFF.",
                 "automatic_humidity_limit": "Humidity limit reached: fogger OFF.",
@@ -211,6 +220,9 @@ class ControlMonitor:
                     "manual": self._manual, "manual_supported": self._manual_supported,
                     "manual_timeout_ms": self._manual_timeout_ms,
                     "automatic_supported": self._automatic_supported,
+                    "pi_reset_supported": self._pi_reset_supported,
+                    "pi_reset_count": self._pi_reset_count,
+                    "calibration": dict(self._calibration),
                     "fogger_enabled": self._fogger_enabled,
                     "fault": self._fault,
                     "parameters": dict(self._parameters),

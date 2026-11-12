@@ -25,6 +25,9 @@ void appendHumidityJson(String& json, const Measurement& measurement) {
   json += ",\"humidity\":" +
           nullableNumber(measurement.humidity, measurement.humidityValid);
   json += ",\"humidity_offset_rh\":" + String(measurement.humidityOffset, 2);
+  json += ",\"scd_humidity_offset_rh\":" + String(measurement.scdHumidityOffset, 2);
+  json += ",\"scd_humidity_corrected\":" + nullableNumber(
+      min(100.0f, measurement.scdHumidity + measurement.scdHumidityOffset), measurement.scdHumidityValid);
   json += ",\"humidity_corrected\":" + nullableNumber(
       min(100.0f, measurement.humidity + measurement.humidityOffset),
       measurement.humidityValid);

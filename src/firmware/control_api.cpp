@@ -18,6 +18,15 @@ String piJson(const PiTerms& terms) {
 }
 }  // namespace
 
+bool parseHumidityReference(const String& body, float& sht, float& scd) {
+  const int separator = body.indexOf('&');
+  return body.startsWith("sht_raw=") && separator > 8 &&
+      body.substring(separator + 1).startsWith("scd_raw=") &&
+      parseNumber(body.substring(8, separator), sht) &&
+      parseNumber(body.substring(separator + 9), scd) &&
+      sht >= 0 && sht <= 100 && scd >= 0 && scd <= 100;
+}
+
 bool parseControlSettings(const String& body, ControlSettings& settings) {
   const int separator = body.indexOf('&');
   if (separator < 0 || body.indexOf('&', separator + 1) >= 0) {
@@ -69,7 +78,8 @@ bool parseManualSettings(const String& body, bool& active, uint8_t& fan, uint8_t
 }
 
 String buildControlJson(const ControlSettingsStore& store, const ActuatorStatus* actuators,
-                        const ManualControl* manual, const AutomaticControl* automatic) {
+                        const ManualControl* manual, const AutomaticControl* automatic,
+                        const HumidityCalibration* calibration) {
   const ControlSettings& settings = store.settings();
   String json = "{\"version\":1,\"settings_supported\":";
   json += store.available() ? "true" : "false";
@@ -96,6 +106,11 @@ String buildControlJson(const ControlSettingsStore& store, const ActuatorStatus*
   const bool automaticActive = automatic && automatic->enabled();
   json += ",\"automatic_supported\":";
   json += automatic ? "true" : "false";
+  json += ",\"automatic_default\":";
+  json += automatic ? "true" : "false";
+  json += ",\"pi_reset_supported\":";
+  json += automatic ? "true" : "false";
+  json += ",\"pi_reset_count\":" + String(automatic ? automatic->resetCount() : 0);
   json += ",\"fogger_enabled\":";
   json += AutomaticLimits::FOGGER_ENABLED ? "true" : "false";
   json += ",\"parameters\":{\"co2_kp\":" + String(AutomaticLimits::CO2_KP, 3);
@@ -146,6 +161,8 @@ String buildControlJson(const ControlSettingsStore& store, const ActuatorStatus*
   json += actuators ? String(actuators->completedPulses) : String("0");
   json += ",\"completed_fan_pulses\":";
   json += actuators ? String(actuators->completedFanPulses) : String("0");
-  json += "}}";
+  json += "}";
+  if (calibration) json += ",\"humidity_calibration\":" + calibration->json(millis());
+  json += "}";
   return json;
 }

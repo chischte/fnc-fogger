@@ -10,11 +10,11 @@ constexpr float CO2_TI_SECONDS = 300;
 constexpr float HUMIDITY_KP = 1;
 constexpr float HUMIDITY_TI_SECONDS = 600;
 constexpr float CO2_HYSTERESIS_PPM = 50;
-constexpr uint8_t FAN_MIN_PERCENT = 12;
+constexpr uint8_t FAN_MIN_PERCENT = 0;
 constexpr uint8_t FAN_MAX_PERCENT = 80;
 constexpr uint8_t FAN_FAULT_PERCENT = 10;
 constexpr uint8_t FOGGER_MAX_PERCENT = 20;
-constexpr uint32_t FAN_MIN_RPM = 250;
+constexpr uint8_t FAN_STALL_CHECK_PERCENT = 10;
 constexpr uint32_t FAN_START_GRACE_MS = 5000;
 constexpr uint32_t CO2_MAX_AGE_MS = 15000;
 constexpr uint32_t HUMIDITY_MAX_AGE_MS = 135000;
@@ -43,12 +43,16 @@ class AutomaticControl {
  public:
   void setEnabled(bool enabled, uint32_t now);
   void releaseToManual();
+  void resetIntegrals();
+  void resumeIfIdle(uint32_t now, const ControlInput& input, bool manualActive,
+                    bool networkAvailable, bool maintenance);
   void stop(const char* reason);
   void poll(uint32_t now, const ControlInput& input, const ControlSettings& settings,
             bool networkAvailable, bool maintenance);
   bool enabled() const { return enabled_; }
   bool ownsOutputs() const { return ownsOutputs_; }
   bool fault() const { return fault_; }
+  uint32_t resetCount() const { return resetCount_; }
   const char* reason() const { return reason_; }
   uint8_t fanPercent() const { return fanPercent_; }
   uint8_t foggerPercent() const { return foggerPercent_; }
@@ -80,5 +84,6 @@ class AutomaticControl {
   uint32_t cycleStartedAt_ = 0;
   uint8_t fanPercent_ = 0;
   uint8_t foggerPercent_ = 0;
+  uint32_t resetCount_ = 0;
   const char* reason_ = "automatic_off";
 };

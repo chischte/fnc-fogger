@@ -9,6 +9,11 @@ CREATE TABLE IF NOT EXISTS control_samples(
  fan_rpm REAL, fan_pwm_percent REAL, fogger_percent REAL, fogger_on INTEGER,
  co2_setpoint_ppm REAL, humidity_setpoint_rh REAL, control_json TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS ix_control_samples_received ON control_samples(received_at);
+CREATE TABLE IF NOT EXISTS humidity_calibrations(
+ revision INTEGER PRIMARY KEY, received_at TEXT NOT NULL,
+ reference_rh REAL NOT NULL, sht_raw_rh REAL NOT NULL, scd_raw_rh REAL NOT NULL,
+ sht_offset_rh REAL NOT NULL, scd_offset_rh REAL NOT NULL, duration_ms INTEGER NOT NULL,
+ reference_kind TEXT NOT NULL DEFAULT 'assumed_saturation');
 """
 
 
@@ -39,6 +44,14 @@ def record_control(db, payload, received_at):
     if not isinstance(control, dict) or not control:
         return
     measurement = payload.get("measurement", {})
+    calibration = control.get("humidity_calibration", {})
+    if calibration.get("revision", 0) > 0:
+        db.execute("""INSERT OR IGNORE INTO humidity_calibrations
+            (revision,received_at,reference_rh,sht_raw_rh,scd_raw_rh,sht_offset_rh,scd_offset_rh,duration_ms)
+            VALUES(?,?,?,?,?,?,?,?)""", (
+                calibration["revision"], received_at, calibration["assumed_reference_rh"],
+                calibration["sht_raw_rh"], calibration["scd_raw_rh"],
+                calibration["sht_offset_rh"], calibration["scd_offset_rh"], calibration["duration_ms"]))
     manual = control.get("manual", {})
     fan = control.get("fan", {})
     setpoints = control.get("setpoints", {})

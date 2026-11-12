@@ -1,6 +1,105 @@
 # PI commissioning · 12 November 2026
 
-## Current revision 3.5.2: humidity PI enabled
+## Current revision 3.5.6: humidity reference adjustment
+
+Manual Mode now provides a device-side 15-minute assumed-saturation reference
+routine at 50% fan / 100% fogger, with cancellation and return to PI. A separate
+per-device SQLite `humidity_calibrations` table and atomic device NVS record
+store the absolute offsets, raw reference readings and assumed reference.
+The maximum humidity setpoint is 99% RH. See [control details](control.md#humidity-reference-adjustment-firmware-356).
+
+The user's already completed manual exposure was captured before OTA:
+SHT45 raw 93.77% RH, SCD41 raw 98.65% RH. Revision 1 replaces the previous
+SHT45 +1 correction with +6.23 percentage points and sets SCD41 +1.35 points.
+The saved raw reference points therefore map to 100% RH. This is an assumption,
+not evidence of actual saturation or sensor accuracy; raw SCD41 humidity still
+drives the condensation-risk fault. No second full fogging routine was started.
+Offsets apply prospectively to each sample, including valid pre-heater readings.
+Historical data and the recorded raw values remain untouched.
+
+Validation: 138 host/native tests passed. Final 3.5.6 build 7cbc80435a9a
+was installed by verified OTA on b81f3f27f4e0. Revision 1 and both offsets
+survived reboot and were confirmed in live measurements and SQLite. The
+independent logger was restarted to load the additive schema changes. The
+initial reference save returned to PI; after the final update a subsequent
+manual 25% fan / fogger-off command was observed. No full additional 15-minute
+physical exposure was run; timing, replacement and failed-save handling were
+verified in native tests. UI rendering confirms the calibration button and
+gray Off sliders; sensor-legend correction is covered by a rendering test.
+
+## Previous revision 3.5.5: default automatic mode and integral reset
+
+Outside explicit Manual Mode the firmware now selects PI automatically. Boot
+and Wi-Fi reconnection wait for available hardware and fresh valid CO2 before
+starting. Update/network loss still stops outputs; manual commands are not
+restored after reconnect. Leaving Manual Mode starts PI immediately. The viewer
+does not need to remain open. Latched sensor/fan faults retain their fallback
+and are not cleared by automatic mode selection or integral reset; after repair,
+an explicit manual-mode entry/exit or reboot can restart control.
+
+The viewer replaces Start/Stop PI with **Reset PI**. This sets accumulated I
+terms to zero, retaining Kp, Ti, setpoints, current mode and fault state. It does
+not set the Ki coefficient to zero. P stays unchanged; the next control tick
+recomputes outputs without the old integral. Integration resumes from fresh
+sample timing. POST `/api/control/automatic` with `reset=1` confirms success
+using an incremented `pi_reset_count`. Older firmware leaves Reset PI disabled.
+Legacy `enabled=0` is rejected; use Manual Mode to take over outputs.
+
+CO2 viewer setpoint steps are 500–2,000 ppm in 100 ppm increments, 2,000–5,000
+in 500 ppm increments and 5,000–15,000 in 1,000 ppm increments. Firmware bounds
+remain backward compatible. Gains, limits and RPM-based fogger permission are
+unchanged from 3.5.4.
+
+Validation: all 133 host/native tests passed, ESP32-C3 build succeeded, and
+verified OTA installed 3.5.5 (build f8488e14ea3d) on b81f3f27f4e0. PI started
+without a start command after reboot, with the user's persisted 1,500 ppm / 90%
+targets. A live reset incremented the acknowledgement counter to 1, confirmed
+both I terms zero and retained the CO2 P term (4.56%) and setpoints. Fan duty
+was 5% with zero measured RPM, so the fogger correctly remained inhibited.
+Other devices were not updated. The rendered viewer shows Reset PI in place of
+Start/Stop PI; reopen the viewer to load it.
+
+## Previous revision 3.5.4: no minimum fan duty, RPM-based fogger permission
+
+The user removed the 12% physical fan floor: automatic duty now follows the
+CO2 PI from 0–80%, rounded to integer PWM percentage. The CO2 integral is
+retained across the setpoint as introduced in 3.5.3.
+
+Fogger permission now depends on valid measured RPM strictly greater than zero,
+including fan coast-down after zero PWM. Zero or unavailable RPM inhibits fogging
+and resets its integral. Humidity demand and all other interlocks still apply.
+The former 250 rpm fogger threshold is removed. Below the measured 10% starting
+duty, zero RPM is expected and does not latch a fan-stall fault. At 10% or more,
+the existing five-second grace and stall handling remain; the grace restarts
+while duty is below 10%. No startup boost is introduced.
+
+Native regressions cover duty below 12%, retained integral, fogging at zero PWM
+with 30 rpm coast-down, inhibition at zero/invalid RPM, and no false stall fault
+below starting duty.
+All 130 tests passed; the ESP32-C3 build succeeded. Verified OTA installed
+3.5.4 (build aa8e9eaa2125) on b81f3f27f4e0 and both PIs were re-enabled
+with unchanged 2,000 ppm / 90% RH setpoints. Other devices were not updated.
+
+## Previous revision 3.5.3: continuous CO2 rundown
+
+At 14:58:37 local time on 12 November, sequence 330 reached exactly 2,000 ppm.
+Revision 3.5.2 immediately reset both integrators, dropping fan duty from 36%
+and fogger duty from 7% to zero without a fault or reboot.
+
+Revision 3.5.3 retains the CO2 integral when crossing the setpoint. The PI
+computes demand over 0–80%; negative error unwinds the integral. Any positive
+demand is applied as at least 12% fan duty. Only zero calculated demand stops
+the fan and inhibits/resets humidity PI. Restart still requires CO2 more than
+50 ppm above the setpoint. Humidity can stop independently at its own target
+or interlocks. Gains, integral times and safety limits are unchanged.
+
+Regression coverage verifies retained demand at the setpoint, declining I
+below it, minimum physical fan duty, eventual zero output and restart hysteresis.
+All 130 tests passed and the ESP32-C3 build succeeded. Verified OTA installed
+3.5.3 (build 09582983bb47) on b81f3f27f4e0; both controllers were explicitly
+re-enabled with unchanged 2,000 ppm / 90% RH setpoints after reboot.
+
+## Previous revision 3.5.2: humidity PI enabled
 
 On explicit user request, the fogger is enabled for **90% corrected SHT45 RH**.
 CO₂ remains at 2,000 ppm, Kp=0.02 and Ti=300 s; normal fan range remains 12–80%,

@@ -16,12 +16,14 @@ if __package__:
     from .viewer_style import DARK_THEME, LIGHT_THEME, SERIES
     from .viewer_window import configure_viewer_window
     from .viewer_control import CommandPanel
+    from .viewer_format import whole_percent
 else:
     import viewer_data
     from viewer_style import DARK_THEME, LIGHT_THEME, SERIES
     from viewer_window import configure_viewer_window
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from logger.viewer_control import CommandPanel
+    from logger.viewer_format import whole_percent
 
 try:
     import pandas as pd
@@ -273,20 +275,28 @@ def plot_series(ax: "plt.Axes", df: pd.DataFrame, s: dict) -> None:
     theme = current_theme()
     ax.clear()
     col = s["col"]
+    humidity = col == "humidity_corrected_rh"
+    def offset_label(label, column):
+        if not humidity or column not in df or df.empty:
+            return label
+        offset = df[column].iloc[-1]
+        return f"{label} ({offset:+.1f}%RH)" if pd.notna(offset) else label
     ax.fill_between(df["timestamp"], df[col], s["ymin"],
                     color=s["color"], alpha=0.12, zorder=2)
     ax.plot(df["timestamp"], df[col], color=s["color"], linewidth=1.5, zorder=3,
-            label=s.get("line_label", "Box"))
+            label=offset_label(s.get("line_label", "Box"), "humidity_offset_rh"))
 
     overlays = list(s.get("extra_overlays", []))
     if s.get("overlay_col"):
         overlays.insert(0, {"col": s["overlay_col"], "color": s["overlay_color"],
                             "style": s.get("overlay_style", "--"),
-                            "label": s.get("overlay_label", "Ambient")})
+                            "label": offset_label(s.get("overlay_label", "Ambient"), "scd_humidity_offset_rh")})
     for overlay in overlays:
         if overlay["col"] not in df.columns:
             continue
-        ax.plot(df["timestamp"], df[overlay["col"]], color=overlay["color"],
+        overlay_column = ("humidity_scd_corrected_rh" if overlay["col"] == "humidity_scd_rh"
+                          and "humidity_scd_corrected_rh" in df else overlay["col"])
+        ax.plot(df["timestamp"], df[overlay_column], color=overlay["color"],
                 linewidth=1.2, linestyle=overlay["style"], zorder=4,
                 label=overlay["label"])
     if overlays or s.get("line_label"):
@@ -325,7 +335,7 @@ def draw_control_values(ax, value, series, setpoints, control_state):
             output = samples[-1].get(f"{channel}_sum")
     fields = (("SET:", f"{target:g}" if target is not None else "--"),
               ("DIF:", format(difference, "+" + series["fmt"]) if difference is not None else "--"),
-              ("PI%:", f"{output:.1f}" if output is not None and pd.notna(output) else "--"))
+              ("PI%:", whole_percent(output)))
     for y, (label, text) in zip((0.78, 0.49, 0.20), fields):
         for x, content, alignment in ((0.62, label, "left"), (0.95, text, "right")):
             ax.text(x, y, content, ha=alignment, va="center", fontsize=11,

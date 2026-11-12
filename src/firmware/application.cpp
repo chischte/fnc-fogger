@@ -16,7 +16,7 @@ Application::Application()
       measurements_(sensors_, storage_),
       webServer_(measurements_, storage_, firmwareUpdater_, controlSettings_
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
-                 , &actuators_.status(), &actuators_.manualControl(), &automatic_
+                 , &actuators_.status(), &actuators_.manualControl(), &automatic_, &calibration_
 #endif
                  ) {}
 
@@ -28,6 +28,8 @@ void Application::begin() {
   storage_.begin();
   beginEsp32Hardware();
   const uint32_t now = millis();
+  calibration_.begin();
+  sensors_.setHumidityOffsets(calibration_.reference().shtOffset, calibration_.reference().scdOffset);
   sensors_.begin(now);
   measurements_.begin(now);
   controlSettings_.begin();
@@ -36,12 +38,14 @@ void Application::begin() {
 
 void Application::poll() {
   const uint32_t now = millis();
+  sensors_.setHumidityOffsets(calibration_.reference().shtOffset, calibration_.reference().scdOffset);
   measurements_.poll(now);
   webServer_.poll(now);
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
   const uint32_t controlNow = millis();
   const bool networkAvailable = webServer_.manualNetworkAvailable();
   const bool maintenance = webServer_.firmwareUpdateInProgress();
+  pollCalibration(controlNow, networkAvailable, maintenance);
   const Measurement& measurement = measurements_.current();
   const ActuatorStatus& status = actuators_.status();
   ControlInput input;
@@ -56,8 +60,34 @@ void Application::poll() {
   input.hardwareReady = status.hardwareReady;
   input.rpmValid = status.rpmValid;
   input.rpm = status.rpm;
+  automatic_.resumeIfIdle(controlNow, input, actuators_.manualControl().active(),
+                          networkAvailable, maintenance);
   automatic_.poll(controlNow, input, controlSettings_.settings(), networkAvailable, maintenance);
   actuators_.poll(controlNow, maintenance, networkAvailable, &automatic_);
+#endif
+}
+
+void Application::pollCalibration(uint32_t now, bool networkAvailable, bool maintenance) {
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+  if (!calibration_.running()) return;
+  ManualControl& manual = actuators_.manualControl();
+  if (!networkAvailable || maintenance || !manual.active() ||
+      manual.fanPercent() != 50 || manual.foggerPercent() != 100) {
+    calibration_.cancel("interrupted");
+    manual.stop();
+    return;
+  }
+  if (!calibration_.due(now)) return;
+  const Measurement& sample = measurements_.current();
+  const bool valid = sample.humidityValid && sample.scdHumidityValid &&
+      now - sample.shtReadUptimeMs < AutomaticLimits::HUMIDITY_MAX_AGE_MS &&
+      now - sample.uptimeMs < AutomaticLimits::CO2_MAX_AGE_MS;
+  if (!valid || !calibration_.capture(sample.humidity, sample.scdHumidity,
+                                     HumidityCalibration::DURATION_MS)) {
+    calibration_.cancel("failed");
+  }
+  manual.stop();
+  automatic_.setEnabled(true, now);
 #endif
 }
 

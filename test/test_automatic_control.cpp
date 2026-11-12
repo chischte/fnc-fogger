@@ -37,7 +37,7 @@ int main() {
   input.co2 = 2600;
   input.co2At = 3000;
   control.poll(3000, input, settings, true, false);
-  assert(control.fanPercent() == 12 && control.foggerPercent() == 0);
+  assert(control.fanPercent() == 2 && control.foggerPercent() == 0);
   const float integral = control.co2Terms().i;
   control.poll(4000, input, settings, true, false);
   assert(control.co2Terms().i == integral);  // Integrate a sensor sample only once.
@@ -57,7 +57,7 @@ int main() {
   hardware.poll(13000, false, true, &control);
   assert(pwmDuty == 80*255/100 && pinValues[3] == LOW);
 
-  input.co2 = 2500;
+  input.co2 = 2400;
   input.co2At = 18000;
   control.poll(18000, input, settings, true, false);
   assert(control.fanPercent() == 0 && control.co2Terms().i == 0);
@@ -154,11 +154,14 @@ int main() {
   humidity.poll(265000, input, settings, true, false);
   assert(humidity.humidityTerms().i > 0.54f && humidity.humidityTerms().i < 0.55f);
   assert(humidity.foggerPercent() == 6);
-  input.co2 = 2499;
+  input.co2 = 1000;
   input.co2At = 270000;
   humidity.poll(270000, input, settings, true, false);
-  assert(humidity.fanPercent() == 0 && humidity.foggerPercent() == 0);
-  assert(humidity.humidityTerms().i == 0 && !humidity.foggerOn(270000));
+  assert(humidity.fanPercent() == 0 && humidity.foggerPercent() > 0);
+  assert(humidity.humidityTerms().i > 0);  // Rotation still permits fogging at zero PWM.
+  input.rpm = 0;
+  humidity.poll(270001, input, settings, true, false);
+  assert(humidity.foggerPercent() == 0 && humidity.humidityTerms().i == 0);
   input.co2 = 3000;
   input.co2At = 275000;
   input.rpm = 0;
@@ -187,5 +190,89 @@ int main() {
   assert(humidity.foggerPercent() == 0 && !humidity.fault());
   humidity.poll(415001, input, settings, false, false);
   assert(!humidity.enabled() && !humidity.foggerOn(415001));
+  // Retain accumulated demand at the setpoint and unwind below it.
+  AutomaticControl smooth;
+  input.co2 = 3000;
+  input.humidity = 85;
+  input.co2At = input.humidityAt = 500000;
+  smooth.setEnabled(true, 500000);
+  smooth.poll(500000, input, settings, true, false);
+  input.co2At = input.humidityAt = 800000;
+  smooth.poll(800000, input, settings, true, false);
+  assert(smooth.co2Terms().i == 10);
+  smooth.resetIntegrals();
+  assert(smooth.enabled() && !smooth.fault() && smooth.resetCount() == 1);
+  assert(smooth.co2Terms().i == 0 && smooth.humidityTerms().i == 0);
+  assert(smooth.co2Terms().p == 10 && smooth.co2Terms().sum == 10);
+  input.co2At = 800001;
+  smooth.poll(800001, input, settings, true, false);
+  input.co2At = 1100001;
+  input.humidityAt = 1100001;
+  smooth.poll(1100001, input, settings, true, false);
+  assert(smooth.co2Terms().i == 10);
+  // Reset timing for the remaining independent rundown scenario.
+  smooth.setEnabled(true, 500000);
+  input.co2At = input.humidityAt = 500000;
+  smooth.poll(500000, input, settings, true, false);
+  input.co2At = input.humidityAt = 800000;
+  smooth.poll(800000, input, settings, true, false);
+  input.co2 = 2500;
+  input.co2At = 805000;
+  smooth.poll(805000, input, settings, true, false);
+  assert(smooth.co2Terms().sum == 10 && smooth.fanPercent() == 10);
+  assert(smooth.foggerPercent() > 0);
+  input.co2 = 2400;
+  input.co2At = 810000;
+  smooth.poll(810000, input, settings, true, false);
+  assert(smooth.co2Terms().i < 10 && smooth.co2Terms().i > 9);
+  assert(smooth.fanPercent() == 8 && smooth.foggerPercent() > 0);
+  input.co2 = 1900;
+  input.co2At = 815000;
+  smooth.poll(815000, input, settings, true, false);
+  assert(smooth.co2Terms().sum == 0 && smooth.fanPercent() == 0);
+  assert(smooth.foggerPercent() > 0 && !smooth.fault());
+  input.rpm = 30;
+  smooth.poll(815001, input, settings, true, false);
+  assert(smooth.foggerPercent() > 0);  // No minimum RPM threshold.
+  input.rpm = 0;
+  smooth.poll(815002, input, settings, true, false);
+  assert(smooth.foggerPercent() == 0);
+  input.co2 = 2540;
+  input.co2At = 820000;
+  smooth.poll(820000, input, settings, true, false);
+  assert(smooth.fanPercent() == 0);
+  input.co2 = 2560;
+  input.co2At = 825000;
+  smooth.poll(825000, input, settings, true, false);
+  assert(smooth.fanPercent() == 1);
+  input.co2At = 831000;
+  smooth.poll(831000, input, settings, true, false);
+  assert(!smooth.fault() && smooth.fanPercent() == 1);
+  input.rpmValid = false;
+  smooth.poll(831001, input, settings, true, false);
+  assert(smooth.foggerPercent() == 0);
+  AutomaticControl idle;
+  input.co2Valid = false;
+  idle.resumeIfIdle(831001, input, false, true, false);
+  assert(!idle.enabled());
+  input.co2Valid = true;
+  idle.resumeIfIdle(831001, input, true, true, false);
+  assert(!idle.enabled());
+  idle.resumeIfIdle(831001, input, false, false, false);
+  assert(!idle.enabled());
+  idle.resumeIfIdle(831001, input, false, true, true);
+  assert(!idle.enabled());
+  idle.resumeIfIdle(831001, input, false, true, false);
+  assert(idle.enabled());
+  idle.poll(831001, input, settings, false, false);
+  assert(!idle.enabled());
+  idle.resumeIfIdle(831002, input, false, true, false);
+  assert(idle.enabled());
+  input.co2Valid = false;
+  idle.poll(900000, input, settings, true, false);
+  assert(idle.fault());
+  idle.resetIntegrals();
+  idle.resumeIfIdle(900000, input, false, true, false);
+  assert(idle.fault());  // Reset and automatic default must not clear faults.
   return 0;
 }

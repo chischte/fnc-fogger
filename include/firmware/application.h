@@ -18,12 +18,14 @@ class Application {
 
  private:
   void beginSerial();
+  void pollCalibration(uint32_t now, bool networkAvailable, bool maintenance);
 
   QspiStorage storage_;
   SensorManager sensors_;
   FirmwareUpdater firmwareUpdater_;
   MeasurementController measurements_;
   ControlSettingsStore controlSettings_;
+  HumidityCalibration calibration_;
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
   StartupActuators actuators_;
   AutomaticControl automatic_;

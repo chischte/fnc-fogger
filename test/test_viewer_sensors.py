@@ -11,6 +11,20 @@ from logger import logger, viewer
 
 
 class ViewerSensorTests(unittest.TestCase):
+    def test_humidity_offsets_preserve_raw_values_and_appear_in_legend(self):
+        from logger.viewer_data import normalize_data
+        frame = normalize_data(pd.DataFrame({"timestamp": ["2026-11-12T16:00:00+01:00"],
+            "humidity_rh": [93.77], "humidity_scd_rh": [98.65],
+            "humidity_offset_rh": [6.23], "scd_humidity_offset_rh": [1.35]}))
+        self.assertEqual(frame.humidity_rh.iloc[0], 93.77)
+        self.assertEqual(frame.humidity_scd_rh.iloc[0], 98.65)
+        self.assertAlmostEqual(frame.humidity_corrected_rh.iloc[0], 100)
+        self.assertAlmostEqual(frame.humidity_scd_corrected_rh.iloc[0], 100)
+        axis = Figure().subplots()
+        viewer.plot_series(axis, frame, viewer.SERIES[0])
+        self.assertIn("+6.2%RH", axis.lines[0].get_label())
+        self.assertIn("+1.4%RH", axis.lines[1].get_label())
+
     def test_value_boxes_display_missing_sensor_values_without_crashing(self):
         for missing in (None, float("nan"), pd.NA):
             with self.subTest(missing=missing):

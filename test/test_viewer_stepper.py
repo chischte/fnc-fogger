@@ -36,7 +36,7 @@ class SetpointStepperTests(unittest.TestCase):
         self.assertEqual(panel.humidity.value, 90)
         panel.co2._step(1)
         panel.humidity._step(-1)
-        self.assertEqual((panel.co2.value, panel.humidity.value), (1500, 89))
+        self.assertEqual((panel.co2.value, panel.humidity.value), (1100, 89))
         self.assertTrue(panel.dirty)
         self.assertFalse(hasattr(panel, "save"))
         self.assertIn("automatically", panel.feedback)
@@ -56,37 +56,46 @@ class SetpointStepperTests(unittest.TestCase):
             stepper._step(-1)
             self.assertEqual(stepper.value, expected)
 
-    def test_co2_stops_at_zero_and_20000(self):
-        stepper = self.make_stepper(CO2_LEVELS, 0)
+    def test_co2_crosses_2000_with_correct_steps_in_both_directions(self):
+        stepper = self.make_stepper(CO2_LEVELS, 1800)
+        for expected in (1900, 2000, 2500, 3000):
+            stepper._step(1)
+            self.assertEqual(stepper.value, expected)
+        for expected in (2500, 2000, 1900, 1800):
+            stepper._step(-1)
+            self.assertEqual(stepper.value, expected)
+
+    def test_co2_stops_at_500_and_15000(self):
+        stepper = self.make_stepper(CO2_LEVELS, 500)
         stepper._step(-1)
-        self.assertEqual(stepper.value, 0)
+        self.assertEqual(stepper.value, 500)
         self.assertFalse(stepper.minus.active)
-        stepper.set_val(20000)
+        stepper.set_val(15000)
         stepper._step(1)
-        self.assertEqual(stepper.value, 20000)
+        self.assertEqual(stepper.value, 15000)
         self.assertFalse(stepper.plus.active)
         self.assertFalse(stepper.on_change.called)
 
-    def test_humidity_uses_integer_steps_and_stops_at_70_and_100(self):
+    def test_humidity_uses_integer_steps_and_stops_at_70_and_99(self):
         stepper = self.make_stepper(HUMIDITY_LEVELS, 70)
-        for expected in range(71, 101):
+        for expected in range(71, 100):
             stepper._step(1)
             self.assertEqual(stepper.value, expected)
         stepper._step(1)
-        self.assertEqual(stepper.value, 100)
-        for expected in range(99, 69, -1):
+        self.assertEqual(stepper.value, 99)
+        for expected in range(98, 69, -1):
             stepper._step(-1)
             self.assertEqual(stepper.value, expected)
         stepper._step(-1)
         self.assertEqual(stepper.value, 70)
 
     def test_existing_off_grid_values_move_to_next_allowed_value(self):
-        stepper = self.make_stepper(CO2_LEVELS, 1200)
+        stepper = self.make_stepper(CO2_LEVELS, 1250)
         stepper._step(1)
-        self.assertEqual(stepper.value, 1500)
-        stepper.set_val(1200)
+        self.assertEqual(stepper.value, 1300)
+        stepper.set_val(1250)
         stepper._step(-1)
-        self.assertEqual(stepper.value, 1000)
+        self.assertEqual(stepper.value, 1200)
 
     def test_pending_controls_cannot_change_values(self):
         stepper = self.make_stepper(CO2_LEVELS, 1000)

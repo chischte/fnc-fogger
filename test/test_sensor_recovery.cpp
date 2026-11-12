@@ -215,6 +215,7 @@ int main() {
   fakeSht = FakeSht{};
   fakeScd = FakeScdState{};
   SensorManager regular;
+  regular.setHumidityOffsets(6.23f, 1.35f);
   regular.begin(0);
   uint32_t previousReadAt = 0;
   float previousHumidity = NAN;
@@ -237,11 +238,12 @@ int main() {
       assert(sample.humidity == previousHumidity);
     }
     if (sample.shtReadUptimeMs <= interval + 8000) {
-      assert(sample.humidityOffset == 0 && sample.shtHeaterElapsedMs == -1);
+      assert(sample.humidityOffset == 6.23f && sample.shtHeaterElapsedMs == -1);
     } else {
-      assert(sample.humidityOffset == 1.0f);
+      assert(sample.humidityOffset == 6.23f);
       assert(sample.shtHeaterElapsedMs >= 60000 && sample.shtHeaterElapsedMs < 65000);
     }
+    assert(sample.scdHumidityOffset == 1.35f);
   }
   assert(shtUpdates == 10 && fastUpdates > 120);
 

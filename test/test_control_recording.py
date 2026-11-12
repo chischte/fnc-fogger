@@ -9,6 +9,17 @@ from logger.measurement_recording import MeasurementRecorder
 
 
 class ControlRecordingTests(unittest.TestCase):
+    def test_humidity_reference_is_separate_and_not_duplicated(self):
+        self.payload["control"]["humidity_calibration"] = {
+            "revision": 1, "assumed_reference_rh": 100,
+            "sht_raw_rh": 93.77, "scd_raw_rh": 98.65,
+            "sht_offset_rh": 6.23, "scd_offset_rh": 1.35, "duration_ms": 0}
+        recorder = MeasurementRecorder(self.db)
+        recorder.record_live(self.payload)
+        recorder.record_live(self.payload)
+        row = self.db.execute("SELECT reference_rh,sht_offset_rh,scd_offset_rh,reference_kind FROM humidity_calibrations").fetchall()
+        self.assertEqual(row, [(100, 6.23, 1.35, "assumed_saturation")])
+
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)

@@ -11,6 +11,10 @@ class PiController {
  public:
   PiController(float gain, float integralSeconds) : gain_(gain), integralSeconds_(integralSeconds) {}
   void reset() { terms_ = {}; }
+  void resetIntegral(float maximum) {
+    terms_.i = 0;
+    terms_.sum = terms_.p < 0 ? 0 : terms_.p > maximum ? maximum : terms_.p;
+  }
   float update(float error, float elapsedSeconds, float minimum, float maximum);
   const PiTerms& terms() const { return terms_; }
 

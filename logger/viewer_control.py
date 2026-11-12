@@ -10,6 +10,7 @@ from matplotlib import dates as mdates
 from .control_data import Setpoints
 from .viewer_manual import ManualPanel
 from .viewer_automatic import AutomaticPanel
+from .viewer_format import whole_percent, rounded_rpm
 from .viewer_stepper import CO2_LEVELS, HUMIDITY_LEVELS, SetpointStepper
 
 AUTOSAVE_DELAY_SECONDS = 3
@@ -41,15 +42,26 @@ def actuator_graph_titles(state):
     latest = samples[-1] if samples and state["online"] and state["enabled"] and not state.get("fault") else {}
 
     def formatted(value, unit):
-        number = "—" if value is None or not math.isfinite(value) else f"{value:g}"
+        number = "—" if value is None or not math.isfinite(value) else (
+            whole_percent(value) if unit == "%" else f"{value:g}")
         return f"{number} {unit}"
 
-    return (f"Humidity PI [%] | sum: {formatted(latest.get('humidity_sum'), '%')} | "
+    rpm = values.get("rpm")
+    rpm_text = "—" if rpm is None else rounded_rpm(rpm)
+    humidity_sum = latest.get("humidity_sum")
+    humidity_text = "—" if humidity_sum is None or not math.isfinite(humidity_sum) else whole_percent(humidity_sum)
+    return (f"Humidity PI [%] | sum: {humidity_text} % | "
             f"ON: {formatted(values.get('on_time_s'), 's')} | "
             f"OFF: {formatted(values.get('off_time_s'), 's')}",
             f"CO2 PI [%] | sum: {formatted(latest.get('co2_sum'), '%')} | "
-            f"Fan: {formatted(values.get('pwm_percent'), '%')} / {formatted(values.get('rpm'), 'rpm')}"
+            f"Fan: {formatted(values.get('pwm_percent'), '%')} / {rpm_text} rpm"
             f"{' [fault]' if state.get('fault') else ''}")
+
+
+def actuator_graph_labels(state):
+    values = state.get("actuators", {}) if state["online"] else {}
+    return (f"{whole_percent(values.get('duty_percent'))}%",
+            f"{whole_percent(values.get('pwm_percent'))}% - {rounded_rpm(values.get('rpm'))}rpm")
 
 
 class CommandPanel:
@@ -168,7 +180,7 @@ class CommandPanel:
         render_state = (tuple(theme.items()), tuple(limits) if limits is not None else None,
                         setpoints, state["supported"], state["online"], state["enabled"],
                         state["message"], len(samples), samples[-1]["timestamp"] if samples else None,
-                        actuator_graph_titles(state), manual_state, automatic_state,
+                        actuator_graph_titles(state), actuator_graph_labels(state), manual_state, automatic_state,
                         pi_parameter_label(state, "co2"), pi_parameter_label(state, "humidity"),
                         self.feedback, self.pending, self.dirty, self.visible)
         if render_state == self._last_render_state:
@@ -212,6 +224,10 @@ class CommandPanel:
             axis.set_title(title, fontsize=10, fontweight="bold", color=theme["text"])
             axis.set_xlabel(pi_parameter_label(state, channel), fontsize=8, color=theme["muted"], labelpad=6)
             axis.xaxis.set_label_coords(0.5, -0.12)
+            label = actuator_graph_labels(state)[0 if channel == "humidity" else 1]
+            axis.text(0.5, 0.06, label, ha="center", va="bottom", fontsize=10,
+                      fontweight="bold", color=theme["text"], transform=axis.transAxes,
+                      bbox={"facecolor": theme["plot"], "edgecolor": "none", "alpha": .85})
             for term, label, style in TERM_STYLES:
                 timestamps = frame["timestamp"] if not frame.empty and not humidity_locked else []
                 values = frame[f"{channel}_{term}"] if not frame.empty and not humidity_locked else []

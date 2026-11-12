@@ -58,10 +58,6 @@ void SensorManager::readSht(Measurement& measurement, uint32_t now) {
     shtReading_.readAt = now;
     shtReading_.valid = sht45_.read(shtReading_.temperature, shtReading_.humidity, now);
     shtReading_.heaterElapsedMs = shtReading_.valid ? sht45_.heaterElapsedMs() : -1;
-    // Later valid readings remain cooled, even when acquisition is delayed.
-    const bool cooled = shtReading_.valid && shtReading_.heaterElapsedMs >=
-        static_cast<int32_t>(Config::SHT45_HEATER_COOLDOWN_MS);
-    shtReading_.offset = cooled ? Config::SHT45_HUMIDITY_OFFSET_RH : 0.0f;
   }
   // Keep the last scheduled reading during heating; preserve its original timestamp.
   measurement.shtReadUptimeMs = shtReading_.readAt;
@@ -69,7 +65,10 @@ void SensorManager::readSht(Measurement& measurement, uint32_t now) {
   measurement.humidity = shtReading_.humidity;
   measurement.boxTemperatureValid = shtReading_.valid;
   measurement.humidityValid = shtReading_.valid;
-  measurement.humidityOffset = shtReading_.offset;
+  // Valid SHT45 readings already exclude heating/cooldown. A reference offset
+  // applies to every valid reading, including readings before the first heater cycle.
+  measurement.humidityOffset = shtOffset_;
+  measurement.scdHumidityOffset = scdOffset_;
   measurement.shtHeaterElapsedMs = shtReading_.heaterElapsedMs;
 }
 

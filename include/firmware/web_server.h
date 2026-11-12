@@ -14,13 +14,14 @@
 #include "firmware/automatic_control.h"
 #include "firmware/i2c_diagnostics.h"
 #include "firmware/wifi_diagnostics.h"
+#include "firmware/humidity_calibration.h"
 
 class WebServer {
  public:
   WebServer(MeasurementController& measurements, QspiStorage& storage,
             FirmwareUpdater& firmwareUpdater, ControlSettingsStore& controlSettings,
             const ActuatorStatus* actuators = nullptr, ManualControl* manual = nullptr,
-            AutomaticControl* automatic = nullptr);
+            AutomaticControl* automatic = nullptr, HumidityCalibration* calibration = nullptr);
 
   void begin(uint32_t now);
   void poll(uint32_t now);
@@ -84,8 +85,10 @@ class WebServer {
   const ActuatorStatus* actuators_;
   ManualControl* manual_;
   AutomaticControl* automatic_;
+  HumidityCalibration* calibration_;
   bool manualRequest_ = false;
   bool automaticRequest_ = false;
+  bool calibrationRequest_ = false;
   String controlBody_;
   BacklogReader backlogReader_;
   ClientState clientState_ = ClientState::idle;

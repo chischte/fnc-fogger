@@ -43,7 +43,7 @@ class ControlDataTests(unittest.TestCase):
         payload["control"]["fogger"] = {"on_time_s": 2, "off_time_s": 18}
         self.monitor.ingest(payload)
         titles = actuator_graph_titles(self.monitor.snapshot())
-        self.assertIn("1234 rpm", titles[1])
+        self.assertIn("1200 rpm", titles[1])
         self.assertIn("sum: 40 % | Fan:", titles[1])
         self.assertIn("sum: 30 % | ON:", titles[0])
         self.assertIn("ON: 2 s | OFF: 18 s", titles[0])
@@ -58,7 +58,8 @@ class ControlDataTests(unittest.TestCase):
         payload["control"]["fogger"] = {"on_time_s": -1, "off_time_s": float("inf")}
         self.monitor.ingest(payload)
         self.assertEqual(self.monitor.snapshot()["actuators"],
-                         {"rpm": None, "pwm_percent": None, "on_time_s": None, "off_time_s": None})
+                         {"rpm": None, "pwm_percent": None, "on_time_s": None, "off_time_s": None,
+                          "duty_percent": None})
         payload["control"]["fan"] = {"rpm": 0}
         self.monitor.ingest(payload)
         self.assertEqual(self.monitor.snapshot()["actuators"]["rpm"], 0)
@@ -210,7 +211,7 @@ class CommandLayoutTests(unittest.TestCase):
         state = {"online": True, "enabled": True,
                  "samples": [{"humidity_sum": 30, "co2_sum": 40}]}
         viewer.draw_value_boxes(axes, values, Setpoints(1200, 92), state)
-        for axis, difference, output in ((axes[0], "-1.0", "30.0"), (axes[1], "+200", "40.0")):
+        for axis, difference, output in ((axes[0], "-1.0", "30"), (axes[1], "+200", "40")):
             labels = {text.get_text() for text in axis.texts}
             self.assertTrue({"SET:", "DIF:", "PI%:", difference, output} <= labels)
         state["online"] = False

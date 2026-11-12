@@ -10,6 +10,7 @@ struct Measurement {
   uint32_t shtReadUptimeMs = 0;
   float humidity = NAN;
   float humidityOffset = 0.0f;
+  float scdHumidityOffset = 0.0f;
   int32_t shtHeaterElapsedMs = -1;
   bool shtHeated = false;
   bool shtCooling = false;

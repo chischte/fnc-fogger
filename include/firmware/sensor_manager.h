@@ -13,6 +13,7 @@ class SensorManager {
   void begin(uint32_t now);
   void poll(uint32_t now);
   void read(Measurement& measurement, uint32_t now);
+  void setHumidityOffsets(float sht, float scd) { shtOffset_ = sht; scdOffset_ = scd; }
 
   bool isReady() const;
   uint16_t errorCount() const;
@@ -35,7 +36,6 @@ class SensorManager {
   struct ShtReading {
     float temperature = NAN;
     float humidity = NAN;
-    float offset = 0.0f;
     int32_t heaterElapsedMs = -1;
     uint32_t readAt = 0;
     bool valid = false;
@@ -52,4 +52,6 @@ class SensorManager {
   uint16_t errorCount_ = 0;
   bool ready_ = false;
   float scdTemperatureOffset_ = NAN;
+  float shtOffset_ = 1;
+  float scdOffset_ = 0;
 };

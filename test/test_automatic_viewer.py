@@ -78,11 +78,40 @@ class AutomaticViewerTests(unittest.TestCase):
         panel.update(DARK_THEME)
         self.assertTrue(self.collector.automatic_commands.empty())
         self.assertTrue(panel.automatic.button.ax.get_visible())
-        self.assertEqual(panel.automatic.button.label.get_text(), "Start PI")
+        self.assertEqual(panel.automatic.button.label.get_text(), "Reset PI")
+        self.assertFalse(panel.automatic.button.active)
         self.assertTrue(any("Humidity PI disabled" in text.get_text()
                             for text in panel.graphs[0].texts))
         self.collector.control.ingest({"control": telemetry(True)})
         panel.update(DARK_THEME)
-        self.assertEqual(panel.automatic.button.label.get_text(), "Stop PI")
+        self.assertEqual(panel.automatic.button.label.get_text(), "Reset PI")
         panel.set_visible(False)
         self.assertFalse(panel.automatic.button.ax.get_visible())
+
+    def test_reset_requires_support_and_acknowledged_counter(self):
+        control = telemetry(True)
+        control.update(pi_reset_supported=True, pi_reset_count=4)
+        self.collector.control.ingest({"control": control})
+        self.collector.submit_pi_reset()
+        response = MagicMock()
+        control["pi_reset_count"] = 5
+        response.__enter__.return_value.read.return_value = json.dumps(control).encode()
+        with patch("urllib.request.urlopen", return_value=response) as request:
+            self.collector._send_pending_automatic()
+            self.assertEqual(request.call_args.args[0].data, b"reset=1")
+        self.assertTrue(self.collector.automatic_results.get_nowait()[0])
+        self.collector.submit_pi_reset()
+        with patch("urllib.request.urlopen", return_value=response):
+            self.collector._send_pending_automatic()
+        self.assertFalse(self.collector.automatic_results.get_nowait()[0])
+
+    def test_leaving_manual_confirms_automatic_default(self):
+        control = telemetry(True)
+        control["automatic_default"] = True
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = json.dumps(control).encode()
+        self.collector.submit_manual(ManualOutputs(False, 0, 0))
+        with patch("urllib.request.urlopen", return_value=response):
+            self.collector._send_pending_manual()
+        self.assertTrue(self.collector.manual_results.get_nowait()[0])
+        self.assertTrue(self.collector.control.snapshot()["enabled"])

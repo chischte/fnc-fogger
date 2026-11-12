@@ -3,8 +3,10 @@ from bisect import bisect_left, bisect_right
 
 from matplotlib.widgets import Button
 
-CO2_LEVELS = tuple(range(0, 5001, 500)) + tuple(range(6000, 20001, 1000))
-HUMIDITY_LEVELS = tuple(range(70, 101))
+CO2_LEVELS = (tuple(range(500, 2001, 100))
+              + tuple(range(2500, 5001, 500))
+              + tuple(range(6000, 15001, 1000)))
+HUMIDITY_LEVELS = tuple(range(70, 100))
 
 
 class SetpointStepper:

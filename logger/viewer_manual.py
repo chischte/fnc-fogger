@@ -23,15 +23,32 @@ class ManualPanel:
                           valinit=0, valstep=1, valfmt="%0.0f")
         self.fogger = Slider(figure.add_axes([0, 0, .1, .03]), "Fogger [%]", 0, 100,
                              valinit=0, valstep=1, valfmt="%0.0f")
+        self._slider_colors = {slider: slider.poly.get_facecolor()
+                               for slider in (self.fan, self.fogger)}
         self.fan_button = Button(figure.add_axes([0, 0, .1, .03]), "Fan Off")
         self.fogger_button = Button(figure.add_axes([0, 0, .1, .03]), "Fogger Off")
         self.stop = Button(figure.add_axes([0, 0, .1, .03]), "Stop All")
+        self.calibration = Button(figure.add_axes([0, 0, .1, .03]), "Calibrate 15 min")
+        self.calibration.on_clicked(self._calibrate)
+        self.calibrating = False
         self.toggle.on_clicked(self._toggle)
         self.fan_button.on_clicked(lambda event: self._toggle_output("fan"))
         self.fogger_button.on_clicked(lambda event: self._toggle_output("fogger"))
         self.stop.on_clicked(self._stop)
         self.fan.on_changed(self._edited)
         self.fogger.on_changed(self._edited)
+
+    def _calibrate(self, event):
+        if self.collector is None or self.pending:
+            return
+        try:
+            self.collector.submit_calibration(cancel=self.calibrating)
+            self.pending = True
+            self._requested = None
+            self.feedback = "Sending humidity reference command..."
+        except ValueError as error:
+            self.feedback = str(error)
+        self.on_change()
 
     def _values(self):
         return ManualOutputs(self.selected,
@@ -84,7 +101,8 @@ class ManualPanel:
         self.fogger.ax.set_position(bounds(.20, .37, .54, .12))
         self.fan_button.ax.set_position(bounds(.81, .58, .18, .18))
         self.fogger_button.ax.set_position(bounds(.81, .34, .18, .18))
-        self.stop.ax.set_position(bounds(.25, .08, .50, .18))
+        self.stop.ax.set_position(bounds(.03, .08, .44, .18))
+        self.calibration.ax.set_position(bounds(.52, .08, .47, .18))
 
     def set_visible(self, visible):
         self.toggle.ax.set_visible(visible)
@@ -92,7 +110,7 @@ class ManualPanel:
             widget.ax.set_visible(visible and self.selected)
 
     def _output_widgets(self):
-        return (self.fan, self.fogger, self.fan_button, self.fogger_button, self.stop)
+        return (self.fan, self.fogger, self.fan_button, self.fogger_button, self.stop, self.calibration)
 
     def _read_results(self, confirmed):
         if self.collector is None:
@@ -105,7 +123,7 @@ class ManualPanel:
             if not success:
                 self.fan_on = False
                 self.fogger_on = False
-            if not success or confirmed == self._requested:
+            if not success or self._requested is None or confirmed == self._requested:
                 self.pending = False
                 self.feedback = message
 
@@ -129,29 +147,50 @@ class ManualPanel:
             self.fan_on = False
             self.fogger_on = False
         available = visible and state["online"] and state.get("manual_supported", False)
+        calibration = state.get("calibration", {})
+        self.calibrating = calibration.get("running", False)
+        if self.calibrating:
+            seconds = calibration.get("remaining_ms", 0) // 1000
+            self.feedback = f"Assumed-100% reference: {seconds // 60}:{seconds % 60:02d} remaining; fan 50%, fogger 100%."
+            if confirmed is not None:
+                self.fan_on = self.fogger_on = True
+                for slider, value in ((self.fan, confirmed.fan_percent),
+                                      (self.fogger, confirmed.fogger_percent)):
+                    slider.eventson = False
+                    slider.set_val(value)
+                    slider.eventson = True
         self.set_visible(visible)
         self.toggle.set_active(available)
         self.toggle.label.set_text("Exit Manual" if self.selected else "Manual Mode")
         for widget in self._output_widgets():
-            widget.set_active(available and self.selected)
+            widget.set_active(available and self.selected and not self.calibrating)
+        self.calibration.set_active(available and self.selected and calibration.get("supported", False) and not self.pending)
+        self.calibration.label.set_text("Cancel Calibration" if self.calibrating else "Calibrate 15 min")
         fogger_available = state.get("fogger_enabled", True)
-        self.fogger.set_active(available and self.selected and fogger_available)
-        self.fogger_button.set_active(available and self.selected and fogger_available)
+        self.fogger.set_active(available and self.selected and fogger_available and not self.calibrating)
+        self.fogger_button.set_active(available and self.selected and fogger_available and not self.calibrating)
         self.fan_button.label.set_text("On" if self.fan_on else "Off")
         self.fogger_button.label.set_text("On" if self.fogger_on else "Off")
         if not fogger_available:
             self.fogger_button.label.set_text("Disabled")
         for button, on in ((self.toggle, self.selected), (self.fan_button, self.fan_on),
-                           (self.fogger_button, self.fogger_on), (self.stop, False)):
+                           (self.fogger_button, self.fogger_on), (self.stop, False),
+                           (self.calibration, self.calibrating)):
             button.color = theme["selected"] if on else theme["card"]
             if not button.active:
                 button.color = theme["button_off"]
             button.hovercolor = theme["grid"]
             button.ax.set_facecolor(button.color)
             button.label.set_color("white" if on and button.active else theme["text"])
-        for slider in (self.fan, self.fogger):
+        for slider, on in ((self.fan, self.fan_on), (self.fogger, self.fogger_on)):
+            color = self._slider_colors[slider] if on else theme["grid"]
+            slider.poly.set_facecolor(color)
+            slider.vline.set_color(color)
+            slider._handle.set_markerfacecolor(theme["text"] if on else theme["muted"])
+            slider._handle.set_markeredgecolor(color)
             slider.ax.set_facecolor(theme["card"])
-            slider.label.set_color(theme["text"])
-            slider.valtext.set_color(theme["text"])
+            slider.label.set_color(theme["text"] if on else theme["muted"])
+            slider.valtext.set_color(theme["text"] if on else theme["muted"])
         return (self.selected, self.pending, self.feedback, confirmed,
-                self.fan_on, self.fogger_on, state.get("manual_supported", False))
+                self.fan_on, self.fogger_on, state.get("manual_supported", False),
+                self.calibrating, calibration.get("remaining_ms"))

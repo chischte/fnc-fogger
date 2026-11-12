@@ -1,11 +1,49 @@
 # Control concept
 
-Current implementation: [PI commissioning, firmware 3.5.2](pi-commissioning.md).
+Current implementation: [PI commissioning, firmware 3.5.6](pi-commissioning.md).
 CO₂ ventilation PI and humidity PI are now enabled on the chamber device.
-Humidity target is 90% corrected SHT45 RH; fogging still requires CO₂-driven
-airflow. The first ventilation-only revision kept the fogger locked OFF.
+Humidity target is 90% corrected SHT45 RH; fogging requires valid measured
+fan RPM above zero, including coast-down at zero PWM. Fan duty follows the
+CO₂ PI over 0–80% without a minimum floor. The first ventilation-only revision
+kept the fogger locked OFF.
 Tuning is not established.
+PI is the default outside Manual Mode, including after reboot/reconnection with
+valid sensors. Reset PI clears accumulated I terms; gains and fault latches stay.
+The PI graphs show actual actuator duty at bottom centre: fogger in whole
+percent, fan in percent plus measured RPM. Display RPM rounds to 50 below
+1,000 rpm and to 100 at or above 1,000 rpm. Stored telemetry is not rounded.
 Older version sections and the original design below provide historical context.
+
+## Humidity reference adjustment, firmware 3.5.6
+
+Manual Mode offers **Calibrate 15 min**. It commands 50% fan / 100% fogger
+for 900 seconds on the ESP32, independent of the viewer remaining open.
+**Cancel Calibration**, manual takeover, Wi-Fi loss and firmware update abort
+without saving new offsets. Completion uses the latest valid, fresh raw SHT45
+and SCD41 readings; invalid readings or storage failure retain previous offsets.
+Completion returns to normal PI, subject to its existing fault handling.
+
+This is an **assumed 100% RH reference adjustment**, not a traceable calibration:
+visible ultrasonic mist does not establish exact vapor saturation at a sensor.
+The SCD41 is specified for 0–95% RH, non-condensing. Its raw humidity still
+drives the 95% condensation-risk guard; corrected display values do not bypass it.
+Source: [Sensirion SCD4x datasheet](https://sensirion.com/media/documents/48C4B7FB/64C134E7/Sensirion_SCD4x_Datasheet.pdf).
+
+Each absolute offset is `100 - raw_RH`. An existing offset is replaced, never
+added. The original +1% RH SHT45 correction is superseded on the first adjustment.
+Both offsets are committed together in device NVS (`humidity-ref/reference`).
+Raw humidity stays unchanged in storage; each measurement carries its applied
+SHT45 and SCD41 offset. Corrected display values are clipped to 0–100% RH.
+Humidity legends show the latest offset for each sensor. Historical points use
+their own recorded offsets; no historical measurements are rewritten.
+
+The per-device SQLite database stores a separate `humidity_calibrations` table
+with revision, observation time, assumed reference, raw readings, offsets and
+duration. `reference_kind=assumed_saturation` distinguishes the assumption.
+Full control telemetry also contains the current reference and timer status.
+The maximum automatic humidity setpoint is **99% RH**, in viewer and firmware.
+SHT45 regulation uses corrected humidity; the SCD41 RH is a comparison and
+raw-value safety input, not the humidity PI feedback signal.
 
 ## First fogger commissioning (2026-11-12)
 
@@ -139,9 +177,9 @@ Sources: [Noctua PWM/tach specifications](https://www.noctua.at/pub/media/wysiwy
 
 Control error = measured CO2 minus CO2 setpoint. A positive error increases
 fan demand. Only the CO2 PI determines fan speed. At sufficiently low CO2,
-it may request no air exchange and stop the fan. When running, constrain the
-output to the experimentally established reliable minimum and configured
-maximum; apply anti-windup using the actual constrained output.
+it may request no air exchange and stop the fan. Retain the integral across
+the setpoint and unwind with negative error; stop at zero calculated demand.
+Output spans 0–80% without a minimum floor; anti-windup uses those limits.
 
 ESP32 directly drives the Noctua NF-A4x10 24V PWM using non-inverted 3.3 V
 push-pull PWM at 25 kHz. GPIO7 reads tach using the internal pull-up (firmware 3.4.3); no

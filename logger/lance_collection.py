@@ -131,23 +131,65 @@ class LanceCollector:
         self.automatic_commands.put_nowait(enabled)
         self.command_event.set()
 
+    def submit_pi_reset(self):
+        state = self.control.snapshot()
+        if not state["online"] or not state["enabled"] or not state["pi_reset_supported"]:
+            raise ValueError("PI reset unavailable: automatic mode and firmware 3.5.5 required.")
+        self._clear_commands(self.automatic_commands)
+        self.automatic_commands.put_nowait("reset")
+        self.command_event.set()
+
     def _send_pending_automatic(self):
         try:
             enabled = self.automatic_commands.get_nowait()
         except queue.Empty:
             return
+        if enabled in ("calibration-start", "calibration-cancel"):
+            self._send_calibration(enabled.removeprefix("calibration-"))
+            return
         try:
-            encoded = urllib.parse.urlencode({"enabled": int(enabled)}).encode("ascii")
+            reset = enabled == "reset"
+            previous_reset = self.control.snapshot()["pi_reset_count"]
+            fields = {"reset": 1} if reset else {"enabled": int(enabled)}
+            encoded = urllib.parse.urlencode(fields).encode("ascii")
             request = urllib.request.Request(self.lance.url + "/api/control/automatic", data=encoded,
                                              headers={"Content-Type": "application/x-www-form-urlencoded"})
             with urllib.request.urlopen(request, timeout=8) as response:
                 control = json.load(response)
-            if control.get("automatic_supported") is not True or control.get("enabled") is not enabled:
+            expected_enabled = True if reset else enabled
+            if control.get("automatic_supported") is not True or control.get("enabled") is not expected_enabled:
                 raise ValueError("Device did not confirm PI mode.")
+            if reset and control.get("pi_reset_count") != previous_reset + 1:
+                raise ValueError("Device did not confirm PI integral reset.")
             self.control.ingest({"control": control})
-            self.automatic_results.put((True, "PI control started." if enabled else "PI stopped."))
+            message = "PI integrals reset." if reset else "PI control started." if enabled else "PI stopped."
+            self.automatic_results.put((True, message))
         except Exception as error:
             self.automatic_results.put((False, f"PI command unconfirmed: {error}. Check device state."))
+
+    def submit_calibration(self, cancel=False):
+        state = self.control.snapshot()
+        if not state["online"] or not state["calibration"].get("supported"):
+            raise ValueError("Humidity reference requires firmware 3.5.6 and an online device.")
+        self._clear_commands(self.automatic_commands)
+        self._clear_commands(self.manual_commands)
+        self._manual_lease = None
+        self.automatic_commands.put_nowait("calibration-cancel" if cancel else "calibration-start")
+        self.command_event.set()
+
+    def _send_calibration(self, action):
+        try:
+            request = urllib.request.Request(self.lance.url + "/api/control/humidity-calibration",
+                                             data=urllib.parse.urlencode({"action": action}).encode())
+            with urllib.request.urlopen(request, timeout=8) as response:
+                control = json.load(response)
+            expected = action == "start"
+            if control.get("humidity_calibration", {}).get("running") is not expected:
+                raise ValueError("Device did not confirm humidity reference state.")
+            self.control.ingest({"control": control})
+            self.manual_results.put((True, "15-minute assumed-100% reference running." if expected else "Reference cancelled; PI resumed."))
+        except Exception as error:
+            self.manual_results.put((False, f"Humidity reference unconfirmed: {error}"))
 
     def _send_pending_manual(self):
         try:
@@ -172,9 +214,10 @@ class LanceCollector:
             with urllib.request.urlopen(request, timeout=8) as response:
                 control = json.load(response)
             manual = control.get("manual", {})
-            if (manual.get("supported") is not True or control.get("enabled") is not False
+            expected_enabled = not values.active and control.get("automatic_default") is True
+            if (manual.get("supported") is not True or control.get("enabled") is not expected_enabled
                     or ManualOutputs.from_payload(manual) != values):
-                raise ValueError("Device did not confirm manual outputs with PI disabled.")
+                raise ValueError("Device did not confirm requested manual/PI mode.")
             self.control.ingest({"control": control})
             needs_renewal = manual.get("lease_ms", 30000) != 0
             self._manual_lease = values if values.active and needs_renewal else None

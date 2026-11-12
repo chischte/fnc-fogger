@@ -2,6 +2,23 @@
 
 using namespace AutomaticLimits;
 
+void AutomaticControl::resetIntegrals() {
+  co2Pi_.resetIntegral(FAN_MAX_PERCENT);
+  humidityPi_.resetIntegral(FOGGER_MAX_PERCENT);
+  co2Seen_ = false;
+  humiditySeen_ = false;
+  ++resetCount_;
+}
+
+void AutomaticControl::resumeIfIdle(uint32_t now, const ControlInput& input,
+                                   bool manualActive, bool networkAvailable,
+                                   bool maintenance) {
+  if (enabled_ || manualActive || !networkAvailable || maintenance ||
+      !input.hardwareReady || !input.co2Valid || !isfinite(input.co2) ||
+      input.co2 < 0 || now - input.co2At >= CO2_MAX_AGE_MS) return;
+  setEnabled(true, now);
+}
+
 void AutomaticControl::reset() {
   co2Pi_.reset();
   humidityPi_.reset();
@@ -78,8 +95,11 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
     return;
   }
   updateFan(now, effective, settings);
-  if (fanDemand_ && now - fanStartedAt_ >= FAN_START_GRACE_MS &&
-      (!input.rpmValid || input.rpm < FAN_MIN_RPM)) {
+  // Below the measured starting duty, zero RPM is expected rather than a fault.
+  if (fanPercent_ < FAN_STALL_CHECK_PERCENT) fanStartedAt_ = now;
+  if (fanPercent_ >= FAN_STALL_CHECK_PERCENT &&
+      now - fanStartedAt_ >= FAN_START_GRACE_MS &&
+      (!input.rpmValid || input.rpm == 0)) {
     fail("automatic_fan_stalled", true);
     return;
   }
@@ -92,8 +112,6 @@ void AutomaticControl::updateFan(uint32_t now, const ControlInput& input,
   if (!fanDemand_ && error > CO2_HYSTERESIS_PPM) {
     fanDemand_ = true;
     fanStartedAt_ = now;
-  } else if (fanDemand_ && error <= 0) {
-    fanDemand_ = false;
   }
   if (!fanDemand_) {
     fanPercent_ = 0;
@@ -103,7 +121,15 @@ void AutomaticControl::updateFan(uint32_t now, const ControlInput& input,
   }
   if (!co2Seen_ || input.co2At != co2At_) {
     const float seconds = co2Seen_ ? (input.co2At - co2At_) / 1000.0f : 0;
-    const float output = co2Pi_.update(error, seconds, FAN_MIN_PERCENT, FAN_MAX_PERCENT);
+    // Keep integrating below the setpoint until demand reaches zero.
+    const float output = co2Pi_.update(error, seconds, 0, FAN_MAX_PERCENT);
+    if (output <= 0) {
+      fanDemand_ = false;
+      fanPercent_ = 0;
+      co2Pi_.reset();
+      co2Seen_ = false;
+      return;
+    }
     fanPercent_ = static_cast<uint8_t>(output + 0.5f);
     co2Seen_ = true;
     co2At_ = input.co2At;
@@ -123,11 +149,8 @@ void AutomaticControl::updateFogger(uint32_t now, const ControlInput& input,
     inhibitFogger(fanDemand_ ? "automatic_ventilation_only" : "automatic_no_co2_demand");
     return;
   }
-  if (!fanDemand_) {
-    inhibitFogger("automatic_no_co2_demand");
-    return;
-  }
-  if (!input.rpmValid || input.rpm < FAN_MIN_RPM) {
+  // Measured rotation also permits fogging while the fan coasts at zero PWM.
+  if (!input.rpmValid || input.rpm == 0) {
     inhibitFogger("automatic_waiting_for_fan");
     return;
   }
@@ -136,7 +159,7 @@ void AutomaticControl::updateFogger(uint32_t now, const ControlInput& input,
     inhibitFogger("automatic_humidity_invalid");
     return;
   }
-  if (input.humidity >= HUMIDITY_LIMIT_RH ||
+  if (input.humidity >= 100 ||
       input.humidity >= settings.humidityRh + HUMIDITY_OVERSHOOT_RH) {
     inhibitFogger("automatic_humidity_limit");
     return;

@@ -82,3 +82,35 @@ Fogger still requires CO₂-requested ventilation and valid fan tach. CO₂ tuni
 and skipped startup tests remain unchanged. See [current commissioning](../docs/pi-commissioning.md).
 The viewer displays Kp and readable Ti under each PI graph; restart it to load
 these UI changes. Manual output behavior is unchanged.
+
+## Revision 3.5.3
+
+Der CO2-PI behält beim Erreichen des Sollwerts seinen I-Anteil. Unterhalb
+des Sollwerts nimmt die Stellleistung kontinuierlich ab. Positive Anforderungen
+werden mit mindestens 12% Lüfterleistung umgesetzt; erst bei berechneten 0%
+stoppt der Lüfter und sperrt den Fogger. Neustart weiterhin oberhalb Sollwert
+plus 50 ppm. Kp, Ti und alle übrigen Grenzen bleiben unverändert.
+
+## Revision 3.5.4
+
+Die Mindestleistung von 12% entfällt. Der Lüfter folgt dem CO2-PI von 0–80%.
+Der Fogger darf bei gültiger gemessener Drehzahl über 0 rpm weiterregeln,
+auch während des Auslaufens bei 0% PWM. Bei 0 rpm oder ungültigem Tachosignal
+wird er gesperrt. Unter 10% PWM gilt ein stehender Lüfter als erwartbar;
+ab 10% bleibt die Stillstandserkennung nach fünf Sekunden aktiv.
+
+## Revision 3.5.5
+
+PI ist außerhalb des manuellen Modus automatisch aktiv, auch nach Neustart
+und WLAN-Rückkehr, sobald gültige CO2-Messwerte vorliegen. „Reset PI“ im Viewer
+setzt die angesammelten I-Anteile zurück; Kp, Ti und Sollwerte bleiben erhalten.
+Fehlersperren bleiben bestehen. Nach behobenem Fehler kann ein bewusster Wechsel
+in den manuellen Modus und zurück die Regelung neu starten.
+
+## Revision 3.5.6
+
+15-Minuten-Feuchteabgleich im Manual Mode: Lüfter 50%, Fogger 100%, danach
+beide absolute Offsets zur angenommenen 100-%-Referenz dauerhaft in NVS speichern
+und zu PI zurückkehren. Abbruch/WLAN-Ausfall speichert keine neuen Offsets.
+Maximaler automatischer Feuchte-Sollwert 99%. Rohwerte und die SCD41-Schutzprüfung
+bleiben unverändert; sichtbarer Nebel ist keine gesicherte Kalibrierreferenz.

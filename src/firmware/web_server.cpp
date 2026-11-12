@@ -16,13 +16,13 @@ constexpr size_t MAX_CONTROL_BODY_BYTES = 96;
 WebServer::WebServer(MeasurementController& measurements,
                      QspiStorage& storage,
                      FirmwareUpdater& firmwareUpdater,
-                     ControlSettingsStore& controlSettings, const ActuatorStatus* actuators, ManualControl* manual, AutomaticControl* automatic)
+                     ControlSettingsStore& controlSettings, const ActuatorStatus* actuators, ManualControl* manual, AutomaticControl* automatic, HumidityCalibration* calibration)
     : measurements_(measurements),
       storage_(storage),
       firmwareUpdater_(firmwareUpdater),
       server_(Config::HTTP_PORT),
       controlSettings_(controlSettings),
-      actuators_(actuators), manual_(manual), automatic_(automatic) {}
+      actuators_(actuators), manual_(manual), automatic_(automatic), calibration_(calibration) {}
 
 bool WebServer::firmwareUpdateInProgress() const {
   return clientState_ == ClientState::receivingUpload || restartAfterResponse_;
@@ -237,18 +237,25 @@ void WebServer::handleRequest() {
     return;
   }
   if (method == "GET" && path == "/api/control") {
-    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_));
+    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_));
   } else if (method == "POST" && path == "/api/control/setpoints") {
+    calibrationRequest_ = false;
     manualRequest_ = false;
     automaticRequest_ = false;
     prepareControlSettings();
   } else if (method == "POST" && path == "/api/control/manual") {
+    calibrationRequest_ = false;
     manualRequest_ = true;
     automaticRequest_ = false;
     prepareControlSettings();
   } else if (method == "POST" && path == "/api/control/automatic") {
+    calibrationRequest_ = false;
     manualRequest_ = false;
     automaticRequest_ = true;
+    prepareControlSettings();
+  } else if (method == "POST" && path == "/api/control/humidity-calibration") {
+    calibrationRequest_ = true;
+    manualRequest_ = automaticRequest_ = false;
     prepareControlSettings();
   } else if (method == "GET" && path == "/api/measurement") {
     startApiResponse();
@@ -270,11 +277,11 @@ void WebServer::handleRequest() {
 }
 
 void WebServer::prepareControlSettings() {
-  if ((manualRequest_ || automaticRequest_) && (!manual_ || !actuators_ || !actuators_->hardwareReady)) {
+  if ((manualRequest_ || automaticRequest_ || calibrationRequest_) && (!manual_ || !actuators_ || !actuators_->hardwareReady)) {
     startResponse(503, "text/plain", "Manual outputs unavailable.");
     return;
   }
-  if (!manualRequest_ && !automaticRequest_ && !controlSettings_.available()) {
+  if (!manualRequest_ && !automaticRequest_ && !calibrationRequest_ && !controlSettings_.available()) {
     startResponse(503, "text/plain", "Persistent control settings unavailable.");
     return;
   }
@@ -289,14 +296,53 @@ void WebServer::prepareControlSettings() {
 }
 
 void WebServer::finishControlSettings() {
+  if (calibrationRequest_) {
+    if (!calibration_ || !automatic_) {
+      startResponse(503, "text/plain", "Humidity reference unavailable.");
+      return;
+    }
+    if (controlBody_ == "action=start") {
+      if (!manual_->active() || calibration_->running()) {
+        startResponse(409, "text/plain", "Select Manual Mode before starting.");
+        return;
+      }
+      manual_->set(true, 50, 100, millis());
+      automatic_->releaseToManual();
+      calibration_->start(millis());
+    } else if (controlBody_ == "action=cancel") {
+      calibration_->cancel("cancelled");
+      manual_->stop();
+      automatic_->setEnabled(true, millis());
+    } else {
+      float sht, scd;
+      if (calibration_->running() || !parseHumidityReference(controlBody_, sht, scd) ||
+          !calibration_->capture(sht, scd)) {
+        startResponse(422, "text/plain", "Reference invalid or could not be saved.");
+        return;
+      }
+      manual_->stop();
+      automatic_->setEnabled(true, millis());
+    }
+    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_));
+    return;
+  }
   if (automaticRequest_) {
-    if (!automatic_ || (controlBody_ != "enabled=1" && controlBody_ != "enabled=0")) {
+    if (automatic_ && controlBody_ == "reset=1") {
+      if (!automatic_->enabled() || manual_->active()) {
+        startResponse(409, "text/plain", "PI reset requires automatic mode.");
+        return;
+      }
+      automatic_->resetIntegrals();
+      startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_));
+      return;
+    }
+    if (!automatic_ || controlBody_ != "enabled=1") {
       startResponse(422, "text/plain", "Invalid automatic control request.");
       return;
     }
     manual_->stop();
     automatic_->setEnabled(controlBody_ == "enabled=1", millis());
-    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_));
+    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_));
     return;
   }
   if (manualRequest_) {
@@ -316,9 +362,12 @@ void WebServer::finishControlSettings() {
       startResponse(422, "text/plain", "Invalid manual outputs.");
       return;
     }
-    if (automatic_) automatic_->releaseToManual();
+    if (automatic_) {
+      if (active) automatic_->releaseToManual();
+      else automatic_->setEnabled(true, millis());
+    }
     // Output drivers apply this accepted command on the next application poll.
-    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_));
+    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_));
     return;
   }
   ControlSettings settings;
@@ -332,7 +381,7 @@ void WebServer::finishControlSettings() {
     return;
   }
   if (settingsChanged && automatic_ && automatic_->enabled()) automatic_->setEnabled(true, millis());
-  startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_));
+  startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_));
 }
 
 void WebServer::prepareUpload() {
@@ -414,7 +463,7 @@ String WebServer::buildApiJson(bool includeHistory) const {
   json += ",\"storage_ready\":";
   json += storage_.isDataReady() ? "true" : "false";
   json += ",\"scd_errors\":" + String(measurements_.sensorErrorCount());
-  json += ",\"control\":" + buildControlJson(controlSettings_, actuators_, manual_, automatic_);
+  json += ",\"control\":" + buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_);
   json += ",\"measurement\":";
   appendMeasurementJson(json, measurements_.current(), measurements_.bootId());
   json += includeHistory ? ",\"history\":[" : "}";
