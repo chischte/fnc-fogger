@@ -22,7 +22,11 @@ void StartupActuators::begin(uint32_t now) {
   status_.hardwareReady = ledcSetup(PWM_CHANNEL, PWM_FREQUENCY_HZ, PWM_RESOLUTION_BITS) != 0;
   if (status_.hardwareReady) {
     ledcAttachPin(Config::FAN_PWM_PIN, PWM_CHANNEL);
-    startup_.begin(now);
+    if (AutomaticLimits::STARTUP_TEST_ENABLED) {
+      startup_.begin(now);
+    } else {
+      startup_.skip();
+    }
   } else {
     startup_.abort();
   }
@@ -51,7 +55,7 @@ void StartupActuators::updateRpm(uint32_t now) {
   lastRpmAt_ = now;
 }
 
-void StartupActuators::applyOutputs(uint32_t now) {
+void StartupActuators::applyOutputs(uint32_t now, const AutomaticControl* automatic) {
   const ActuatorStatus& command = startup_.status();
   status_.startupActive = command.startupActive;
   status_.startupComplete = command.startupComplete;
@@ -67,6 +71,17 @@ void StartupActuators::applyOutputs(uint32_t now) {
     status_.fanPercent = status_.hardwareReady ? manual_.fanPercent() : 0;
     status_.foggerOn = status_.hardwareReady && manual_.foggerOn(now);
   }
+  if (automatic && automatic->ownsOutputs()) {
+    status_.startupActive = false;
+    status_.foggerTestActive = false;
+    status_.fanPercent = status_.hardwareReady ? automatic->fanPercent() : 0;
+    status_.foggerOn = status_.hardwareReady && automatic->foggerOn(now);
+  }
+  if (!AutomaticLimits::FOGGER_ENABLED) {
+    status_.foggerOn = false;
+    status_.foggerTestActive = false;
+    status_.completedPulses = 0;
+  }
   if (status_.hardwareReady && status_.fanPercent != appliedFanPercent_) {
     ledcWrite(PWM_CHANNEL, status_.fanPercent * PWM_MAX_DUTY / 100);
     appliedFanPercent_ = status_.fanPercent;
@@ -77,9 +92,10 @@ void StartupActuators::applyOutputs(uint32_t now) {
   }
 }
 
-void StartupActuators::poll(uint32_t now, bool maintenance) {
-  manual_.poll(now);
-  if (manual_.commanded()) {
+void StartupActuators::poll(uint32_t now, bool maintenance, bool networkAvailable,
+                            const AutomaticControl* automatic) {
+  manual_.poll(now, networkAvailable);
+  if (manual_.commanded() || (automatic && automatic->ownsOutputs())) {
     manualTookOver_ = true;
   }
   if (maintenance) {
@@ -89,7 +105,7 @@ void StartupActuators::poll(uint32_t now, bool maintenance) {
   } else if (status_.hardwareReady && !manualTookOver_) {
     startup_.poll(now);
   }
-  applyOutputs(now);
+  applyOutputs(now, maintenance ? nullptr : automatic);
   updateRpm(now);
 }
 #endif

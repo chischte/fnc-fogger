@@ -1,6 +1,11 @@
 # Control concept
 
-This specifies future firmware; PI tuning is not yet established.
+Current implementation: [PI commissioning, firmware 3.5.2](pi-commissioning.md).
+CO₂ ventilation PI and humidity PI are now enabled on the chamber device.
+Humidity target is 90% corrected SHT45 RH; fogging still requires CO₂-driven
+airflow. The first ventilation-only revision kept the fogger locked OFF.
+Tuning is not established.
+Older version sections and the original design below provide historical context.
 
 ## First fogger commissioning (2026-11-12)
 
@@ -27,21 +32,26 @@ There is no water-level detection: supply water when testing the fogger.
 Manual commands take over from the startup test and never resume it in the
 same boot. Values exist only in device RAM and are not restored after reset.
 The existing startup sequence still runs after a new boot until manual takeover.
-The viewer renews confirmed manual commands while connected. After 30 seconds
-without renewal, the firmware stops both outputs. A connection failure or a
-stale client lease requires an explicit On action again; reconnect alone does not resume outputs.
+Since firmware 3.4.7, manual outputs have **no command timeout**. Closing the
+viewer or losing its HTTP connection does not stop outputs while the ESP32
+remains connected to Wi-Fi. A device Wi-Fi disconnect stops both outputs and
+latches them off; reconnect does not resume them. This includes short disconnects
+followed by reconnection between application polls. Explicit manual commands
+are needed to restart. Reboot discards manual values; existing startup tests
+still run. Older firmware keeps its 30-second lease and viewer renewal.
 OTA reception also stops both outputs. Timing is serviced without blocking;
 late application polls can extend an individual fogger pulse.
 
 `POST /api/control/manual` accepts a form with `mode=manual|off|renew`,
 `fan_percent=0..100` and `fogger_percent=0..100` (whole percentages).
-Mode off requires both values zero. Renew extends only an existing, unexpired
-command with identical values; it cannot restart outputs after a device reboot.
+Mode off requires both values zero. Renew is retained for compatible clients
+and acknowledges only an active command with identical values; it cannot restart
+outputs after device reboot or Wi-Fi loss. `lease_ms=0` indicates no timeout.
 The response and `/api/current` expose
 `control.manual` with supported/active/fan_percent/fogger_percent/lease_ms;
 `control.enabled=false` confirms that PI is disabled. Old firmware leaves
-the manual controls unavailable. No manual output values are stored in SQLite
-or NVS. This section is the reference for manual-mode behavior; code lives in
+the manual controls unavailable. Manual observations are stored in SQLite by the
+background logger; output commands are not restored from NVS after reset. This section is the reference for manual-mode behavior; code lives in
 `manual_control`, `startup_actuators`, `control_api`, `viewer_manual`, and
 `lance_collection`.
 

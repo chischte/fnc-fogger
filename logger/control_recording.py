@@ -17,6 +17,9 @@ def _boolean(value):
 
 
 def _fogger_percent(control):
+    duty = control.get("fogger", {}).get("duty_percent")
+    if isinstance(duty, (int, float)) and not isinstance(duty, bool) and 0 <= duty <= 100:
+        return duty
     manual = control.get("manual", {})
     if manual.get("active") is True:
         return manual.get("fogger_percent")

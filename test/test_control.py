@@ -21,6 +21,20 @@ def control_payload(sequence=1, co2=1200, humidity=92, persisted=True, enabled=F
 
 
 class ControlDataTests(unittest.TestCase):
+    def test_fault_title_distinguishes_fallback_pwm_from_pi_output(self):
+        import math
+        from logger.viewer_control import actuator_graph_titles
+        payload = control_payload(enabled=True)
+        payload["control"].update(fault=True, reason="automatic_co2_invalid",
+                                   fan={"rpm": 300, "pwm_percent": 10})
+        self.monitor.ingest(payload)
+        state = self.monitor.snapshot()
+        title = actuator_graph_titles(state)[1]
+        self.assertIn("10 % / 300 rpm", title)
+        self.assertIn("[fault]", title)
+        self.assertNotIn("sum: 0", title)
+        self.assertTrue(math.isnan(state["samples"][-1]["co2_sum"]))
+
     def test_actuator_titles_use_reported_values_and_clear_when_offline(self):
         from logger.viewer_control import actuator_graph_titles
 
@@ -35,7 +49,7 @@ class ControlDataTests(unittest.TestCase):
         self.assertIn("ON: 2 s | OFF: 18 s", titles[0])
         self.monitor.disconnected("Offline")
         self.assertNotIn("1234", actuator_graph_titles(self.monitor.snapshot())[1])
-        self.assertIn("sum: — % | Fan: — rpm", actuator_graph_titles(self.monitor.snapshot())[1])
+        self.assertIn("sum: — % | Fan: — % / — rpm", actuator_graph_titles(self.monitor.snapshot())[1])
         self.assertIn("ON: — s | OFF: — s", actuator_graph_titles(self.monitor.snapshot())[0])
 
     def test_invalid_or_missing_actuator_values_remain_unavailable(self):
@@ -44,7 +58,7 @@ class ControlDataTests(unittest.TestCase):
         payload["control"]["fogger"] = {"on_time_s": -1, "off_time_s": float("inf")}
         self.monitor.ingest(payload)
         self.assertEqual(self.monitor.snapshot()["actuators"],
-                         {"rpm": None, "on_time_s": None, "off_time_s": None})
+                         {"rpm": None, "pwm_percent": None, "on_time_s": None, "off_time_s": None})
         payload["control"]["fan"] = {"rpm": 0}
         self.monitor.ingest(payload)
         self.assertEqual(self.monitor.snapshot()["actuators"]["rpm"], 0)

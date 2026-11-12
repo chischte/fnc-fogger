@@ -3,18 +3,20 @@
 #include <Arduino.h>
 #include "firmware/startup_test.h"
 #include "firmware/manual_control.h"
+#include "firmware/automatic_control.h"
 
 class StartupActuators {
  public:
   void begin(uint32_t now);
-  void poll(uint32_t now, bool maintenance);
+  void poll(uint32_t now, bool maintenance, bool networkAvailable = true,
+            const AutomaticControl* automatic = nullptr);
   ManualControl& manualControl() { return manual_; }
   const ActuatorStatus& status() const { return status_; }
 
  private:
   static void IRAM_ATTR onTachPulse(void* instance);
   void updateRpm(uint32_t now);
-  void applyOutputs(uint32_t now);
+  void applyOutputs(uint32_t now, const AutomaticControl* automatic = nullptr);
 
   ManualControl manual_;
   bool manualTookOver_ = false;

@@ -1,6 +1,8 @@
 #include "firmware/startup_actuators.h"
 #include "config.h"
 
+extern "C" { int _fltused = 0; }
+
 #define assert(condition) do { if (!(condition)) return __LINE__; } while (false)
 
 int main() {
@@ -44,7 +46,7 @@ int main() {
   assert(hardware.status().hardwareReady && pwmPin == 10);
   assert(pinModes[7] == INPUT_PULLUP && pinValues[3] == LOW);
   hardware.poll(1000, false);
-  assert(pinValues[3] == HIGH && pwmDuty == 255);
+  assert(pinValues[3] == LOW && pwmDuty == 0 && hardware.status().startupComplete);
   for (unsigned pulse = 0; pulse < 100; ++pulse) tachHandler(tachInstance);
   hardware.poll(1500, false);
   hardware.poll(2000, false);
@@ -75,14 +77,25 @@ int main() {
   assert(!manual.set(false, 50, 0, 13000));
   assert(manual.set(true, 50, 100, 14000));
   hardware.poll(44000, false);
-  assert(manual.expired() && pinValues[3] == LOW && pwmDuty == 0);
-  assert(!manual.renew(50, 100, 44001));
+  assert(manual.active() && pinValues[3] == HIGH && pwmDuty > 0);
+  hardware.poll(3600000, false);
+  assert(manual.active() && pinValues[3] == HIGH && pwmDuty > 0);
+  hardware.poll(3600001, false, false);
+  assert(manual.interrupted() && !manual.active() && pinValues[3] == LOW && pwmDuty == 0);
+  hardware.poll(3600002, false, true);
+  assert(!manual.active() && pinValues[3] == LOW && pwmDuty == 0);
+  assert(!manual.renew(50, 100, 3600003));
   assert(manual.set(true, 100, 100, 45000));
   hardware.poll(45000, true);
   assert(!manual.active() && pinValues[3] == LOW && pwmDuty == 0);
   assert(manual.set(true, 50, 50, 0xFFFFFF00U));
   hardware.poll(0xFFFFFF00U + 30000U, false);
-  assert(manual.expired() && pinValues[3] == LOW && pwmDuty == 0);
+  assert(manual.active() && !manual.interrupted());
+  hardware.poll(0xFFFFFF00U + 30100U, false, false);
+  assert(manual.interrupted() && pinValues[3] == LOW && pwmDuty == 0);
+
+  ManualControl afterReboot;
+  assert(!afterReboot.active() && afterReboot.fanPercent() == 0 && afterReboot.foggerPercent() == 0);
 
   pwmAvailable = false;
   StartupActuators failed;

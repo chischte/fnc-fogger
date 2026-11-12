@@ -111,6 +111,8 @@ class ManualPanel:
 
     def update(self, state, visible, theme):
         confirmed = state.get("manual")
+        if state["enabled"] and not self.pending:
+            self.selected = False
         self._read_results(confirmed)
         if confirmed is not None and not self._initialized:
             self._initialized = True
@@ -132,8 +134,13 @@ class ManualPanel:
         self.toggle.label.set_text("Exit Manual" if self.selected else "Manual Mode")
         for widget in self._output_widgets():
             widget.set_active(available and self.selected)
+        fogger_available = state.get("fogger_enabled", True)
+        self.fogger.set_active(available and self.selected and fogger_available)
+        self.fogger_button.set_active(available and self.selected and fogger_available)
         self.fan_button.label.set_text("On" if self.fan_on else "Off")
         self.fogger_button.label.set_text("On" if self.fogger_on else "Off")
+        if not fogger_available:
+            self.fogger_button.label.set_text("Disabled")
         for button, on in ((self.toggle, self.selected), (self.fan_button, self.fan_on),
                            (self.fogger_button, self.fogger_on), (self.stop, False)):
             button.color = theme["selected"] if on else theme["card"]

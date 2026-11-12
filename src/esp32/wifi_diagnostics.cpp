@@ -55,6 +55,7 @@ const char* reasonName(uint8_t reason) {
 void WifiDiagnostics::begin() {
   WiFi.onEvent([this](WiFiEvent_t, WiFiEventInfo_t info) {
     disconnectReason_.store(info.wifi_sta_disconnected.reason);
+    disconnectObserved_.store(true);
   }, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
 }
 
@@ -76,6 +77,10 @@ void WifiDiagnostics::poll(uint32_t now) {
 
 bool WifiDiagnostics::scanActive() const {
   return scanState_ != ScanState::idle;
+}
+
+bool WifiDiagnostics::consumeDisconnect() {
+  return disconnectObserved_.exchange(false);
 }
 
 void WifiDiagnostics::readCommands(uint32_t now) {

@@ -17,7 +17,8 @@ MAX_CONTROL_SAMPLES = 2160
 
 def actuator_telemetry(control):
     values = {}
-    for section, field in (("fan", "rpm"), ("fogger", "on_time_s"), ("fogger", "off_time_s")):
+    for section, field in (("fan", "rpm"), ("fan", "pwm_percent"),
+                           ("fogger", "on_time_s"), ("fogger", "off_time_s")):
         source = control.get(section)
         value = source.get(field) if isinstance(source, dict) else None
         values[field] = (float(value) if isinstance(value, (int, float))
@@ -117,6 +118,11 @@ class ControlMonitor:
         self._message = "Waiting for the lance."
         self._manual = None
         self._manual_supported = False
+        self._manual_timeout_ms = 30000
+        self._automatic_supported = False
+        self._fogger_enabled = True
+        self._fault = False
+        self._parameters = {}
         self._actuators = actuator_telemetry({})
 
     def ingest(self, payload):
@@ -137,28 +143,49 @@ class ControlMonitor:
             self.repository.save(setpoints)
         measurement = payload.get("measurement", {})
         sample_id = (measurement.get("boot_id"), measurement.get("sequence"))
-        sample = telemetry_sample(control)
+        sample = telemetry_sample({} if control.get("fault") is True else control)
         with self._lock:
             manual = control.get("manual", {})
             self._manual_supported = manual.get("supported") is True
+            self._manual_timeout_ms = manual.get("lease_ms", 30000)
             self._manual = ManualOutputs.from_payload(manual) if self._manual_supported else None
             self._setpoints = setpoints
             self._supported = control.get("settings_supported") is True
             self._persisted = persisted
             self._online = True
             self._enabled = control.get("enabled") is True
+            self._automatic_supported = control.get("automatic_supported") is True
+            self._fogger_enabled = control.get("fogger_enabled", True) is True
+            self._fault = control.get("fault") is True
+            parameters = control.get("parameters", {})
+            self._parameters = dict(parameters) if isinstance(parameters, dict) else {}
             self._actuators = actuator_telemetry(control)
             self._message = "Controller active" if self._enabled else "Controller not configured – outputs inactive."
             commissioning = {
                 "manual": "Manual Mode: PI control disabled. Fogger uses a 1-second duty cycle.",
                 "manual_timeout": "Manual connection expired: both outputs stopped. Switch On again to resume.",
+                "manual_wifi_lost": "Device Wi-Fi disconnected: both outputs stopped. Switch On again to resume.",
                 "startup_test": "Startup hardware test: fan and fogger pulses; PI control disabled.",
                 "startup_test_complete": "Hardware test complete: fan 0%, fogger OFF; PI control disabled.",
                 "manual_full_speed": "Hardware test complete: fan 100%, fogger OFF; PI control disabled.",
                 "startup_test_aborted": "Startup test aborted: fogger OFF; PI control disabled.",
                 "hardware_error": "Actuator hardware initialization failed; fogger OFF.",
+                "automatic_off": "PI control stopped.",
+                "automatic_waiting": "PI control starting.",
+                "automatic_ventilation_only": "CO2 PI active; fogger disabled.",
+                "automatic_no_co2_demand": "CO2 below start threshold: fan and fogger OFF.",
+                "automatic_wifi_lost": "Device Wi-Fi lost: PI stopped. Start explicitly to resume.",
+                "automatic_update": "Firmware update: PI stopped.",
+                "automatic_hardware_error": "PI fault: actuator hardware unavailable.",
+                "automatic_co2_invalid": "PI fault: CO2 invalid or stale. Fan fault speed; fogger OFF.",
+                "automatic_co2_condensation_risk": "PI fault: SCD41 humidity at least 95%; CO2 unreliable. Fogger OFF.",
+                "automatic_fan_stalled": "PI fault: fan tach below minimum. Fogger OFF.",
+                "automatic_humidity_invalid": "Humidity invalid or stale: fogger OFF.",
+                "automatic_waiting_for_fan": "Waiting for fan tach: fogger OFF.",
+                "automatic_humidity_limit": "Humidity limit reached: fogger OFF.",
+                "automatic_running": "CO2 and humidity PI active.",
             }
-            if not self._enabled and control.get("reason") in commissioning:
+            if control.get("reason") in commissioning:
                 self._message = commissioning[control["reason"]]
             if not persisted:
                 self._message += " Setpoints are factory defaults."
@@ -182,5 +209,10 @@ class ControlMonitor:
                     "online": self._online, "enabled": self._enabled,
                     "persisted": self._persisted, "samples": list(self._samples),
                     "manual": self._manual, "manual_supported": self._manual_supported,
+                    "manual_timeout_ms": self._manual_timeout_ms,
+                    "automatic_supported": self._automatic_supported,
+                    "fogger_enabled": self._fogger_enabled,
+                    "fault": self._fault,
+                    "parameters": dict(self._parameters),
                     "actuators": dict(self._actuators),
                     "message": self._message}

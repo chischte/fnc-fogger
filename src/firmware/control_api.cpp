@@ -11,6 +11,11 @@ bool parseNumber(const String& text, float& result) {
   result = strtof(text.c_str(), &end);
   return end != text.c_str() && *end == '\0' && isfinite(result);
 }
+
+String piJson(const PiTerms& terms) {
+  return "{\"p\":" + String(terms.p, 2) + ",\"i\":" + String(terms.i, 2) +
+         ",\"sum\":" + String(terms.sum, 2) + "}";
+}
 }  // namespace
 
 bool parseControlSettings(const String& body, ControlSettings& settings) {
@@ -63,7 +68,8 @@ bool parseManualSettings(const String& body, bool& active, uint8_t& fan, uint8_t
   return modeFound && fanFound && foggerFound && (active || (!fan && !fogger));
 }
 
-String buildControlJson(const ControlSettingsStore& store, const ActuatorStatus* actuators, const ManualControl* manual) {
+String buildControlJson(const ControlSettingsStore& store, const ActuatorStatus* actuators,
+                        const ManualControl* manual, const AutomaticControl* automatic) {
   const ControlSettings& settings = store.settings();
   String json = "{\"version\":1,\"settings_supported\":";
   json += store.available() ? "true" : "false";
@@ -71,7 +77,6 @@ String buildControlJson(const ControlSettingsStore& store, const ActuatorStatus*
   json += store.persisted() ? "true" : "false";
   json += ",\"setpoints\":{\"co2_ppm\":" + String(settings.co2Ppm, 1);
   json += ",\"humidity_rh\":" + String(settings.humidityRh, 1) + "}";
-  // PI remains disabled while actuator commissioning runs independently.
   const char* reason = "not_configured";
   if (actuators) {
     reason = !actuators->hardwareReady ? "hardware_error" :
@@ -79,7 +84,8 @@ String buildControlJson(const ControlSettingsStore& store, const ActuatorStatus*
              actuators->startupActive ? "startup_test" : "startup_test_complete";
   }
   if (manual && manual->active()) reason = "manual";
-  else if (manual && manual->expired()) reason = "manual_timeout";
+  else if (manual && manual->interrupted()) reason = "manual_wifi_lost";
+  if (automatic && automatic->ownsOutputs()) reason = automatic->reason();
   json += ",\"manual\":{\"supported\":";
   json += manual && actuators && actuators->hardwareReady ? "true" : "false";
   json += ",\"active\":";
@@ -87,11 +93,30 @@ String buildControlJson(const ControlSettingsStore& store, const ActuatorStatus*
   json += ",\"fan_percent\":" + String(manual ? manual->fanPercent() : 0);
   json += ",\"fogger_percent\":" + String(manual ? manual->foggerPercent() : 0);
   json += ",\"lease_ms\":" + String(ManualControl::LEASE_MS) + "}";
-  json += ",\"enabled\":false,\"reason\":\"";
+  const bool automaticActive = automatic && automatic->enabled();
+  json += ",\"automatic_supported\":";
+  json += automatic ? "true" : "false";
+  json += ",\"fogger_enabled\":";
+  json += AutomaticLimits::FOGGER_ENABLED ? "true" : "false";
+  json += ",\"parameters\":{\"co2_kp\":" + String(AutomaticLimits::CO2_KP, 3);
+  json += ",\"co2_ti_s\":" + String(AutomaticLimits::CO2_TI_SECONDS, 0);
+  json += ",\"humidity_kp\":" + String(AutomaticLimits::HUMIDITY_KP, 3);
+  json += ",\"humidity_ti_s\":" + String(AutomaticLimits::HUMIDITY_TI_SECONDS, 0);
+  json += ",\"fan_min_percent\":" + String(AutomaticLimits::FAN_MIN_PERCENT);
+  json += ",\"fan_max_percent\":" + String(AutomaticLimits::FAN_MAX_PERCENT);
+  json += ",\"fan_fault_percent\":" + String(AutomaticLimits::FAN_FAULT_PERCENT);
+  json += ",\"fogger_max_percent\":" + String(AutomaticLimits::FOGGER_MAX_PERCENT) + "}";
+  json += ",\"enabled\":";
+  json += automaticActive ? "true" : "false";
+  json += ",\"fault\":";
+  json += automatic && automatic->fault() ? "true" : "false";
+  json += ",\"reason\":\"";
   json += reason;
   json += '"';
-  json += ",\"humidity\":{\"p\":null,\"i\":null,\"sum\":null}";
-  json += ",\"co2\":{\"p\":null,\"i\":null,\"sum\":null}";
+  json += ",\"humidity\":";
+  json += automaticActive ? piJson(automatic->humidityTerms()) : "{\"p\":null,\"i\":null,\"sum\":null}";
+  json += ",\"co2\":";
+  json += automaticActive ? piJson(automatic->co2Terms()) : "{\"p\":null,\"i\":null,\"sum\":null}";
   json += ",\"fan\":{\"rpm\":";
   json += actuators && actuators->rpmValid ? String(actuators->rpm) : String("null");
   json += ",\"pwm_percent\":";
@@ -100,11 +125,18 @@ String buildControlJson(const ControlSettingsStore& store, const ActuatorStatus*
   json += actuators && actuators->foggerOn ? "true" : "false";
   const bool manualActive = manual && manual->active();
   const bool testing = actuators && actuators->startupActive;
+  json += ",\"duty_percent\":";
+  json += automaticActive ? String(automatic->foggerPercent()) :
+      manualActive ? String(manual->foggerPercent()) : testing ? String("null") : String("0");
   json += ",\"on_time_s\":";
-  json += manualActive ? String(manual->foggerPercent() / 100.0f, 2) :
+  json += automaticActive ? String(automatic->foggerPercent() > 0 ?
+      AutomaticLimits::FOGGER_PULSE_MS / 1000.0f : 0.0f, 2) :
+      manualActive ? String(manual->foggerPercent() / 100.0f, 2) :
       actuators && actuators->foggerTestActive ? String(StartupTest::FOGGER_PULSE_MS / 1000.0f, 1) : String("0.0");
   json += ",\"off_time_s\":";
-  json += manualActive ? String(1.0f - manual->foggerPercent() / 100.0f, 2) :
+  json += automaticActive ? (automatic->foggerPercent() > 0 ?
+      String((automatic->foggerPeriodMs() - AutomaticLimits::FOGGER_PULSE_MS) / 1000.0f, 3) : String("null")) :
+      manualActive ? String(1.0f - manual->foggerPercent() / 100.0f, 2) :
       actuators && actuators->foggerTestActive ? String(StartupTest::FOGGER_PAUSE_MS / 1000.0f, 1) : String("null");
   json += "},\"startup_test\":{\"active\":";
   json += testing ? "true" : "false";

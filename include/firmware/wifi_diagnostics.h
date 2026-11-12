@@ -9,6 +9,7 @@ class WifiDiagnostics {
   void begin();
   void poll(uint32_t now);
   bool scanActive() const;
+  bool consumeDisconnect();
 
  private:
   enum class ScanState { idle, waiting, running };
@@ -24,6 +25,7 @@ class WifiDiagnostics {
 
   // Wi-Fi events arrive on a different task; USB output stays on the main loop.
   std::atomic<uint8_t> disconnectReason_{0};
+  std::atomic<bool> disconnectObserved_{false};
   uint8_t reportedStatus_ = 255;
   uint8_t reportedReason_ = 255;
   uint32_t lastReportAt_ = 0;

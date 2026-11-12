@@ -1,5 +1,11 @@
 #include "firmware/startup_test.h"
 
+void StartupTest::skip() {
+  status_ = ActuatorStatus{};
+  status_.startupComplete = true;
+  phase_ = Phase::complete;
+}
+
 void StartupTest::begin(uint32_t now) {
   phase_ = Phase::waiting;
   phaseStartedAt_ = now;

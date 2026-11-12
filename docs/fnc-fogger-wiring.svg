@@ -220,7 +220,7 @@
 <text x="1083" y="772" font-size="17" fill="#17324e" font-weight="400" text-anchor="start">• Fan PWM / RPM + manual fogger output</text>
 <text x="1083" y="806" font-size="17" fill="#17324e" font-weight="400" text-anchor="start">• Startup: fan 3 s, fogger pulses 100 ms ON / OFF</text>
 <text x="1083" y="840" font-size="17" fill="#17324e" font-weight="400" text-anchor="start">• Manual Mode: independent 0–100% outputs</text>
-<text x="1083" y="874" font-size="17" fill="#17324e" font-weight="400" text-anchor="start">• Manual commands expire after 30 s without renewal</text>
+<text x="1083" y="874" font-size="17" fill="#17324e" font-weight="400" text-anchor="start">• Manual outputs stop on device Wi-Fi loss</text>
 <text x="1083" y="908" font-size="17" fill="#17324e" font-weight="400" text-anchor="start">• First installation: USB · later updates: OTA</text>
 <rect x="1080" y="946" width="480" height="95" rx="8" fill="#fff4e3" stroke="none"/>
 <text x="1094" y="973" font-size="17" fill="#8d591b" font-weight="700" text-anchor="start">PI CONTROL</text>

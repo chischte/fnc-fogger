@@ -65,6 +65,27 @@ class ManualControlTests(unittest.TestCase):
         self.assertFalse(self.collector.manual_results.get_nowait()[0])
         self.assertIsNone(self.collector._manual_lease)
 
+    def test_no_timeout_firmware_does_not_need_renewal_or_restart_after_disconnect(self):
+        outputs = ManualOutputs(True, 40, 25)
+        response = self.response(outputs)
+        control = payload(outputs)
+        control["manual"]["lease_ms"] = 0
+        response.__enter__.return_value.read.return_value = json.dumps(control).encode()
+        self.collector.submit_manual(outputs)
+        with patch("urllib.request.urlopen", return_value=response) as request:
+            self.collector._send_pending_manual()
+            self.assertTrue(self.collector.manual_results.get_nowait()[0])
+            self.assertIsNone(self.collector._manual_lease)
+            self.collector._send_pending_manual()
+            self.assertEqual(request.call_count, 1)
+        self.collector.submit_manual(outputs)
+        with patch("urllib.request.urlopen", side_effect=OSError("offline")):
+            self.collector._send_pending_manual()
+        self.assertIn("remain active", self.collector.manual_results.get_nowait()[1])
+        with patch("urllib.request.urlopen") as request:
+            self.collector._send_pending_manual()
+            request.assert_not_called()
+
     def test_stale_lease_never_restarts_outputs(self):
         self.collector._manual_lease = ManualOutputs(True, 100, 100)
         self.collector._manual_renewed_at = 1

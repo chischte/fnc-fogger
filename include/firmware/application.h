@@ -26,6 +26,7 @@ class Application {
   ControlSettingsStore controlSettings_;
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
   StartupActuators actuators_;
+  AutomaticControl automatic_;
 #endif
   WebServer webServer_;
 };

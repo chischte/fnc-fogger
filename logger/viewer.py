@@ -318,7 +318,7 @@ def draw_control_values(ax, value, series, setpoints, control_state):
         target = setpoints.humidity_rh if series["col"] == "humidity_corrected_rh" else setpoints.co2_ppm
     difference = value - target if target is not None and pd.notna(value) else None
     output = None
-    if control_state and control_state["online"] and control_state["enabled"]:
+    if control_state and control_state["online"] and control_state["enabled"] and not control_state.get("fault"):
         samples = control_state["samples"]
         channel = "humidity" if series["col"] == "humidity_corrected_rh" else "co2"
         if samples:

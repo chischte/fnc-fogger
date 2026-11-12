@@ -50,6 +50,13 @@ class ControlRecordingTests(unittest.TestCase):
         logger.insert(self.db, self.payload["measurement"])
         self.assertEqual(self.db.execute("SELECT count(*) FROM control_samples").fetchone()[0], 0)
 
+    def test_explicit_duty_preserves_command_instead_of_rounded_pulse_ratio(self):
+        self.payload["control"]["manual"]["active"] = False
+        self.payload["control"]["fogger"] = {
+            "on": True, "duty_percent": 3, "on_time_s": 0.1, "off_time_s": 3.233}
+        logger.insert(self.db, self.payload)
+        self.assertEqual(self.db.execute("SELECT fogger_percent FROM control_samples").fetchone()[0], 3)
+
     def test_single_device_logger_also_records_control_without_changing_insert_result(self):
         self.assertTrue(logger.insert(self.db, self.payload))
         self.assertFalse(logger.insert(self.db, self.payload))

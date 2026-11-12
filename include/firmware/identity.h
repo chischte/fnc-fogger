@@ -6,7 +6,7 @@
 
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
 #define FNC_HARDWARE_PROFILE "esp32c3_supermini"
-#define FNC_FIRMWARE_VERSION "3.4.6-esp32c3"
+#define FNC_FIRMWARE_VERSION "3.5.2-esp32c3"
 #elif defined(ARDUINO_ARCH_ESP32)
 #define FNC_HARDWARE_PROFILE "esp32s3"
 #define FNC_FIRMWARE_VERSION "3.2.0-esp32s3"

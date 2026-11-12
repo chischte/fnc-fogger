@@ -16,7 +16,7 @@ Application::Application()
       measurements_(sensors_, storage_),
       webServer_(measurements_, storage_, firmwareUpdater_, controlSettings_
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
-                 , &actuators_.status(), &actuators_.manualControl()
+                 , &actuators_.status(), &actuators_.manualControl(), &automatic_
 #endif
                  ) {}
 
@@ -39,7 +39,25 @@ void Application::poll() {
   measurements_.poll(now);
   webServer_.poll(now);
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
-  actuators_.poll(millis(), webServer_.firmwareUpdateInProgress());
+  const uint32_t controlNow = millis();
+  const bool networkAvailable = webServer_.manualNetworkAvailable();
+  const bool maintenance = webServer_.firmwareUpdateInProgress();
+  const Measurement& measurement = measurements_.current();
+  const ActuatorStatus& status = actuators_.status();
+  ControlInput input;
+  input.co2At = measurement.uptimeMs;
+  input.humidityAt = measurement.shtReadUptimeMs;
+  input.co2 = measurement.co2;
+  input.humidity = min(100.0f, measurement.humidity + measurement.humidityOffset);
+  input.scdHumidity = measurement.scdHumidity;
+  input.co2Valid = measurement.co2Valid;
+  input.humidityValid = measurement.humidityValid;
+  input.scdHumidityValid = measurement.scdHumidityValid;
+  input.hardwareReady = status.hardwareReady;
+  input.rpmValid = status.rpmValid;
+  input.rpm = status.rpm;
+  automatic_.poll(controlNow, input, controlSettings_.settings(), networkAvailable, maintenance);
+  actuators_.poll(controlNow, maintenance, networkAvailable, &automatic_);
 #endif
 }
 

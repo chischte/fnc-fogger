@@ -11,6 +11,7 @@
 #include "firmware/qspi_storage.h"
 #include "firmware/startup_test.h"
 #include "firmware/manual_control.h"
+#include "firmware/automatic_control.h"
 #include "firmware/i2c_diagnostics.h"
 #include "firmware/wifi_diagnostics.h"
 
@@ -18,11 +19,13 @@ class WebServer {
  public:
   WebServer(MeasurementController& measurements, QspiStorage& storage,
             FirmwareUpdater& firmwareUpdater, ControlSettingsStore& controlSettings,
-            const ActuatorStatus* actuators = nullptr, ManualControl* manual = nullptr);
+            const ActuatorStatus* actuators = nullptr, ManualControl* manual = nullptr,
+            AutomaticControl* automatic = nullptr);
 
   void begin(uint32_t now);
   void poll(uint32_t now);
   bool firmwareUpdateInProgress() const;
+  bool manualNetworkAvailable();
 
  private:
   enum class ClientState {
@@ -80,7 +83,9 @@ class WebServer {
   ControlSettingsStore& controlSettings_;
   const ActuatorStatus* actuators_;
   ManualControl* manual_;
+  AutomaticControl* automatic_;
   bool manualRequest_ = false;
+  bool automaticRequest_ = false;
   String controlBody_;
   BacklogReader backlogReader_;
   ClientState clientState_ = ClientState::idle;

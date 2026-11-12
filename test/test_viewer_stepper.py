@@ -38,9 +38,8 @@ class SetpointStepperTests(unittest.TestCase):
         panel.humidity._step(-1)
         self.assertEqual((panel.co2.value, panel.humidity.value), (1500, 89))
         self.assertTrue(panel.dirty)
-        self.assertFalse(panel.save.active)
-        self.assertEqual(panel.save.label.get_text(), "Save")
-        self.assertLess(panel.save.ax.get_position().y1, panel.humidity.ax.get_position().y0)
+        self.assertFalse(hasattr(panel, "save"))
+        self.assertIn("automatically", panel.feedback)
 
     def make_stepper(self, levels, value):
         stepper = SetpointStepper(Figure(), "Setpoint", levels, Mock())

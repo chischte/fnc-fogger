@@ -159,7 +159,8 @@ Source: [Infineon IRLB8721 datasheet, pinout and ratings](https://www.infineon.c
 ## Upload and OTA
 
 Firmware 3.3.0 implements startup-only fan/fogger tests and measured tach RPM;
-the PI actuator controller is not implemented. See [commissioning mode](control.md).
+firmware 3.5.0 adds CO₂ PI ventilation commissioning with the fogger locked OFF.
+See [PI commissioning](pi-commissioning.md).
 The `esp32c3_supermini`
 profile now prepares sensor operation and WiFi OTA with a 4 MiB partition layout.
 See [device management and USB provisioning](device-management.md).

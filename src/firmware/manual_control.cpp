@@ -10,19 +10,17 @@ bool ManualControl::set(bool active, uint8_t fanPercent, uint8_t foggerPercent,
   }
   commanded_ = true;
   active_ = active;
-  expired_ = false;
+  interrupted_ = false;
   fanPercent_ = fanPercent;
   foggerPercent_ = foggerPercent;
-  renewedAt_ = now;
   return true;
 }
 
-bool ManualControl::renew(uint8_t fanPercent, uint8_t foggerPercent, uint32_t now) {
-  if (!active_ || now - renewedAt_ >= LEASE_MS ||
+bool ManualControl::renew(uint8_t fanPercent, uint8_t foggerPercent, uint32_t) {
+  if (!active_ ||
       fanPercent != fanPercent_ || foggerPercent != foggerPercent_) {
     return false;
   }
-  renewedAt_ = now;
   return true;
 }
 
@@ -32,10 +30,10 @@ void ManualControl::stop() {
   foggerPercent_ = 0;
 }
 
-void ManualControl::poll(uint32_t now) {
-  if (active_ && now - renewedAt_ >= LEASE_MS) {
+void ManualControl::poll(uint32_t now, bool networkAvailable) {
+  if (active_ && !networkAvailable) {
     stop();
-    expired_ = true;
+    interrupted_ = true;
   }
   if (active_ && now - cycleStartedAt_ >= FOGGER_PERIOD_MS) {
     cycleStartedAt_ += ((now - cycleStartedAt_) / FOGGER_PERIOD_MS) * FOGGER_PERIOD_MS;

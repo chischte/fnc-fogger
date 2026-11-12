@@ -16,16 +16,22 @@ constexpr size_t MAX_CONTROL_BODY_BYTES = 96;
 WebServer::WebServer(MeasurementController& measurements,
                      QspiStorage& storage,
                      FirmwareUpdater& firmwareUpdater,
-                     ControlSettingsStore& controlSettings, const ActuatorStatus* actuators, ManualControl* manual)
+                     ControlSettingsStore& controlSettings, const ActuatorStatus* actuators, ManualControl* manual, AutomaticControl* automatic)
     : measurements_(measurements),
       storage_(storage),
       firmwareUpdater_(firmwareUpdater),
       server_(Config::HTTP_PORT),
       controlSettings_(controlSettings),
-      actuators_(actuators), manual_(manual) {}
+      actuators_(actuators), manual_(manual), automatic_(automatic) {}
 
 bool WebServer::firmwareUpdateInProgress() const {
   return clientState_ == ClientState::receivingUpload || restartAfterResponse_;
+}
+
+bool WebServer::manualNetworkAvailable() {
+  // Latch even a short disconnect followed by reconnection between loop polls.
+  const bool disconnected = wifiDiagnostics_.consumeDisconnect();
+  return WiFi.status() == WL_CONNECTED && !disconnected;
 }
 
 void WebServer::begin(uint32_t now) {
@@ -231,12 +237,18 @@ void WebServer::handleRequest() {
     return;
   }
   if (method == "GET" && path == "/api/control") {
-    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_));
+    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_));
   } else if (method == "POST" && path == "/api/control/setpoints") {
     manualRequest_ = false;
+    automaticRequest_ = false;
     prepareControlSettings();
   } else if (method == "POST" && path == "/api/control/manual") {
     manualRequest_ = true;
+    automaticRequest_ = false;
+    prepareControlSettings();
+  } else if (method == "POST" && path == "/api/control/automatic") {
+    manualRequest_ = false;
+    automaticRequest_ = true;
     prepareControlSettings();
   } else if (method == "GET" && path == "/api/measurement") {
     startApiResponse();
@@ -258,11 +270,11 @@ void WebServer::handleRequest() {
 }
 
 void WebServer::prepareControlSettings() {
-  if (manualRequest_ && (!manual_ || !actuators_ || !actuators_->hardwareReady)) {
+  if ((manualRequest_ || automaticRequest_) && (!manual_ || !actuators_ || !actuators_->hardwareReady)) {
     startResponse(503, "text/plain", "Manual outputs unavailable.");
     return;
   }
-  if (!manualRequest_ && !controlSettings_.available()) {
+  if (!manualRequest_ && !automaticRequest_ && !controlSettings_.available()) {
     startResponse(503, "text/plain", "Persistent control settings unavailable.");
     return;
   }
@@ -277,11 +289,25 @@ void WebServer::prepareControlSettings() {
 }
 
 void WebServer::finishControlSettings() {
+  if (automaticRequest_) {
+    if (!automatic_ || (controlBody_ != "enabled=1" && controlBody_ != "enabled=0")) {
+      startResponse(422, "text/plain", "Invalid automatic control request.");
+      return;
+    }
+    manual_->stop();
+    automatic_->setEnabled(controlBody_ == "enabled=1", millis());
+    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_));
+    return;
+  }
   if (manualRequest_) {
     bool active, renew;
     uint8_t fan, fogger;
     if (!parseManualSettings(controlBody_, active, fan, fogger, renew)) {
       startResponse(422, "text/plain", "Invalid manual outputs.");
+      return;
+    }
+    if (!AutomaticLimits::FOGGER_ENABLED && fogger != 0) {
+      startResponse(422, "text/plain", "Fogger disabled during ventilation commissioning.");
       return;
     }
     const bool accepted = renew ? manual_->renew(fan, fogger, millis()) :
@@ -290,8 +316,9 @@ void WebServer::finishControlSettings() {
       startResponse(422, "text/plain", "Invalid manual outputs.");
       return;
     }
+    if (automatic_) automatic_->releaseToManual();
     // Output drivers apply this accepted command on the next application poll.
-    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_));
+    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_));
     return;
   }
   ControlSettings settings;
@@ -299,11 +326,13 @@ void WebServer::finishControlSettings() {
     startResponse(422, "text/plain", "Setpoints out of range or malformed.");
     return;
   }
+  const bool settingsChanged = !(settings == controlSettings_.settings());
   if (!controlSettings_.save(settings)) {
     startResponse(503, "text/plain", "Setpoints could not be persisted.");
     return;
   }
-  startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_));
+  if (settingsChanged && automatic_ && automatic_->enabled()) automatic_->setEnabled(true, millis());
+  startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_));
 }
 
 void WebServer::prepareUpload() {
@@ -385,7 +414,7 @@ String WebServer::buildApiJson(bool includeHistory) const {
   json += ",\"storage_ready\":";
   json += storage_.isDataReady() ? "true" : "false";
   json += ",\"scd_errors\":" + String(measurements_.sensorErrorCount());
-  json += ",\"control\":" + buildControlJson(controlSettings_, actuators_, manual_);
+  json += ",\"control\":" + buildControlJson(controlSettings_, actuators_, manual_, automatic_);
   json += ",\"measurement\":";
   appendMeasurementJson(json, measurements_.current(), measurements_.bootId());
   json += includeHistory ? ",\"history\":[" : "}";

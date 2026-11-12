@@ -155,7 +155,7 @@ def build():
 
     panel(1060,625,520,444,6,'Operation · firmware + OTA')
     text(1083,703,'IMPLEMENTED',14,'#167d69','700')
-    for i,line in enumerate(['Sensor sampling + local measurement buffer','Fan PWM / RPM + manual fogger output','Startup: fan 3 s, fogger pulses 100 ms ON / OFF','Manual Mode: independent 0–100% outputs','Manual commands expire after 30 s without renewal','First installation: USB · later updates: OTA']):
+    for i,line in enumerate(['Sensor sampling + local measurement buffer','Fan PWM / RPM + manual fogger output','Startup: fan 3 s, fogger pulses 100 ms ON / OFF','Manual Mode: independent 0–100% outputs','Manual outputs stop on device Wi-Fi loss','First installation: USB · later updates: OTA']):
         text(1083,738+i*34,'• '+line,17)
     box(1080,946,480,95,'#fff4e3','none',8)
     text(1094,973,'PI CONTROL',17,'#8d591b','700')

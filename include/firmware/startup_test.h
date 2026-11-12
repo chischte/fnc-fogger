@@ -25,6 +25,7 @@ class StartupTest {
   static constexpr uint32_t START_DELAY_MS = 1000;
 
   void begin(uint32_t now);
+  void skip();
   void poll(uint32_t now);
   void abort();
   const ActuatorStatus& status() const { return status_; }

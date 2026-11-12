@@ -21,6 +21,8 @@ class LanceCollector:
         self.command_results = queue.Queue()
         self.manual_commands = queue.Queue(maxsize=1)
         self.manual_results = queue.Queue()
+        self.automatic_commands = queue.Queue(maxsize=1)
+        self.automatic_results = queue.Queue()
         self._manual_lease = None
         self._manual_renewed_at = 0
         self.control = ControlMonitor(database)
@@ -38,6 +40,7 @@ class LanceCollector:
             self.command_event.clear()
             try:
                 self._send_pending_manual()
+                self._send_pending_automatic()
                 self._send_pending_setpoints()
                 payload = logger.fetch_json(self.lance.url + "/api/current")
                 if self.stop_event.is_set():
@@ -96,6 +99,9 @@ class LanceCollector:
         state = self.control.snapshot()
         if not state["online"] or not state["manual_supported"]:
             raise ValueError("Manual Mode unavailable: device offline or firmware update required.")
+        if values.fogger_percent and not state["fogger_enabled"]:
+            raise ValueError("Fogger disabled during ventilation commissioning.")
+        self._clear_commands(self.automatic_commands)
         try:
             self.manual_commands.put_nowait(values)
         except queue.Full:
@@ -106,6 +112,42 @@ class LanceCollector:
                 pass
             self.manual_commands.put_nowait(values)
         self.command_event.set()
+
+    @staticmethod
+    def _clear_commands(commands):
+        while True:
+            try:
+                commands.get_nowait()
+            except queue.Empty:
+                return
+
+    def submit_automatic(self, enabled):
+        state = self.control.snapshot()
+        if not isinstance(enabled, bool) or not state["online"] or not state["automatic_supported"]:
+            raise ValueError("PI control unavailable: device offline or firmware update required.")
+        self._clear_commands(self.manual_commands)
+        self._clear_commands(self.automatic_commands)
+        self._manual_lease = None
+        self.automatic_commands.put_nowait(enabled)
+        self.command_event.set()
+
+    def _send_pending_automatic(self):
+        try:
+            enabled = self.automatic_commands.get_nowait()
+        except queue.Empty:
+            return
+        try:
+            encoded = urllib.parse.urlencode({"enabled": int(enabled)}).encode("ascii")
+            request = urllib.request.Request(self.lance.url + "/api/control/automatic", data=encoded,
+                                             headers={"Content-Type": "application/x-www-form-urlencoded"})
+            with urllib.request.urlopen(request, timeout=8) as response:
+                control = json.load(response)
+            if control.get("automatic_supported") is not True or control.get("enabled") is not enabled:
+                raise ValueError("Device did not confirm PI mode.")
+            self.control.ingest({"control": control})
+            self.automatic_results.put((True, "PI control started." if enabled else "PI stopped."))
+        except Exception as error:
+            self.automatic_results.put((False, f"PI command unconfirmed: {error}. Check device state."))
 
     def _send_pending_manual(self):
         try:
@@ -134,10 +176,14 @@ class LanceCollector:
                     or ManualOutputs.from_payload(manual) != values):
                 raise ValueError("Device did not confirm manual outputs with PI disabled.")
             self.control.ingest({"control": control})
-            self._manual_lease = values if values.active else None
+            needs_renewal = manual.get("lease_ms", 30000) != 0
+            self._manual_lease = values if values.active and needs_renewal else None
             self._manual_renewed_at = time.monotonic()
             if explicit:
                 self.manual_results.put((True, "Manual outputs confirmed."))
         except Exception as error:
             self._manual_lease = None
-            self.manual_results.put((False, f"Manual command unconfirmed: {error}. Outputs expire within 30 s."))
+            timeout = self.control.snapshot()["manual_timeout_ms"]
+            consequence = ("Outputs remain active while device Wi-Fi is connected; check device state."
+                           if timeout == 0 else "Outputs expire within 30 s without renewal.")
+            self.manual_results.put((False, f"Manual command unconfirmed: {error}. {consequence}"))

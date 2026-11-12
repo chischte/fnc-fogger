@@ -24,8 +24,11 @@ wechselnder IP oder geändertem Namen erhalten.
 
 Pro Gerät enthält die SQLite-Datei Messungen (`measurements`), geschätzte
 Boot-Zeitanker für Nachladung (`measurement_clocks`) und gegebenenfalls die
-vom Viewer bestätigten Sollwerte (`control_setpoints`). Live-PI-Telemetrie
-liegt im RAM des Viewers; manuelle Ausgänge liegen im RAM des ESP32.
+vom Viewer bestätigten Sollwerte (`control_setpoints`). Der Hintergrundlogger
+speichert Aktor- und PI-Telemetrie in `control_samples` einschließlich
+Zeitstempel und vollständigem `control_json`. Der Viewer hält zusätzlich einen
+flüchtigen Diagrammpuffer; aktive manuelle Ausgänge und PI-Zustände liegen
+im RAM des ESP32 und werden nach Neustart nicht wiederhergestellt.
 Die archivierte `logger/data/measurements.db` gehört zur entfernten früheren
 S3-Lanze und wird nicht mit den aktiven C3-Geräten vermischt.
 

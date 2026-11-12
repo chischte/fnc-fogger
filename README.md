@@ -25,8 +25,8 @@ Einstieg: **[Dokumentationsübersicht](docs/README.md)** ·
 | **Viewer** | Geräte auswählen, Daten darstellen, Ausgänge manuell bedienen und Firmware gezielt aktualisieren. |
 
 Aktuell stehen Messung, Aufzeichnung, Manual Mode und OTA zur Verfügung.
-Der Ausbau auf ungefähr sieben Geräte ist vorgesehen. **PI-Regelung ist noch
-nicht implementiert.** Details zu Datenwegen und Betrieb stehen in der
+Der Ausbau auf ungefähr sieben Geräte ist vorgesehen. **CO₂- und Feuchte-PI werden mit Firmware 3.5.2 getestet. Der Fogger arbeitet
+nur bei bestätigter, vom CO₂-Regler angeforderter Lüftung.** [Details](docs/pi-commissioning.md). Details zu Datenwegen und Betrieb stehen in der
 [Architekturbeschreibung](docs/architecture.md).
 
 ## Anschlussplan
