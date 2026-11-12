@@ -136,3 +136,12 @@ fault handling is unchanged. Manual and calibration output limits are unchanged.
 Removes the SCD41 humidity condensation fault and limits humidity setpoints to
 98% of the calibrated SHT45 reading. Automatic fogger maximum remains 50%.
 Calibration offsets, PI anti-windup and sensor/network/fan handling are unchanged.
+
+## 3.5.10
+
+Retunes both PI channels with stronger P and unchanged integral gains:
+
+- CO2: Kp: 4 %/100 ppm | Ki: 0.4 %/(100 ppm·min) | Ti: 10 min
+- Humidity: Kp: 1.5 %/%RH | Ki: 0.1 %/(%RH·min) | Ti: 15 min
+
+Limits, anti-windup, setpoints and calibration are unchanged from 3.5.9.

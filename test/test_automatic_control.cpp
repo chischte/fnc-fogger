@@ -6,6 +6,13 @@ extern "C" { int _fltused = 0; }
 #define assert(condition) do { if (!(condition)) return __LINE__; } while (false)
 
 int main() {
+  // Retuning strengthens P while preserving both integral rates.
+  assert(AutomaticLimits::CO2_KP == 0.04f);
+  assert(AutomaticLimits::CO2_TI_SECONDS == 600);
+  assert(AutomaticLimits::HUMIDITY_KP == 1.5f);
+  assert(AutomaticLimits::HUMIDITY_TI_SECONDS == 900);
+  assert(AutomaticLimits::CO2_KP / AutomaticLimits::CO2_TI_SECONDS == 0.02f / 300);
+  assert(AutomaticLimits::HUMIDITY_KP / AutomaticLimits::HUMIDITY_TI_SECONDS == 1.0f / 600);
   PiController pi(2, 10);
   assert(pi.update(20, 10, 0, 20) == 20);
   assert(pi.terms().i == 0);  // No accumulation against the upper limit.
@@ -34,11 +41,11 @@ int main() {
   input.co2 = 2540;
   input.co2At = 2000;
   control.poll(2000, input, settings, true, false);
-  assert(control.fanPercent() == 1);
+  assert(control.fanPercent() == 2);
   input.co2 = 2600;
   input.co2At = 3000;
   control.poll(3000, input, settings, true, false);
-  assert(control.fanPercent() == 2 && control.foggerPercent() == 0);
+  assert(control.fanPercent() == 4 && control.foggerPercent() == 0);
   const float integral = control.co2Terms().i;
   control.poll(4000, input, settings, true, false);
   assert(control.co2Terms().i == integral);  // Integrate a sensor sample only once.
@@ -142,11 +149,11 @@ int main() {
   input.rpm = 650;
   humidity.setEnabled(true, 200000);
   humidity.poll(200000, input, settings, true, false);
-  assert(humidity.foggerPercent() == 5 && humidity.humidityTerms().i == 0);
-  assert(humidity.foggerPeriodMs() == 2000);
+  assert(humidity.foggerPercent() == 8 && humidity.humidityTerms().i == 0);
+  assert(humidity.foggerPeriodMs() == 1250);
   assert(humidity.foggerOn(200000) && humidity.foggerOn(200099));
-  assert(!humidity.foggerOn(200100) && !humidity.foggerOn(201999));
-  assert(humidity.foggerOn(202000));
+  assert(!humidity.foggerOn(200100) && !humidity.foggerOn(201249));
+  assert(humidity.foggerOn(201250));
   hardware.poll(200000, false, true, &humidity);
   assert(pinValues[3] == HIGH);
   hardware.poll(200100, false, true, &humidity);
@@ -157,7 +164,7 @@ int main() {
   input.co2At = input.humidityAt = 265000;
   humidity.poll(265000, input, settings, true, false);
   assert(humidity.humidityTerms().i > 0.54f && humidity.humidityTerms().i < 0.55f);
-  assert(humidity.foggerPercent() == 6);
+  assert(humidity.foggerPercent() == 8);
   input.co2 = 1000;
   input.co2At = 270000;
   humidity.poll(270000, input, settings, true, false);
@@ -207,7 +214,7 @@ int main() {
   smooth.resetIntegrals();
   assert(smooth.enabled() && !smooth.fault() && smooth.resetCount() == 1);
   assert(smooth.co2Terms().i == 0 && smooth.humidityTerms().i == 0);
-  assert(smooth.co2Terms().p == 10 && smooth.co2Terms().sum == 10);
+  assert(smooth.co2Terms().p == 20 && smooth.co2Terms().sum == 20);
   input.co2At = 800001;
   smooth.poll(800001, input, settings, true, false);
   input.co2At = 1100001;
@@ -229,7 +236,7 @@ int main() {
   input.co2At = 810000;
   smooth.poll(810000, input, settings, true, false);
   assert(smooth.co2Terms().i < 10 && smooth.co2Terms().i > 9);
-  assert(smooth.fanPercent() == 8 && smooth.foggerPercent() > 0);
+  assert(smooth.fanPercent() == 6 && smooth.foggerPercent() > 0);
   input.co2 = 1900;
   input.co2At = 815000;
   smooth.poll(815000, input, settings, true, false);
@@ -290,7 +297,7 @@ int main() {
   input.co2At = input.humidityAt = 2065000;
   pause.poll(2065000, input, settings, true, false);
   const float pausedIntegral = pause.humidityTerms().i;
-  assert(pausedIntegral > 0 && pause.foggerPercent() == 6);
+  assert(pausedIntegral > 0 && pause.foggerPercent() == 8);
   input.rpm = 0;
   pause.poll(2065001, input, settings, true, false);
   assert(pause.foggerPercent() == 0 && !pause.foggerOn(2065001));
@@ -302,7 +309,7 @@ int main() {
   input.co2At = 2155000;
   pause.poll(2155000, input, settings, true, false);
   assert(pause.humidityTerms().i == pausedIntegral);
-  assert(pause.humidityTerms().p == 6 && pause.foggerPercent() == 7);
+  assert(pause.humidityTerms().p == 9 && pause.foggerPercent() == 10);
   input.co2At = input.humidityAt = 2190000;
   pause.poll(2190000, input, settings, true, false);
   assert(pause.humidityTerms().i > 0.89f && pause.humidityTerms().i < 0.90f);

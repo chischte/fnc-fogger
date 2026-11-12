@@ -1,5 +1,21 @@
 # Control concept
 
+## Firmware 3.5.10: stronger proportional response
+
+The evening-review proposal is now selected for both channels:
+
+- CO2: **Kp: 4 %/100 ppm | Ki: 0.4 %/(100 ppm·min) | Ti: 10 min**
+- Humidity: **Kp: 1.5 %/%RH | Ki: 0.1 %/(%RH·min) | Ti: 15 min**
+
+CO2 P is doubled; humidity P is increased by 50%. Each integral gain Kp/Ti
+is unchanged. Firmware stores CO2 Kp as 0.04 %/ppm, Ti as 600 seconds;
+humidity Kp as 1.5 %/%RH, Ti as 900 seconds. Anti-windup, output caps
+(fan 80%, automatic fogger 50%), the calibrated 98% humidity target ceiling,
+and the removed condensation cutoff are unchanged. This is a trial tuning;
+compare subsequent recordings before claiming improved settling or overshoot.
+The firmware update resets integrals once at reboot and preserves setpoints
+and humidity calibration. See the [evening review](maintenance/pi-review-evening-2026-11-12.md).
+
 ## Firmware 3.5.9: calibrated humidity target up to 98%
 
 Humidity setpoints are limited to 70-98% in firmware validation, API and viewer.

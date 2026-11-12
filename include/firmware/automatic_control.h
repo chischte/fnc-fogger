@@ -5,10 +5,10 @@
 #include "firmware/pi_controller.h"
 
 namespace AutomaticLimits {
-constexpr float CO2_KP = 0.02f;
-constexpr float CO2_TI_SECONDS = 300;
-constexpr float HUMIDITY_KP = 1;
-constexpr float HUMIDITY_TI_SECONDS = 600;
+constexpr float CO2_KP = 0.04f;
+constexpr float CO2_TI_SECONDS = 600;
+constexpr float HUMIDITY_KP = 1.5f;
+constexpr float HUMIDITY_TI_SECONDS = 900;
 constexpr uint8_t FAN_MIN_PERCENT = 0;
 constexpr uint8_t FAN_MAX_PERCENT = 80;
 constexpr uint8_t FAN_FAULT_PERCENT = 10;
