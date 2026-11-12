@@ -170,3 +170,13 @@ the board supports simultaneous supplies.
 During updates request fogger OFF and set the defined fan fault speed.
 The resistor-free gate circuit does not guarantee OFF during the subsequent
 reset. Resume control only after valid sensor readings.
+
+## Wi-Fi transmit power
+
+Firmware 3.4.6 sets **8.5 dBm on every device**, defined by
+`Config::WIFI_TX_POWER_QDBM = 34` in `include/config.h`. No per-device NVS override.
+USB allows temporary comparisons; reboot restores this default. The C3 driver
+supports effective ceilings of 2, 5, 7, 8.5, 11, 13, 14, 15, 16.5, 18 and 20 dBm.
+This is a configured ceiling, not a measurement of radiated power.
+See [Espressif API](https://docs.espressif.com/projects/esp-idf/en/v4.4.7/esp32c3/api-reference/network/esp_wifi.html)
+and [measured comparison](wifi-power-test-2026-11-12.md).

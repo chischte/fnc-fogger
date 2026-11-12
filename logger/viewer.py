@@ -59,7 +59,7 @@ def current_theme() -> dict:
 _state = {
     "range": "30m",
     "adaptive_y": True,
-    "dark_mode": False,
+    "dark_mode": True,
     "manual_view": False,
 }
 

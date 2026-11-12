@@ -29,6 +29,7 @@ bool WebServer::firmwareUpdateInProgress() const {
 }
 
 void WebServer::begin(uint32_t now) {
+  wifiDiagnostics_.begin();
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   lastWifiAttemptAt_ = now;
 }
@@ -36,6 +37,7 @@ void WebServer::begin(uint32_t now) {
 void WebServer::poll(uint32_t now) {
   i2cDiagnostics_.poll(now);
   serviceWifi(now);
+  wifiDiagnostics_.poll(now);
   discovery_.poll(serverStarted_, now);
   if (!serverStarted_) {
     return;
@@ -62,7 +64,7 @@ void WebServer::serviceWifi(uint32_t now) {
     closeClient();
   }
   serverStarted_ = false;
-  if (hasElapsed(now, lastWifiAttemptAt_,
+  if (!wifiDiagnostics_.scanActive() && hasElapsed(now, lastWifiAttemptAt_,
                  Config::WIFI_RECONNECT_INTERVAL_MS)) {
     lastWifiAttemptAt_ = now;
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);

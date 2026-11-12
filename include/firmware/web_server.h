@@ -12,6 +12,7 @@
 #include "firmware/startup_test.h"
 #include "firmware/manual_control.h"
 #include "firmware/i2c_diagnostics.h"
+#include "firmware/wifi_diagnostics.h"
 
 class WebServer {
  public:
@@ -75,6 +76,7 @@ class WebServer {
   WiFiServer server_;
   WiFiClient client_;
   NetworkDiscovery discovery_;
+  WifiDiagnostics wifiDiagnostics_;
   ControlSettingsStore& controlSettings_;
   const ActuatorStatus* actuators_;
   ManualControl* manual_;

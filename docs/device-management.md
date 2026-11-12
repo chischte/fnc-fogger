@@ -315,3 +315,84 @@ umlegen. GPIO8 und GPIO9 bleiben frei; Details in
 
 OTA-Datei: `firmware/fnc-fogger-firmware_3.4.3.bin`. Kein automatischer Upload;
 die Installation erfolgt gezielt über Update Firmware am gewünschten Gerät.
+
+## USB-WLAN-Diagnose, Firmware 3.4.4, 12. November 2026
+
+Die serielle Ausgabe mit 115200 Baud enthält `[wifi]`-Zeilen bei Status- oder
+Fehlergrundänderung und spätestens alle zehn Sekunden. Gemeldet werden der
+Arduino-WLAN-Status und der letzte ESP-IDF-Verbindungsabbruchgrund, jeweils
+mit Klartext und numerischem Code. Bei bestehender Verbindung kommen lokale
+IP-Adresse, RSSI und Kanal dazu. Der letzte Abbruchgrund ist historisch und
+kann auch nach erfolgreicher Wiederverbindung noch angezeigt werden.
+WLAN-SSID und Passwort werden nicht ausgegeben. Es gibt keine neuen
+Aktorbefehle oder Änderungen an Wiederverbindung, Sensorabtastung und
+GPIO7/10-Belegung. WLAN-Ereignisse speichern nur den Fehlercode; die
+USB-Ausgabe erfolgt im normalen Hauptloop.
+
+Die bislang installierte Firmware 3.4.2 von `B8:1F:3F:27:F4:E0` bietet keinen
+USB-Statusbefehl. Für diese Diagnose ist eine ausdrücklich freigegebene
+USB-Installation der vorbereiteten Datei
+`firmware/fnc-fogger-firmware_3.4.4.bin` nötig. Vor dem Flashen wird eine
+Gerätesicherung angelegt; ein vollständiges Löschen des Flashs ist nicht
+Teil dieser Diagnose.
+
+### USB-Installation und Befund für B8:1F:3F:27:F4:E0
+
+Am 12. November 2026 auf COM9 als ESP32-C3 Revision 0.4 mit 4 MiB Flash
+bestätigt. Nach ausdrücklicher Freigabe wurde der vollständige Flash vorab
+unter `logger/data/recovery/usb-b81f3f27f4e0-20261112/` gesichert; die
+SHA256 und Partitionstabelle stehen im zugehörigen JSON. Die vorherige
+Firmware war 3.4.2, Build `619163873d9a`. Die gültige OTA-Auswahl verweist
+mit Sequenz 2 auf app1 bei `0x190000`.
+
+Installiert wurde ausschließlich in app1: Firmware 3.4.4, Build
+`f42a2df8927c`, 928752 Byte. Esptool bestätigte den Flash-Hash. Bootloader,
+Partitionstabelle, app0, NVS, OTA-Auswahl und LittleFS wurden nicht beschrieben.
+Die Firmware läuft nach Neustart und liefert Sensorwerte sowie USB-Diagnose.
+Die Geräteverwaltung enthält den per USB bestätigten Firmwarestand; die
+letzte WLAN-Erreichbarkeit wurde dadurch nicht vorgetäuscht oder aktualisiert.
+
+USB-Befund: wiederholt `connect_failed (4)` mit
+`authentication_failed (202)` und `authentication_expired (2)`;
+anfangs auch `access_point_not_found (201)`. Das Gerät war während der
+Prüfung weiterhin nicht per mDNS/HTTP erreichbar. Der Befund grenzt den
+Fehler auf die WLAN-Anmeldung ein, beweist jedoch kein falsches Passwort.
+Router-Zugriffssperren, Authentifizierungsmodus und Funkverhalten sind noch
+zu prüfen. Lüfter war bei der Diagnose nicht angeschlossen.
+
+### Weiterführende USB-Diagnose, Firmware 3.4.5
+
+Nach laut Benutzer unauffälliger Router-Zugriffssperre wird die Diagnose um
+`wifi status`, `wifi scan`, `wifi power low` und `wifi power default` erweitert.
+Kommandos werden zeilenweise mit begrenztem Puffer und Bytebudget verarbeitet.
+Ein zu langes Kommando wird vollständig verworfen. Der gezielte WLAN-Scan
+läuft asynchron und pausiert die regulären Verbindungsversuche; bei bestehender
+Verbindung wird er abgelehnt. Ausgabe: RSSI, Kanal, Authentifizierungsmodus
+als ESP-IDF-Code und BSSID der passenden Access Points, keine SSID/Passwörter.
+Der Sendeleistungstest mit 8,5 dBm ist eine bislang unbestätigte Hypothese;
+vorher/nachher werden Status und tatsächlich angewendete Leistung verglichen.
+Die ursprüngliche Leistung lässt sich wiederherstellen, Neustart verwirft den
+Test. Zugangsdaten, Routerkonfiguration und Aktorausgänge werden nicht geändert.
+
+### Erfolgreicher Leistungstest und gemeinsamer Firmware-Standard
+
+Mit 3.4.5 und unveränderten Zugangsdaten meldete das Zielgerät zunächst
+weiterhin Authentifizierungsfehler bei tatsächlich ausgelesenen 20 dBm
+(`tx_power_qdbm=80`). Nach ausschließlich vorübergehender Umstellung auf
+8,5 dBm (`tx_power_qdbm=34`) verband es sich mit `192.168.31.220`, Kanal 1,
+RSSI ungefähr −38 bis −39 dBm. HTTP und mDNS bestätigten Firmware 3.4.5,
+Build `20c133c6be1d`. Der unabhängige Logger nahm die Aufzeichnung automatisch
+wieder auf. Der aktive Scan war davor fehlgeschlagen und ergab keine nutzbaren
+Empfangsdaten; aus ihm wird keine Ursache abgeleitet. Das Experiment belegt
+die erfolgreiche Verbindung bei reduzierter Sendeleistung, keine bestimmte
+Hardware- oder Routerfehlfunktion.
+
+Firmware 3.4.6 setzt auf Benutzerwunsch **8,5 dBm für alle Geräte** in
+`include/config.h` (`WIFI_TX_POWER_QDBM = 34`). Keine gerätespezifische NVS-Vorgabe.
+USB-Kommandos `wifi power <dBm>` ändern die Leistung nur bis zum Neustart;
+`wifi power default` stellt 8,5 dBm wieder her. Stufen: 2, 5, 7, 8.5, 11, 13,
+14, 15, 16.5, 18, 20 dBm. `wifi reconnect` wiederholt nur die WLAN-Anmeldung.
+Der Status enthält den Sicherheitsmodus (`auth`); der Scan pausiert zusätzlich
+Arduino-Auto-Reconnect.
+
+Ergebnisse und Installationsstand: [WLAN-Leistungstest](wifi-power-test-2026-11-12.md).
