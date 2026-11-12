@@ -161,7 +161,7 @@ int main() {
   assert(humidity.humidityTerms().i > 0);  // Rotation still permits fogging at zero PWM.
   input.rpm = 0;
   humidity.poll(270001, input, settings, true, false);
-  assert(humidity.foggerPercent() == 0 && humidity.humidityTerms().i == 0);
+  assert(humidity.foggerPercent() == 0 && humidity.humidityTerms().i > 0);
   input.co2 = 3000;
   input.co2At = 275000;
   input.rpm = 0;
@@ -274,5 +274,37 @@ int main() {
   idle.resetIntegrals();
   idle.resumeIfIdle(900000, input, false, true, false);
   assert(idle.fault());  // Reset and automatic default must not clear faults.
+  AutomaticControl pause;
+  input.co2 = 2000;
+  input.co2Valid = input.humidityValid = input.rpmValid = true;
+  input.humidity = 85;
+  input.rpm = 650;
+  input.co2At = input.humidityAt = 2000000;
+  pause.setEnabled(true, 2000000);
+  pause.poll(2000000, input, settings, true, false);
+  input.co2At = input.humidityAt = 2065000;
+  pause.poll(2065000, input, settings, true, false);
+  const float pausedIntegral = pause.humidityTerms().i;
+  assert(pausedIntegral > 0 && pause.foggerPercent() == 6);
+  input.rpm = 0;
+  pause.poll(2065001, input, settings, true, false);
+  assert(pause.foggerPercent() == 0 && !pause.foggerOn(2065001));
+  input.humidity = 84;
+  input.co2At = input.humidityAt = 2125000;
+  pause.poll(2125000, input, settings, true, false);
+  assert(pause.humidityTerms().i == pausedIntegral);
+  input.rpm = 650;
+  input.co2At = 2155000;
+  pause.poll(2155000, input, settings, true, false);
+  assert(pause.humidityTerms().i == pausedIntegral);
+  assert(pause.humidityTerms().p == 6 && pause.foggerPercent() == 7);
+  input.co2At = input.humidityAt = 2190000;
+  pause.poll(2190000, input, settings, true, false);
+  assert(pause.humidityTerms().i > 0.89f && pause.humidityTerms().i < 0.90f);
+  input.rpm = 0;
+  input.humidity = 91;
+  input.co2At = input.humidityAt = 2195000;
+  pause.poll(2195000, input, settings, true, false);
+  assert(pause.humidityTerms().i == 0 && pause.foggerPercent() == 0);
   return 0;
 }

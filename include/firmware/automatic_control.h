@@ -80,6 +80,7 @@ class AutomaticControl {
   uint32_t lastValidCo2At_ = 0;
   uint32_t co2At_ = 0;
   uint32_t humidityAt_ = 0;
+  uint32_t humidityResumedAt_ = 0;
   uint32_t fanStartedAt_ = 0;
   uint32_t cycleStartedAt_ = 0;
   uint8_t fanPercent_ = 0;

@@ -5,6 +5,12 @@ from logger.viewer_control import actuator_graph_labels
 
 
 class ViewerFormatTests(unittest.TestCase):
+    def test_paused_fogger_shows_zero_output_despite_retained_pi_demand(self):
+        state = {"online": True, "enabled": True,
+                 "samples": [{"humidity_sum": 7.2}],
+                 "actuators": {"duty_percent": 0, "on_time_s": 0, "off_time_s": None}}
+        self.assertEqual(actuator_graph_labels(state)[0], "fogger @ 0%\non: 0s | off: --s")
+
     def test_rpm_rounding_respects_ranges_and_missing_values(self):
         for value, expected in [(0, "0"), (324, "300"), (325, "350"),
                                 (975, "1000"), (1000, "1000"), (1050, "1100"),

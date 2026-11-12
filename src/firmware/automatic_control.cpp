@@ -149,11 +149,6 @@ void AutomaticControl::updateFogger(uint32_t now, const ControlInput& input,
     inhibitFogger(fanDemand_ ? "automatic_ventilation_only" : "automatic_no_co2_demand");
     return;
   }
-  // Measured rotation also permits fogging while the fan coasts at zero PWM.
-  if (!input.rpmValid || input.rpm == 0) {
-    inhibitFogger("automatic_waiting_for_fan");
-    return;
-  }
   if (!input.humidityValid || !isfinite(input.humidity) || input.humidity < 0 ||
       input.humidity > 100 || now - input.humidityAt >= HUMIDITY_MAX_AGE_MS) {
     inhibitFogger("automatic_humidity_invalid");
@@ -164,9 +159,20 @@ void AutomaticControl::updateFogger(uint32_t now, const ControlInput& input,
     inhibitFogger("automatic_humidity_limit");
     return;
   }
+  // Preserve learned demand during normal fan stops, but never integrate
+  // elapsed pause time when rotation resumes. Sensor/limit checks still reset it.
+  if (!input.rpmValid || input.rpm == 0) {
+    foggerPercent_ = 0;
+    humiditySeen_ = false;
+    reason_ = "automatic_waiting_for_fan";
+    return;
+  }
   reason_ = "automatic_running";
   if (!humiditySeen_ || input.humidityAt != humidityAt_) {
-    const float seconds = humiditySeen_ ? (input.humidityAt - humidityAt_) / 1000.0f : 0;
+    if (!humiditySeen_) humidityResumedAt_ = now;
+    const uint32_t sampleElapsed = humiditySeen_ ? input.humidityAt - humidityAt_ : 0;
+    const uint32_t activeElapsed = now - humidityResumedAt_;
+    const float seconds = (sampleElapsed < activeElapsed ? sampleElapsed : activeElapsed) / 1000.0f;
     const float output = humidityPi_.update(settings.humidityRh - input.humidity,
                                           seconds, 0, FOGGER_MAX_PERCENT);
     const uint8_t percent = static_cast<uint8_t>(output + 0.5f);

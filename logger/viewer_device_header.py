@@ -31,7 +31,7 @@ class DeviceHeader:
         self.closed = False
         self.frame = tk.Frame(parent)
         self.frame.columnconfigure(0, weight=1)
-        self.title = tk.Label(self.frame, font=("Segoe UI", 14, "bold"), height=2,
+        self.title = tk.Label(self.frame, font=("Segoe UI Semibold", 12), height=2,
                               wraplength=290, justify="center", cursor="xterm")
         self.title.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 0))
         title_row_height = round((self.title.winfo_reqheight() + 10) * 0.8)
@@ -61,7 +61,7 @@ class DeviceHeader:
     def update(self, device, online):
         self.device = device
         self.connection = "online" if online else "offline"
-        self.title.configure(text=(device.label + (f" @ {device.location}" if device.location else "")).lower())
+        self.title.configure(text=device.label + (f" @ {device.location}" if device.location else ""))
         self._update_status()
 
     def _update_status(self):

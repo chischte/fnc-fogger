@@ -16,7 +16,8 @@ Die Messdaten fließen vom Gerät zum Logger und dann in dessen eigene SQLite-
 Datei. Ein nicht erreichbares Gerät blockiert die anderen Geräte nicht.
 
 Die zentrale `logger/data/lances.db` enthält Gerätezuordnung, Namen, Orte,
-zuletzt bestätigte Firmware-/Build-Metadaten und die OTA-Updatehistorie.
+zuletzt bestätigte Firmware-/Build-Metadaten, die Geräteausstattung
+(`actuators_installed`) und die OTA-Updatehistorie.
 Sie enthält nicht die eigentliche Messhistorie. Diese liegt getrennt unter
 `logger/data/devices/b81f3f27ca14.db`,
 `logger/data/devices/b81f3f288aec.db` usw. Die Zuordnung bleibt auch bei
@@ -46,11 +47,13 @@ Sollwerte, manuelle Lüfter-/Fogger-Befehle und Firmware-Updates. Die physische
 Ansteuerung erfolgt in der Gerätefirmware. OTA geht nur an das explizit
 gewählte und anhand seiner ID geprüfte Gerät.
 
-Der Logger steuert keine Aktoren. Insbesondere verlängert er keine manuelle
-Freigabe: das bleibt Aufgabe des geöffneten Viewers. Ohne Erneuerung stoppt
-die Firmware manuelle Ausgänge nach 30 Sekunden. PI-Regelung ist noch nicht
-implementiert; Manual Mode und Starttest sind verfügbar, soweit die jeweilige
-Gerätefirmware sie unterstützt. Der lokale Firmwarestand kann zwischen
+Der Logger steuert keine Aktoren. Manuelle Ausgänge bleiben in der aktuellen
+Firmware bis zur expliziten Abschaltung, einem Neustart oder WLAN-Ausfall aktiv;
+ein Erneuerungs-Timeout ist deaktiviert. Außerhalb des Manual Mode übernimmt PI
+bei gültigen Sensordaten automatisch. Der Viewer öffnet Sensorlanzen fest im
+View Mode und Geräte mit Lüfter und Fogger im Command Mode. Die Zuordnung
+kommt aus der Geräteverwaltung, nicht aus einer vermeintlichen automatischen
+Erkennung angeschlossener Aktoren. Der lokale Firmwarestand kann zwischen
 Geräten unterschiedlich sein.
 
 ## Windows-Betrieb

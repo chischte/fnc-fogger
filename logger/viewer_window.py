@@ -23,6 +23,7 @@ WS_EX_TOOLWINDOW = 0x00000080
 GA_ROOT = 2
 SW_HIDE = 0
 SW_SHOWNA = 8
+MONITORINFOF_PRIMARY = 1
 
 
 class MonitorInfo(ctypes.Structure):
@@ -34,13 +35,18 @@ class MonitorInfo(ctypes.Structure):
     ]
 
 
-def _monitor_rect(user32, monitor, work_area=False) -> tuple[int, int, int, int]:
+def _monitor_info(user32, monitor):
     user32.GetMonitorInfoW.argtypes = [wintypes.HANDLE, ctypes.POINTER(MonitorInfo)]
     user32.GetMonitorInfoW.restype = wintypes.BOOL
     info = MonitorInfo()
     info.size = ctypes.sizeof(info)
     if not user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
         raise ctypes.WinError(ctypes.get_last_error())
+    return info
+
+
+def _monitor_rect(user32, monitor, work_area=False) -> tuple[int, int, int, int]:
+    info = _monitor_info(user32, monitor)
     rect = info.work if work_area else info.monitor
     return rect.left, rect.top, rect.right, rect.bottom
 
@@ -73,7 +79,29 @@ def monitor_work_areas() -> list[tuple[int, int, int, int]]:
     user32.EnumDisplayMonitors.restype = wintypes.BOOL
     if not user32.EnumDisplayMonitors(None, None, collect, 0):
         raise ctypes.WinError(ctypes.get_last_error())
-    return [_monitor_rect(user32, monitor, work_area=True) for monitor in monitors]
+    information = [_monitor_info(user32, monitor) for monitor in monitors]
+    information.sort(key=lambda info: not bool(info.flags & MONITORINFOF_PRIMARY))
+    return [(info.work.left, info.work.top, info.work.right, info.work.bottom)
+            for info in information]
+
+
+def maximize_on_secondary_monitor(window) -> bool:
+    if sys.platform != "win32":
+        return False
+    areas = monitor_work_areas()
+    if len(areas) < 2:
+        return False
+    left, top, right, bottom = areas[1]
+    width = min(DEFAULT_WINDOW_SIZE[0], right - left)
+    height = min(DEFAULT_WINDOW_SIZE[1], bottom - top)
+    # Let Tk process its pending initial layout before moving and maximizing.
+    # Native resize calls can re-enter Tk callbacks without Python's GIL.
+    window.update_idletasks()
+    window.state("normal")
+    window.geometry(f"{width}x{height}+{left}+{top}")
+    window.update_idletasks()
+    window.state("zoomed")
+    return True
 
 
 def startup_window_size() -> tuple[int, int]:
@@ -131,6 +159,7 @@ class TkViewerWindow:
         self._drag_offset = None
         self._theme = None
         self._taskbar_registered = False
+        self._startup_positioned = False
         self.zoom_button = None
         self.fullscreen_button = None
         self._fullscreen_icon = None
@@ -162,12 +191,23 @@ class TkViewerWindow:
 
     def _on_window_map(self, event) -> None:
         if event.widget is self.window:
+            if not self._startup_positioned:
+                self._startup_positioned = True
+                self.window.after_idle(self._position_on_startup)
             try:
                 refresh = not self._taskbar_registered and not self.window.overrideredirect()
                 self._taskbar_registered = True
                 ensure_taskbar_entry(self.window, refresh=refresh)
             except OSError as exc:
                 print(f"Could not restore taskbar entry: {exc}", file=sys.stderr)
+
+    def _position_on_startup(self) -> None:
+        try:
+            maximize_on_secondary_monitor(self.window)
+            self.window.update_idletasks()
+            self.toggle_fullscreen()
+        except OSError as exc:
+            print(f"Could not position viewer on secondary display: {exc}", file=sys.stderr)
 
     def _create_icon_button(self, command, tooltip):
         import tkinter as tk

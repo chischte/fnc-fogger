@@ -152,48 +152,42 @@ class ControlDataTests(unittest.TestCase):
 
 
 class CommandLayoutTests(unittest.TestCase):
-    def test_mode_toggle_uses_two_columns_and_restores_full_width(self):
+    def test_equipment_selects_fixed_layout_without_mode_button(self):
         import matplotlib.pyplot as plt
-        from matplotlib.backend_bases import MouseEvent
+        import pandas as pd
 
         def exercise():
             fig = plt.gcf()
             fig.canvas.draw()
             charts = [axis for axis in fig.axes if axis.get_title() in
-                      ("Humidity [%RH]", "CO2 [ppm]", "Temperature [°C]")]
-            button_axis = next(axis for axis in fig.axes if any(
-                text.get_text() == "Command Mode" for text in axis.texts))
-            x, y = button_axis.transAxes.transform((0.5, 0.5))
-            for _ in range(2):
-                for event in ("button_press_event", "button_release_event"):
-                    fig.canvas.callbacks.process(event, MouseEvent(event, fig.canvas, x, y, button=1))
-                fig.canvas.draw()
-                if button_axis.texts[0].get_text() == "View Mode":
-                    for axis in charts:
-                        self.assertLessEqual(axis.get_position().x1, 0.60)
-                    pi_axes = [axis for axis in fig.axes if axis.get_title() in ("Humidity PI [%]", "CO2 PI [%]")]
-                    self.assertEqual(len(pi_axes), 2)
-                    self.assertAlmostEqual(charts[0].get_position().width / pi_axes[0].get_position().width, 1.5)
-                    self.assertTrue(all(axis.get_ylim() == (0, 100) for axis in pi_axes))
-                    for axis in pi_axes:
-                        self.assertEqual(axis.spines["bottom"].get_position(), ("data", 0))
-                        self.assertEqual([line.get_linestyle() for line in axis.lines], [":", "--", "-"])
-                        self.assertEqual([text.get_text() for text in axis.get_legend().get_texts()],
-                                         ["p", "i", "sum"])
-                        color = "#2878a8" if axis.get_title().startswith("Humidity") else "#7b2cbf"
-                        self.assertTrue(all(line.get_color() == color for line in axis.lines))
-                else:
-                    self.assertTrue(all(axis.get_position().x1 > 0.9 for axis in charts))
+                      ("Humidity [%RH]", "CO2 [ppm]", "Temperature [\u00b0C]")]
+            labels = [text.get_text() for axis in fig.axes for text in axis.texts]
+            self.assertNotIn("Command Mode", labels)
+            self.assertNotIn("View Mode", labels)
+            pi_axes = [axis for axis in fig.axes if axis.get_visible() and
+                       axis.get_title() in ("Humidity PI [%]", "CO2 PI [%]")]
+            if installed:
+                self.assertEqual(len(pi_axes), 2)
+                self.assertAlmostEqual(charts[0].get_position().width / pi_axes[0].get_position().width, 1.5)
+                self.assertTrue(all(axis.get_ylim() == (0, 100) for axis in pi_axes))
+                for axis in pi_axes:
+                    self.assertEqual([line.get_linestyle() for line in axis.lines], [":", "--", "-"])
+                    self.assertEqual([text.get_text() for text in axis.get_legend().get_texts()],
+                                     ["p", "i", "sum"])
+            else:
+                self.assertEqual(pi_axes, [])
+                self.assertTrue(all(axis.get_position().x1 > .9 for axis in charts))
             plt.close(fig)
 
-        import pandas as pd
         frame = pd.DataFrame({"timestamp": pd.date_range("2026-11-07", periods=3, freq="min"),
                               "humidity_corrected_rh": [90, 91, 92], "co2_ppm": [1300, 1250, 1200],
                               "temp_box_c": [25, 25, 25]})
-        with patch.object(viewer.viewer_data.MeasurementCache, "load", return_value=frame), \
-                patch.object(viewer, "configure_viewer_window", return_value=None), \
-                patch.object(plt, "show", side_effect=exercise):
-            viewer.show_charts()
+        for installed in (False, True):
+            with self.subTest(actuators_installed=installed), \
+                    patch.object(viewer.viewer_data.MeasurementCache, "load", return_value=frame), \
+                    patch.object(viewer, "configure_viewer_window", return_value=None), \
+                    patch.object(plt, "show", side_effect=exercise):
+                viewer.show_charts(actuators_installed=installed)
 
     def test_setpoints_use_temperature_delta_font_size(self):
         import pandas as pd

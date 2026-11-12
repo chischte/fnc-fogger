@@ -90,7 +90,7 @@ class OverviewWindowTests(unittest.TestCase):
     def test_theme_fullscreen_and_label_edits_preserve_management(self):
         target = self.devices[1].device_id
         column = self.selection.overview.columns[target]
-        self.assertEqual(column.title.cget("text"), "fogger @ lab")
+        self.assertEqual(column.title.cget("text"), "Fogger @ Lab")
         self.assertTrue(self.selection.dark_mode)
         self.assertEqual(self.selection.theme_button.cget("text"), "Light Mode")
         self.selection._toggle_theme()
@@ -102,7 +102,7 @@ class OverviewWindowTests(unittest.TestCase):
         self.assertFalse(self.selection.fullscreen)
         self.selection.registry.save_labels(target, "New name", "New place")
         self.selection._refresh_devices()
-        self.assertEqual(column.title.cget("text"), "new name @ new place")
+        self.assertEqual(column.title.cget("text"), "New name @ New place")
         self.assertIn("Firmware", column.identity.firmware.cget("text"))
         self.assertEqual(column.update_button.cget("text"), "Update Firmware")
 

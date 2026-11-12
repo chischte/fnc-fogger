@@ -533,7 +533,8 @@ def draw(fig: "plt.Figure", box_axes: list, chart_axes: list,
 
 @plt.rc_context({"font.family": "Segoe UI" if sys.platform == "win32" else "DejaVu Sans",
                  "font.weight": "semibold", "axes.labelweight": "semibold"})
-def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None) -> bool:
+def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None,
+                actuators_installed=None) -> bool:
     render = partial(draw, database=database, csv=csv,
                      control_monitor=collector.control if collector else None)
     return_home = False
@@ -549,11 +550,8 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None) -
     home_button = Button(home_axis, "device overview", color=current_theme()["button_off"],
                          hovercolor=current_theme()["grid"])
     home_button.label.set_color(current_theme()["text"])
-    mode_axis = fig.add_axes([0.77, 0.935, 0.21, 0.04])
-    mode_button = Button(mode_axis, "Command Mode", color=current_theme()["button_off"],
-                         hovercolor=current_theme()["grid"])
-    mode_button.label.set_color(current_theme()["text"])
-    command_mode = False
+    command_mode = (bool(collector and collector.lance.actuators_installed)
+                    if actuators_installed is None else bool(actuators_installed))
 
     def _home(_event):
         nonlocal return_home
@@ -592,20 +590,11 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None) -
     box_axes = [fig.add_subplot(gs_boxes[0, i]) for i in range(3)]
 
     # Charts
-    chart_axes = [fig.add_subplot(gs_charts[r, :]) for r in range(3)]
+    chart_axes = [fig.add_subplot(gs_charts[r, 0] if command_mode else gs_charts[r, :])
+                  for r in range(3)]
     command_panel = CommandPanel(fig, gs_charts, collector, database=database)
 
-    def _toggle_mode(_event):
-        nonlocal command_mode
-        command_mode = not command_mode
-        mode_button.label.set_text("View Mode" if command_mode else "Command Mode")
-        for row, axis in enumerate(chart_axes):
-            axis.set_subplotspec(gs_charts[row, 0] if command_mode else gs_charts[row, :])
-        command_panel.set_visible(command_mode)
-        command_panel.update(current_theme(), chart_axes[0].get_xlim())
-        fig.canvas.draw_idle()
-
-    mode_button.on_clicked(_toggle_mode)
+    command_panel.set_visible(command_mode)
 
     # Range selector flanked by matching theme and adaptive Y toggles.
     range_axis = fig.add_axes([0.32, 0.030, 0.36, 0.060])
@@ -624,6 +613,7 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None) -
     )
 
     render(fig, box_axes, chart_axes, range_axis, footer_text, data_cache=data_cache)
+    command_panel.update(current_theme(), chart_axes[0].get_xlim())
 
     # Minus/plus step through the ranges; labels and markers select directly.
     def _on_click(event):
@@ -655,10 +645,6 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None) -
         home_button.hovercolor = current_theme()["grid"]
         home_button.ax.set_facecolor(home_button.color)
         home_button.label.set_color(current_theme()["text"])
-        mode_button.color = current_theme()["button_off"]
-        mode_button.hovercolor = current_theme()["grid"]
-        mode_button.ax.set_facecolor(mode_button.color)
-        mode_button.label.set_color(current_theme()["text"])
         command_panel.update(current_theme(), chart_axes[0].get_xlim())
         if window_controls is not None:
             window_controls.apply_theme(current_theme())

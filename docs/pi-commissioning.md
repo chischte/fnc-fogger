@@ -1,6 +1,27 @@
 # PI commissioning · 12 November 2026
 
-## Current revision 3.5.6: humidity reference adjustment
+## Current revision 3.5.7: retain humidity integral during fan pauses
+
+Normal missing/zero RPM now inhibits actual fogger output without clearing the
+humidity PI integral. Humidity validity and upper-limit checks run before this
+pause, so bad/stale readings or excessive humidity still reset it. Latched
+faults, explicit Reset PI, mode transitions and reboot retain their reset behavior.
+On resume, P is recalculated from the current valid humidity, while I starts from
+its preserved value. The first update has zero integration time; the following
+sample's elapsed time is capped to time since resume, excluding a partial paused
+sensor interval. The viewer's in-plot fogger percentage follows actual duty,
+while the PI curves retain the paused demand.
+
+Native tests cover a one-minute pause, a changed RH reading, resumed P with
+unchanged I, a later partially paused sensor interval, and excessive RH while
+RPM remains zero. No gains, setpoints or output limits were changed.
+Verified OTA installed build 0d2b2c8d88ac on b81f3f27f4e0; PI resumed with the
+unchanged 1,500 ppm / 98% RH targets. No forced actuator test was used. As with
+previous revisions, this reboot resets the existing integral once. The complete
+146-test suite passed after the control and viewer-window changes; equipment
+registry persistence was additionally tested after adding fixed viewer modes.
+
+## Previous revision 3.5.6: humidity reference adjustment
 
 Manual Mode now provides a device-side 15-minute assumed-saturation reference
 routine at 50% fan / 100% fogger, with cancellation and return to PI. A separate

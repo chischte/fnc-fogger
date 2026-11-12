@@ -1,5 +1,6 @@
 """Device overview: discovery, metadata, naming and per-device actions."""
 import queue
+import sys
 import threading
 import tkinter as tk
 from pathlib import Path
@@ -12,10 +13,12 @@ from .window_icon import set_window_icon
 from .viewer_overview import DeviceActions, DeviceOverview
 from .viewer_style import DARK_THEME, LIGHT_THEME
 from .viewer_device_header import format_device_id
+from .viewer_window import current_monitor_bounds, maximize_on_secondary_monitor
 from .firmware_catalog import available_versions, has_newer_firmware
 
 SCAN_INTERVAL_MS = 15000
 QUEUE_INTERVAL_MS = 100
+STARTUP_FULLSCREEN_DELAY_MS = 100
 
 
 class LanceSelection:
@@ -34,6 +37,8 @@ class LanceSelection:
         self.stop = threading.Event()
         self.dark_mode = True
         self.fullscreen = False
+        self._restore_geometry = None
+        self._restore_state = None
         self.window = tk.Tk()
         set_window_icon(self.window)
         self.window.title("Device Overview")
@@ -51,6 +56,15 @@ class LanceSelection:
         self.window.after(0, self.overview.start)
         self.window.bind("<F11>", lambda event: self._toggle_fullscreen())
         self.window.bind("<Escape>", lambda event: self._exit_fullscreen())
+        self.window.after_idle(self._position_on_startup)
+
+    def _position_on_startup(self):
+        try:
+            maximize_on_secondary_monitor(self.window)
+            self.window.update_idletasks()
+            self.window.after(STARTUP_FULLSCREEN_DELAY_MS, self._toggle_fullscreen)
+        except (OSError, tk.TclError) as error:
+            self.status.set(f"Could not position Device Overview on secondary display: {error}")
 
     def _build(self):
         ttk.Style(self.window).theme_use("clam")
@@ -87,8 +101,26 @@ class LanceSelection:
         self._apply_theme()
 
     def _toggle_fullscreen(self):
+        if sys.platform != "win32":
+            self.window.attributes("-fullscreen", not self.fullscreen)
+        elif self.fullscreen:
+            self.window.overrideredirect(False)
+            self.window.geometry(self._restore_geometry)
+            self.window.state(self._restore_state)
+        else:
+            try:
+                left, top, right, bottom = current_monitor_bounds(self.window)
+            except OSError as error:
+                self.status.set(f"Could not enter full screen: {error}")
+                return
+            self._restore_geometry = self.window.geometry()
+            self._restore_state = self.window.state()
+            self.window.state("normal")
+            # Native Windows fullscreen can move the window to the primary display.
+            self.window.overrideredirect(True)
+            self.window.update_idletasks()
+            self.window.geometry(f"{right - left}x{bottom - top}+{left}+{top}")
         self.fullscreen = not self.fullscreen
-        self.window.attributes("-fullscreen", self.fullscreen)
         self.fullscreen_button.configure(text="Exit Full Screen" if self.fullscreen else "Full Screen")
 
     def _exit_fullscreen(self):

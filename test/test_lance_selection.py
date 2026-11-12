@@ -1,3 +1,4 @@
+import sys
 import sqlite3
 import tempfile
 import unittest
@@ -11,6 +12,15 @@ from logger.lance_registry import Lance, LanceRegistry
 
 
 class LanceRegistryTests(unittest.TestCase):
+    def test_equipment_survives_restart_and_rediscovery(self):
+        self.assertFalse(self.registry.remember(self.lance).actuators_installed)
+        self.registry.set_actuators_installed(self.lance.device_id, True)
+        registry = LanceRegistry(self.directory)
+        updated = registry.remember(Lance(self.lance.device_id, "new.local", 8080))
+        self.assertTrue(updated.actuators_installed)
+        registry.set_actuators_installed(self.lance.device_id, False)
+        self.assertFalse(registry.list()[0].actuators_installed)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.directory = Path(self.temp.name)
@@ -112,6 +122,30 @@ class ChartNavigationTests(unittest.TestCase):
 
 
 class SelectionEditingTests(unittest.TestCase):
+    def test_overview_uses_secondary_monitor_startup_placement(self):
+        with self.selection_window() as (selection, _registry):
+            with patch("logger.viewer_selection.maximize_on_secondary_monitor") as position, \
+                    patch.object(selection.window, "after") as schedule:
+                selection._position_on_startup()
+                position.assert_called_once_with(selection.window)
+                schedule.assert_called_once_with(100, selection._toggle_fullscreen)
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows fullscreen placement")
+    def test_fullscreen_stays_on_current_monitor(self):
+        with self.selection_window() as (selection, _registry):
+            selection.window.update()
+            geometry = selection.window.geometry()
+            with patch("logger.viewer_selection.current_monitor_bounds",
+                       return_value=(-1920, -100, 0, 980)):
+                selection._toggle_fullscreen()
+            selection.window.update_idletasks()
+            self.assertTrue(selection.window.overrideredirect())
+            self.assertEqual(selection.window.geometry(), "1920x1080+-1920+-100")
+            selection._exit_fullscreen()
+            selection.window.update_idletasks()
+            self.assertFalse(selection.window.overrideredirect())
+            self.assertEqual(selection.window.geometry(), geometry)
+
     @staticmethod
     @contextmanager
     def selection_window(count=1):
@@ -159,7 +193,7 @@ class SelectionEditingTests(unittest.TestCase):
             self.assertTrue(header.commit_edit())
             saved = registry.list()[0]
             self.assertEqual((saved.name, saved.location), ("Lance A", "Lab"))
-            self.assertEqual(header.title.cget("text"), "lance a @ lab")
+            self.assertEqual(header.title.cget("text"), "Lance A @ Lab")
             self.assertFalse(header.editing)
 
     def test_escape_discards_edit_and_failed_save_retains_editor(self):

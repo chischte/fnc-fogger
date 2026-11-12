@@ -53,7 +53,10 @@ def actuator_graph_labels(state):
             return "--"
         return f"{value:.{precision}f}" if precision is not None else f"{value:g}"
 
-    humidity = (f"fogger @ {whole_percent(latest.get('humidity_sum'))}%\n"
+    fogger_duty = values.get("duty_percent")
+    if fogger_duty is None:
+        fogger_duty = latest.get("humidity_sum")
+    humidity = (f"fogger @ {whole_percent(fogger_duty)}%\n"
                 f"on: {seconds(values.get('on_time_s'))}s | off: {seconds(values.get('off_time_s'), 2)}s")
     co2 = f"fan @ {whole_percent(latest.get('co2_sum'))}%\n{rounded_rpm(values.get('rpm'))}rpm"
     if state.get("fault"):

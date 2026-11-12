@@ -1,7 +1,10 @@
 import sys
 import ctypes
+import subprocess
+import textwrap
+from pathlib import Path
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from types import SimpleNamespace
 
 import matplotlib
@@ -11,12 +14,16 @@ from logger.viewer import DARK_THEME, LIGHT_THEME
 from logger.viewer_window import (
     GA_ROOT, GWL_EXSTYLE, WS_EX_APPWINDOW, WS_EX_TOOLWINDOW, ZOOM_MODE,
     configure_viewer_window, current_monitor_bounds, startup_window_size,
+    maximize_on_secondary_monitor,
 )
 
 
 @unittest.skipUnless(sys.platform == "win32", "Windows Tk window integration")
 class ViewerWindowTests(unittest.TestCase):
     def setUp(self):
+        startup_position = patch("logger.viewer_window.TkViewerWindow._position_on_startup")
+        startup_position.start()
+        self.addCleanup(startup_position.stop)
         from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, FigureManagerTk
         from matplotlib.figure import Figure
 
@@ -242,6 +249,61 @@ class ViewerWindowTests(unittest.TestCase):
         self.assertEqual(self.window.geometry(), original_geometry)
         self.assertFalse(self.window.overrideredirect())
         self.assertEqual(self.controls.toolbar.winfo_manager(), "pack")
+
+
+@unittest.skipUnless(sys.platform == "win32", "Windows monitor placement")
+class StartupMonitorTests(unittest.TestCase):
+    def test_secondary_monitor_with_negative_coordinates_is_maximized(self):
+        window = Mock()
+        with patch("logger.viewer_window.monitor_work_areas", return_value=[
+                (0, 0, 1920, 1040), (-1920, -100, 0, 980)]):
+            self.assertTrue(maximize_on_secondary_monitor(window))
+        window.geometry.assert_called_once_with("1100x850+-1920+-100")
+        self.assertEqual(window.state.call_args_list, [unittest.mock.call("normal"),
+                                                      unittest.mock.call("zoomed")])
+        self.assertEqual(window.update_idletasks.call_count, 2)
+
+    def test_real_tk_canvas_survives_secondary_monitor_startup(self):
+        # A subprocess turns a native interpreter crash into a test failure.
+        script = textwrap.dedent("""
+            import matplotlib
+            matplotlib.use("TkAgg")
+            import matplotlib.pyplot as plt
+            from logger.viewer_window import (
+                configure_viewer_window, monitor_work_areas, current_monitor_bounds,
+            )
+            areas = monitor_work_areas()
+            if len(areas) < 2:
+                raise SystemExit(77)
+            figure = plt.figure()
+            configure_viewer_window(figure)
+            window = figure.canvas.manager.window
+            def verify():
+                assert window.overrideredirect(), "Viewer must start fullscreen"
+                left, top, right, bottom = current_monitor_bounds(window)
+                target_left, target_top, _, _ = monitor_work_areas()[1]
+                assert left <= target_left < right and top <= target_top < bottom
+                print("STARTUP_OK", flush=True)
+                plt.close(figure)
+            window.after(1500, verify)
+            window.after(4000, lambda: plt.close(figure))
+            plt.show()
+        """)
+        result = subprocess.run(
+            [sys.executable, "-X", "faulthandler", "-c", script],
+            cwd=Path(__file__).resolve().parents[1],
+            capture_output=True, text=True, timeout=20,
+        )
+        if result.returncode == 77:
+            self.skipTest("A secondary monitor is required")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("STARTUP_OK", result.stdout, result.stderr)
+
+    def test_single_monitor_preserves_normal_startup(self):
+        window = Mock()
+        with patch("logger.viewer_window.monitor_work_areas", return_value=[(0, 0, 1920, 1040)]):
+            self.assertFalse(maximize_on_secondary_monitor(window))
+        window.state.assert_not_called()
 
 
 if __name__ == "__main__":

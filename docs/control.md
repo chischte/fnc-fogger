@@ -1,12 +1,19 @@
 # Control concept
 
-Current implementation: [PI commissioning, firmware 3.5.6](pi-commissioning.md).
+Current implementation: [PI commissioning, firmware 3.5.7](pi-commissioning.md).
 CO₂ ventilation PI and humidity PI are now enabled on the chamber device.
 Humidity target is 90% corrected SHT45 RH; fogging requires valid measured
 fan RPM above zero, including coast-down at zero PWM. Fan duty follows the
 CO₂ PI over 0–80% without a minimum floor. The first ventilation-only revision
 kept the fogger locked OFF.
 Tuning is not established.
+During normal zero/invalid-RPM fogger inhibition, the humidity integral is
+frozen while actual fogger duty is zero. Resume recalculates P from current
+humidity; integration excludes the pause, including any part of the next sensor
+interval that preceded resume. Invalid/stale humidity, the humidity limit,
+latched faults, Reset PI, mode changes and reboot still reset the integral.
+The in-plot fogger percentage uses actual reported duty, so retained PI demand
+does not falsely appear as active fogging during a pause.
 PI is the default outside Manual Mode, including after reboot/reconnection with
 valid sensors. Reset PI clears accumulated I terms; gains and fault latches stay.
 The PI graphs show rounded PI sum at bottom centre, with fogger pulse times
@@ -28,6 +35,23 @@ range. Live setpoints, buttons and status remain tied to the current device.
 An empty historical range is labelled explicitly; no history is invented before
 actuator logging began. Legacy databases without `control_samples` retain the
 live-only display.
+
+Viewer layout is fixed per device: `lances.actuators_installed` in
+`logger/data/lances.db` selects Command Mode (true: installed fan and fogger)
+or full-width View Mode (false: sensor-only). There is no view/command toggle.
+New devices default to sensor-only. Provisioning or hardware changes update the
+flag explicitly using `LanceRegistry.set_actuators_installed(device_id, bool)`;
+discovery, firmware updates, label changes and address changes preserve it.
+Currently b81f3f27ca14 is sensor-only and b81f3f27f4e0 has actuators installed.
+
+On Windows, Device Overview and each new viewer window start in fullscreen on
+the first non-primary monitor when available; otherwise they use the current
+monitor. Escape leaves fullscreen and F11 toggles it without changing monitors.
+Startup placement runs only once, after Tk has processed the initial layout.
+Tk geometry handles monitor placement, including negative desktop coordinates,
+without native resize calls that can crash Tk callbacks.
+Device Overview preserves name/location capitalization and uses the viewer's
+12-point Segoe UI Semibold title style.
 Older version sections and the original design below provide historical context.
 
 ## Humidity reference adjustment, firmware 3.5.6

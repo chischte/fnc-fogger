@@ -25,7 +25,7 @@ Einstieg: **[Dokumentationsübersicht](docs/README.md)** ·
 | **Viewer** | Geräte auswählen, Daten darstellen, Ausgänge manuell bedienen und Firmware gezielt aktualisieren. |
 
 Aktuell stehen Messung, Aufzeichnung, Manual Mode und OTA zur Verfügung.
-Der Ausbau auf ungefähr sieben Geräte ist vorgesehen. **CO₂- und Feuchte-PI werden mit Firmware 3.5.6 getestet. Der Fogger arbeitet
+Der Ausbau auf ungefähr sieben Geräte ist vorgesehen. **CO₂- und Feuchte-PI werden mit Firmware 3.5.7 getestet. Der Fogger arbeitet
 nur bei gemessener Lüfterdrehzahl über 0 rpm.** [Details](docs/pi-commissioning.md). Details zu Datenwegen und Betrieb stehen in der
 [Architekturbeschreibung](docs/architecture.md).
 

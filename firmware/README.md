@@ -114,3 +114,10 @@ beide absolute Offsets zur angenommenen 100-%-Referenz dauerhaft in NVS speicher
 und zu PI zurückkehren. Abbruch/WLAN-Ausfall speichert keine neuen Offsets.
 Maximaler automatischer Feuchte-Sollwert 99%. Rohwerte und die SCD41-Schutzprüfung
 bleiben unverändert; sichtbarer Nebel ist keine gesicherte Kalibrierreferenz.
+
+## Revision 3.5.7
+
+Bei normaler Lüfterpause bleibt der Fogger-I-Anteil erhalten; der Ausgang ist
+gesperrt. Beim Wiederanlauf wird P aus der aktuellen Feuchte berechnet und
+ohne nachträgliche Integration der Pause weitergeregelt. Sensorfehler,
+Überfeuchte und Reset PI setzen weiterhin zurück. Parameter bleiben unverändert.

@@ -19,6 +19,7 @@ class Lance:
     hardware_profile: str = ""
     build_id: str = ""
     last_seen: str = ""
+    actuators_installed: bool = False
 
     @property
     def url(self):
@@ -45,6 +46,8 @@ class LanceRegistry:
                     db.execute(f"ALTER TABLE lances ADD COLUMN {column} TEXT NOT NULL DEFAULT ''")
             if "removed" not in columns:
                 db.execute("ALTER TABLE lances ADD COLUMN removed INTEGER NOT NULL DEFAULT 0")
+            if "actuators_installed" not in columns:
+                db.execute("ALTER TABLE lances ADD COLUMN actuators_installed INTEGER NOT NULL DEFAULT 0")
             db.execute("""CREATE TABLE IF NOT EXISTS firmware_updates(
                 id INTEGER PRIMARY KEY, device_id TEXT NOT NULL, recorded_at TEXT NOT NULL,
                 version TEXT NOT NULL, build_id TEXT NOT NULL, hardware_profile TEXT NOT NULL,
@@ -58,9 +61,9 @@ class LanceRegistry:
 
     def list(self):
         with self._connect() as db:
-            return [Lance(*row) for row in db.execute(
+            return [Lance(*row[:-1], actuators_installed=bool(row[-1])) for row in db.execute(
                 "SELECT device_id,hostname,port,name,location,database_name,"
-                "firmware,hardware_profile,build_id,last_seen "
+                "firmware,hardware_profile,build_id,last_seen,actuators_installed "
                 "FROM lances WHERE removed=0 ORDER BY name,device_id")]
 
     def remember(self, lance, sensor_serial=None, status=None):
@@ -102,6 +105,15 @@ class LanceRegistry:
         with self._connect() as db:
             db.execute("UPDATE lances SET name=?,location=? WHERE device_id=?",
                        (name.strip(), location.strip(), device_id))
+
+    def set_actuators_installed(self, device_id, installed):
+        if not isinstance(installed, bool):
+            raise ValueError("Actuator configuration must be true or false.")
+        with self._connect() as db:
+            result = db.execute("UPDATE lances SET actuators_installed=? WHERE device_id=?",
+                                (int(installed), device_id))
+            if result.rowcount != 1:
+                raise ValueError("Unknown device ID")
 
     def measurement_path(self, lance):
         return self.directory / lance.database_name
