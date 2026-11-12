@@ -2,6 +2,13 @@
 
 This specifies future firmware; PI tuning is not yet established.
 
+## First fogger commissioning (2026-11-12)
+
+The fogger is in operation for the first time during manual commissioning.
+Fan and fogger outputs are being tested manually before PI tuning. Live actuator
+recording has been enabled; a verified snapshot shows 18% fan PWM, about
+900 rpm and 16% fogger duty. Automatic PI control remains disabled.
+
 ## Manual Mode, firmware 3.4.0
 
 Open the viewer's Command Mode, then select Manual Mode. Entry sets both
@@ -182,6 +189,37 @@ D at zero; add it only if demonstrated useful, with a filtered measurement deriv
 
 Define timeouts relative to sensor intervals. Restart only with valid readings
 and cleared fault cause, using bounded, bumpless output. Fault states must stay visible.
+
+## Fan measurements (2026-11-12)
+
+Live RPM, fan PWM, fogger duty, mode and setpoints are now persisted by the
+independent logger, including manual mode. See
+[actuator recording](background-logger.md#actuator-recording-12-november-2026)
+for timestamps, database columns and sampling limitations.
+
+User-observed values for the Noctua NF-A4x10 24V PWM during manual testing:
+the fan starts at approximately 10% PWM, reaching about 300 rpm.
+
+| Fan PWM | Approximate measured speed |
+|---|---:|
+| 10% | 300 rpm |
+| 20% | 1,000 rpm |
+| 30% | 1,800 rpm |
+| 40% | 2,370 rpm |
+| 50% | 2,900 rpm |
+| 60% | 3,060 rpm |
+| 70% | 3,420 rpm |
+| 80% | 3,900 rpm |
+| 90% | 4,300 rpm |
+| 100% | 4,410 rpm |
+
+![Measured fan speed curve](fan-speed-curve.png)
+
+User's subjective noise assessment: **60% is very quiet**; **80% is the
+maximum acceptable noise level** for the tested setup.
+
+These are observations, not configured control limits. Repeatability of starts
+and the minimum sustained speed of an already running fan remain to be checked.
 
 ## Pending experiment after fan installation
 

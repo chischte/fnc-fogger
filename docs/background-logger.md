@@ -103,3 +103,37 @@ check was too early, so the final check waited for a real sequence advance.
 The final code passed all 101 tests.
 
 Grafische Übersicht: [Mehrgeräte-Architektur](architecture.md).
+
+
+## Actuator recording (12 November 2026)
+
+The independent logger now stores live actuator snapshots in **`control_samples`**
+in each device's existing SQLite database (`logger/data/devices/<device-id>.db`,
+or its registered legacy database). Recording runs in manual mode as well as
+other modes, approximately every 5 seconds while the device is reachable.
+No firmware update or open viewer is needed for recording.
+
+Columns: `received_at` (observation timestamp), `boot_id`, `measurement_sequence`,
+`mode` (firmware reason/state), `controller_enabled`, `manual_active`, `fan_rpm`,
+`fan_pwm_percent`, `fogger_percent`, `fogger_on`, `co2_setpoint_ppm`,
+`humidity_setpoint_rh` and `control_json` (complete returned control telemetry,
+including available PI terms). Fogger percentage is commanded duty, not measured
+mist output; RPM is tach telemetry and remains NULL when unavailable.
+
+Snapshots remain separate from deduplicated sensor measurements: multiple
+control observations can reference the same sensor sequence. Use `received_at`
+for actuator timing; the linked sensor sample may be older. Fogger ON/OFF is
+an instantaneous sampled state, not a complete pulse-edge log. Changes between
+5-second polls are not guaranteed to be captured. Current firmware does not
+buffer control telemetry during network/logger outages; sensor backfill must
+not fabricate historical actuator values. Existing historical rows remain intact.
+The single-device command-line logger also records these snapshots.
+
+Runtime verified at 09:48 CET on 12 November 2026 after restarting only the
+background logger (PID 4224). Both device databases contain advancing snapshots;
+device `b81f3f27f4e0` reported manual mode, 900 rpm, 18% fan PWM and 16% fogger.
+Device `b81f3f27ca14` reported outputs stopped. No actuator commands were sent.
+
+Validation: 118 automated tests passed, including manual changes with an
+unchanged sensor sequence, no invented backfill values, unknown RPM, fogger duty
+from pulse timing, legacy payloads and single-device recording.

@@ -3,6 +3,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from . import logger
+from .control_recording import record_control
 
 LOG = logging.getLogger(__name__)
 INSERT_SQL = (f"INSERT OR IGNORE INTO measurements({','.join(logger.FIELDS)}) "
@@ -45,7 +46,10 @@ class MeasurementRecorder:
         boot_id = int(record["boot_id"])
         if self._clock(boot_id) is None:
             self._save_clock(boot_id, received_at - timedelta(milliseconds=record["uptime_ms"]))
-        return self.record_buffer([record], received_at)
+        inserted = self.record_buffer([record], received_at)
+        with self.database:
+            record_control(self.database, payload, received_at.isoformat(timespec="milliseconds"))
+        return inserted
 
     def record_buffer(self, records, received_at=None):
         received_at = received_at or datetime.now(timezone.utc)

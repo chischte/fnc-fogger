@@ -10,6 +10,12 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+if __package__:
+    from .control_recording import SCHEMA as CONTROL_SCHEMA, record_control
+else:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from logger.control_recording import SCHEMA as CONTROL_SCHEMA, record_control
+
 BASE = Path(__file__).parent
 DB_FILE = BASE / "data" / "measurements.db"
 CSV_FILE = BASE / "data" / "measurements.csv"
@@ -39,6 +45,7 @@ def connect(path: Path = DB_FILE) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
     db = sqlite3.connect(path, timeout=10)
     db.executescript(SCHEMA)
+    db.executescript(CONTROL_SCHEMA)
     _add_sensor_columns(db)
     db.execute("PRAGMA journal_mode=WAL")
     db.execute("PRAGMA synchronous=NORMAL")
@@ -115,8 +122,10 @@ def insert(db: sqlite3.Connection, payload: dict) -> bool:
     sql = f"INSERT OR IGNORE INTO measurements({','.join(FIELDS)}) VALUES({','.join('?' for _ in FIELDS)})"
     before = db.total_changes
     db.execute(sql, tuple(row[key] for key in FIELDS))
+    inserted = db.total_changes > before
+    record_control(db, payload, row["received_at"])
     db.commit()
-    return db.total_changes > before
+    return inserted
 
 def import_csv(db: sqlite3.Connection, path: Path = CSV_FILE) -> int:
     if not path.exists() or db.execute("SELECT COUNT(*) FROM measurements").fetchone()[0]:
