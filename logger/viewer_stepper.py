@@ -18,8 +18,9 @@ class SetpointStepper:
         self.ax = figure.add_axes([0, 0, 0.1, 0.03])
         self.ax.axis("off")
         self.label = self.ax.text(0, 0.5, label, fontsize=9, va="center")
-        self.value_text = self.ax.text(0.65, 0.5, "--", fontsize=11,
-                                       fontweight="semibold", ha="center", va="center")
+        self.value_text = self.ax.text(0.67, 0.5, "--", fontsize=11,
+                                       fontweight="semibold", ha="center", va="center",
+                                       transform=self.ax.transAxes)
         self.minus = Button(figure.add_axes([0, 0, 0.03, 0.03]), "−")
         self.plus = Button(figure.add_axes([0, 0, 0.03, 0.03]), "+")
         self.minus.on_clicked(lambda event: self._step(-1))

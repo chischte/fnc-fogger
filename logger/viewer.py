@@ -582,6 +582,7 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None) -
     gs_charts = GridSpecFromSubplotSpec(
         3, 2,
         subplot_spec=gs_outer[1],
+        width_ratios=(3, 2),
         hspace=0.52,
         wspace=0.22,
     )
@@ -592,7 +593,7 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None) -
 
     # Charts
     chart_axes = [fig.add_subplot(gs_charts[r, :]) for r in range(3)]
-    command_panel = CommandPanel(fig, gs_charts, collector)
+    command_panel = CommandPanel(fig, gs_charts, collector, database=database)
 
     def _toggle_mode(_event):
         nonlocal command_mode
@@ -631,6 +632,8 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None) -
             _state["range"] = RANGES[idx][0]
             _state["manual_view"] = False
             render(fig, box_axes, chart_axes, range_axis, footer_text, data_cache=data_cache)
+            command_panel.update(current_theme(), chart_axes[0].get_xlim())
+            fig.canvas.draw_idle()
 
     fig.canvas.mpl_connect("button_press_event", _on_click)
 
@@ -712,6 +715,7 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None) -
             if _state["adaptive_y"]:
                 for axis, series in zip(chart_axes, SERIES):
                     set_y_axis(axis, series)
+            command_panel.update(current_theme(), chart_axes[0].get_xlim())
             fig.canvas.draw_idle()
 
     fig.canvas.mpl_connect("button_release_event", _remember_manual_view)
@@ -725,6 +729,7 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None) -
             if _state["adaptive_y"]:
                 for axis, series in zip(chart_axes, SERIES):
                     set_y_axis(axis, series)
+            command_panel.update(current_theme(), chart_axes[0].get_xlim())
             fig.canvas.draw_idle()
 
     fig.canvas.mpl_connect("scroll_event", _remember_scroll_zoom)
@@ -743,6 +748,7 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None) -
             skip_unchanged=data_cache.revision == last_plot_revision,
         )
         last_plot_revision = data_cache.revision
+        command_panel.update(current_theme(), chart_axes[0].get_xlim())
 
     connection_text = fig.text(0.5, 0.925, "connecting …" if collector else "",
                                ha="center", fontsize=8.5, fontweight="medium", color=current_theme()["muted"])

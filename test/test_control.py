@@ -23,34 +23,36 @@ def control_payload(sequence=1, co2=1200, humidity=92, persisted=True, enabled=F
 class ControlDataTests(unittest.TestCase):
     def test_fault_title_distinguishes_fallback_pwm_from_pi_output(self):
         import math
-        from logger.viewer_control import actuator_graph_titles
+        from logger.viewer_control import actuator_graph_labels
         payload = control_payload(enabled=True)
         payload["control"].update(fault=True, reason="automatic_co2_invalid",
                                    fan={"rpm": 300, "pwm_percent": 10})
         self.monitor.ingest(payload)
         state = self.monitor.snapshot()
-        title = actuator_graph_titles(state)[1]
-        self.assertIn("10 % / 300 rpm", title)
+        title = actuator_graph_labels(state)[1]
+        self.assertIn("Fan: 10%", title)
+        self.assertIn("300rpm", title)
         self.assertIn("[fault]", title)
-        self.assertNotIn("sum: 0", title)
+        self.assertNotIn("fan @ 0", title)
         self.assertTrue(math.isnan(state["samples"][-1]["co2_sum"]))
 
     def test_actuator_titles_use_reported_values_and_clear_when_offline(self):
-        from logger.viewer_control import actuator_graph_titles
+        from logger.viewer_control import actuator_graph_labels, actuator_graph_titles
 
         payload = control_payload(enabled=True)
         payload["control"]["fan"] = {"rpm": 1234}
         payload["control"]["fogger"] = {"on_time_s": 2, "off_time_s": 18}
         self.monitor.ingest(payload)
         titles = actuator_graph_titles(self.monitor.snapshot())
-        self.assertIn("1200 rpm", titles[1])
-        self.assertIn("sum: 40 % | Fan:", titles[1])
-        self.assertIn("sum: 30 % | ON:", titles[0])
-        self.assertIn("ON: 2 s | OFF: 18 s", titles[0])
+        self.assertEqual(titles, ("Humidity PI [%]", "CO2 PI [%]"))
+        labels = actuator_graph_labels(self.monitor.snapshot())
+        self.assertIn("fan @ 40%\n1200rpm", labels[1])
+        self.assertIn("fogger @ 30%", labels[0])
+        self.assertIn("on: 2s | off: 18.00s", labels[0])
         self.monitor.disconnected("Offline")
         self.assertNotIn("1234", actuator_graph_titles(self.monitor.snapshot())[1])
-        self.assertIn("sum: — % | Fan: — % / — rpm", actuator_graph_titles(self.monitor.snapshot())[1])
-        self.assertIn("ON: — s | OFF: — s", actuator_graph_titles(self.monitor.snapshot())[0])
+        self.assertIn("fan @ --%\n--rpm", actuator_graph_labels(self.monitor.snapshot())[1])
+        self.assertIn("on: --s | off: --s", actuator_graph_labels(self.monitor.snapshot())[0])
 
     def test_invalid_or_missing_actuator_values_remain_unavailable(self):
         payload = control_payload()
@@ -168,10 +170,11 @@ class CommandLayoutTests(unittest.TestCase):
                 fig.canvas.draw()
                 if button_axis.texts[0].get_text() == "View Mode":
                     for axis in charts:
-                        self.assertLessEqual(axis.get_position().x1, 0.51)
-                    pi_axes = [axis for axis in fig.axes if "PI [%] |" in axis.get_title()]
+                        self.assertLessEqual(axis.get_position().x1, 0.60)
+                    pi_axes = [axis for axis in fig.axes if axis.get_title() in ("Humidity PI [%]", "CO2 PI [%]")]
                     self.assertEqual(len(pi_axes), 2)
-                    self.assertTrue(all(axis.get_ylim() == (-100, 100) for axis in pi_axes))
+                    self.assertAlmostEqual(charts[0].get_position().width / pi_axes[0].get_position().width, 1.5)
+                    self.assertTrue(all(axis.get_ylim() == (0, 100) for axis in pi_axes))
                     for axis in pi_axes:
                         self.assertEqual(axis.spines["bottom"].get_position(), ("data", 0))
                         self.assertEqual([line.get_linestyle() for line in axis.lines], [":", "--", "-"])

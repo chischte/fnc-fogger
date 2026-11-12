@@ -1,17 +1,20 @@
-"""Command-mode controls and live, memory-only PI diagrams."""
+"""Live controls and PI diagrams backed by independent logger history."""
 import math
 import queue
+import sqlite3
 import textwrap
 import time
 
 import pandas as pd
 from matplotlib import dates as mdates
+from matplotlib.patches import Rectangle
 
 from .control_data import Setpoints
 from .viewer_manual import ManualPanel
 from .viewer_automatic import AutomaticPanel
 from .viewer_format import whole_percent, rounded_rpm
 from .viewer_stepper import CO2_LEVELS, HUMIDITY_LEVELS, SetpointStepper
+from .viewer_control_history import ControlHistoryCache
 
 AUTOSAVE_DELAY_SECONDS = 3
 AUTOSAVE_RETRY_SECONDS = 5
@@ -37,37 +40,32 @@ def pi_parameter_label(state, channel):
 
 
 def actuator_graph_titles(state):
-    values = state.get("actuators", {}) if state["online"] else {}
-    samples = state.get("samples", [])
-    latest = samples[-1] if samples and state["online"] and state["enabled"] and not state.get("fault") else {}
-
-    def formatted(value, unit):
-        number = "—" if value is None or not math.isfinite(value) else (
-            whole_percent(value) if unit == "%" else f"{value:g}")
-        return f"{number} {unit}"
-
-    rpm = values.get("rpm")
-    rpm_text = "—" if rpm is None else rounded_rpm(rpm)
-    humidity_sum = latest.get("humidity_sum")
-    humidity_text = "—" if humidity_sum is None or not math.isfinite(humidity_sum) else whole_percent(humidity_sum)
-    return (f"Humidity PI [%] | sum: {humidity_text} % | "
-            f"ON: {formatted(values.get('on_time_s'), 's')} | "
-            f"OFF: {formatted(values.get('off_time_s'), 's')}",
-            f"CO2 PI [%] | sum: {formatted(latest.get('co2_sum'), '%')} | "
-            f"Fan: {formatted(values.get('pwm_percent'), '%')} / {rpm_text} rpm"
-            f"{' [fault]' if state.get('fault') else ''}")
+    return ("Humidity PI [%]", "CO2 PI [%]")
 
 
 def actuator_graph_labels(state):
     values = state.get("actuators", {}) if state["online"] else {}
-    return (f"{whole_percent(values.get('duty_percent'))}%",
-            f"{whole_percent(values.get('pwm_percent'))}% - {rounded_rpm(values.get('rpm'))}rpm")
+    samples = state.get("samples", [])
+    latest = samples[-1] if samples and state["online"] and state.get("enabled") and not state.get("fault") else {}
+
+    def seconds(value, precision=None):
+        if value is None:
+            return "--"
+        return f"{value:.{precision}f}" if precision is not None else f"{value:g}"
+
+    humidity = (f"fogger @ {whole_percent(latest.get('humidity_sum'))}%\n"
+                f"on: {seconds(values.get('on_time_s'))}s | off: {seconds(values.get('off_time_s'), 2)}s")
+    co2 = f"fan @ {whole_percent(latest.get('co2_sum'))}%\n{rounded_rpm(values.get('rpm'))}rpm"
+    if state.get("fault"):
+        co2 += f" | Fan: {whole_percent(values.get('pwm_percent'))}% [fault]"
+    return humidity, co2
 
 
 class CommandPanel:
-    def __init__(self, figure, grid, collector):
+    def __init__(self, figure, grid, collector, database=None):
         self.figure = figure
         self.collector = collector
+        self.database = collector.database if collector is not None else database
         self.visible = False
         self.dirty = False
         self.pending = False
@@ -78,10 +76,15 @@ class CommandPanel:
         self.changed = False
         self._last_render_state = None
         self._last_theme = None
+        self.history = ControlHistoryCache()
+        self._history_error = ""
         self.graphs = [figure.add_subplot(grid[row, 1]) for row in range(2)]
         self.editor = figure.add_subplot(grid[2, 1])
         self.editor.axis("off")
-        self.heading = self.editor.text(0.04, 0.91, "Setpoints", fontsize=11, fontweight="bold")
+        self.heading = self.editor.set_title("Control Panel", fontsize=10, fontweight="bold", pad=6)
+        self.frame = Rectangle((0, 0), 1, 1, transform=self.editor.transAxes,
+                               linewidth=1, clip_on=False, zorder=0)
+        self.editor.add_patch(self.frame)
         self.status = self.editor.text(0.04, -0.04, "", fontsize=8, va="top")
         self.co2 = SetpointStepper(figure, "CO2 [ppm]", CO2_LEVELS, self._edited)
         self.humidity = SetpointStepper(figure, "Humidity [%RH]", HUMIDITY_LEVELS, self._edited)
@@ -130,9 +133,9 @@ class CommandPanel:
         box = self.editor.get_position()
         self.manual.layout(box)
         self.automatic.layout(box)
-        for field, y in ((self.co2, 0.62), (self.humidity, 0.38)):
-            field.layout([box.x0 + box.width * 0.04, box.y0 + box.height * y,
-                          box.width * 0.92, box.height * 0.17])
+        for field, y in ((self.co2, 0.43), (self.humidity, 0.10)):
+            field.layout([box.x0 + box.width * 0.06, box.y0 + box.height * y,
+                          box.width * 0.94, box.height * 0.17])
 
     def set_visible(self, visible):
         self.visible = visible
@@ -175,13 +178,22 @@ class CommandPanel:
         self._maybe_save(state)
         manual_state = self.manual.update(state, self.visible, theme)
         automatic_state = self.automatic.update(state, self.visible, self.manual.selected, theme)
+        history_window = None
+        if self.visible and self.database is not None:
+            try:
+                history_window = self.history.window(self.database, limits)
+                self._history_error = ""
+            except (OSError, sqlite3.Error) as error:
+                self._history_error = f"Could not load recorded PI history: {error}"
+        graph_state = history_window[1] if history_window is not None else state
         setpoints = state["setpoints"]
         samples = state["samples"]
         render_state = (tuple(theme.items()), tuple(limits) if limits is not None else None,
                         setpoints, state["supported"], state["online"], state["enabled"],
                         state["message"], len(samples), samples[-1]["timestamp"] if samples else None,
-                        actuator_graph_titles(state), actuator_graph_labels(state), manual_state, automatic_state,
-                        pi_parameter_label(state, "co2"), pi_parameter_label(state, "humidity"),
+                        actuator_graph_labels(graph_state), manual_state, automatic_state,
+                        pi_parameter_label(graph_state, "co2"), pi_parameter_label(graph_state, "humidity"),
+                        self.history.revision, self._history_error,
                         self.feedback, self.pending, self.dirty, self.visible)
         if render_state == self._last_render_state:
             return setpoints
@@ -195,10 +207,14 @@ class CommandPanel:
             for axis in field.axes:
                 axis.set_visible(self.visible and not self.manual.selected)
             field.set_active(self.visible and not self.manual.selected)
-        self.heading.set_text("Manual Outputs" if self.manual.selected else "Setpoints")
-        self.heading.set_visible(self.manual.selected or not state.get("automatic_supported", False))
+        self.heading.set_text("Control Panel")
+        self.heading.set_visible(True)
         self.heading.set_color(theme["text"])
+        self.frame.set_edgecolor(theme["grid"])
+        self.frame.set_facecolor(theme["plot"])
         message = state["message"]
+        if self._history_error:
+            message = self._history_error + "\n" + message
         if setpoints is None:
             message += " Displaying editable defaults; not saved to the device."
         feedback = self.manual.feedback if self.manual.selected or self.manual.pending else self.feedback
@@ -211,30 +227,36 @@ class CommandPanel:
         for field in (self.co2, self.humidity):
             field.style(theme)
         if self.visible:
-            self._draw_graphs(state, theme, limits)
+            self._draw_graphs(graph_state, theme, limits, history_window)
         return setpoints
 
-    def _draw_graphs(self, state, theme, limits):
-        frame = pd.DataFrame(state["samples"])
+    def _draw_graphs(self, state, theme, limits, history_window=None):
+        frame = history_window[0] if history_window is not None else pd.DataFrame(state["samples"])
         for axis, channel, title in zip(self.graphs, ("humidity", "co2"),
                                          actuator_graph_titles(state)):
-            humidity_locked = channel == "humidity" and not state.get("fogger_enabled", True)
+            humidity_locked = (history_window is None and channel == "humidity"
+                               and not state.get("fogger_enabled", True))
             axis.clear()
             axis.set_facecolor(theme["plot"])
             axis.set_title(title, fontsize=10, fontweight="bold", color=theme["text"])
             axis.set_xlabel(pi_parameter_label(state, channel), fontsize=8, color=theme["muted"], labelpad=6)
-            axis.xaxis.set_label_coords(0.5, -0.12)
+            axis.xaxis.set_label_coords(0.5, -0.19)
             label = actuator_graph_labels(state)[0 if channel == "humidity" else 1]
-            axis.text(0.5, 0.06, label, ha="center", va="bottom", fontsize=10,
-                      fontweight="bold", color=theme["text"], transform=axis.transAxes,
-                      bbox={"facecolor": theme["plot"], "edgecolor": "none", "alpha": .85})
+            summary, _, detail = label.partition("\n")
+            for text, height, size, weight in ((summary, .23, 10, "bold"),
+                                                (detail, .06, 9, "normal")):
+                axis.text(0.5, height, text, ha="center", va="bottom", fontsize=size,
+                          fontweight=weight, color=theme["text"], transform=axis.transAxes,
+                          zorder=5,
+                          bbox={"facecolor": theme["plot"], "edgecolor": "none",
+                                "alpha": 1, "pad": 3})
             for term, label, style in TERM_STYLES:
                 timestamps = frame["timestamp"] if not frame.empty and not humidity_locked else []
                 values = frame[f"{channel}_{term}"] if not frame.empty and not humidity_locked else []
                 axis.plot(timestamps, values, label=label, color=CHANNEL_COLORS[channel],
                           linestyle=style, linewidth=1.4, zorder=3)
-            axis.set_ylim(-100, 100)
-            axis.set_yticks([-100, -50, 0, 50, 100])
+            axis.set_ylim(0, 100)
+            axis.set_yticks([0, 25, 50, 75, 100])
             axis.spines["bottom"].set_position(("data", 0))
             if limits is not None:
                 axis.set_xlim(limits)
@@ -249,8 +271,10 @@ class CommandPanel:
             columns = [f"{channel}_{term}" for term, *_ in TERM_STYLES]
             has_terms = not frame.empty and frame[columns].notna().any().any()
             if humidity_locked or not has_terms:
-                message = ("Humidity PI disabled - ventilation test" if humidity_locked else
+                message = ("No recorded PI data in this range" if history_window is not None else
+                           "Humidity PI disabled - ventilation test" if humidity_locked else
                            "Controller not configured" if not state["enabled"] else
                            "Waiting for controller data")
-                axis.text(0.5, 0.25, message, ha="center", va="center",
+                axis.text(0.5, 0.5, message, ha="center", va="center",
                           color=theme["muted"], fontsize=9, transform=axis.transAxes)
+        self.heading.set_fontproperties(self.graphs[0].title.get_fontproperties())

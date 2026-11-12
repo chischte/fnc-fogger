@@ -9,9 +9,25 @@ kept the fogger locked OFF.
 Tuning is not established.
 PI is the default outside Manual Mode, including after reboot/reconnection with
 valid sensors. Reset PI clears accumulated I terms; gains and fault latches stay.
-The PI graphs show actual actuator duty at bottom centre: fogger in whole
-percent, fan in percent plus measured RPM. Display RPM rounds to 50 below
+The PI graphs show rounded PI sum at bottom centre, with fogger pulse times
+or measured fan RPM. Display RPM rounds to 50 below
 1,000 rpm and to 100 at or above 1,000 rpm. Stored telemetry is not rounded.
+Command Mode allocates 60% of chart width to sensor plots and 40% to PI plots.
+PI axes show 0–100%; negative P/I samples remain recorded but lie outside this
+display range. Titles contain only channel and unit; the lower in-plot annotation
+shows rounded PI sum plus fogger ON/OFF times or measured fan RPM. During a
+fault, PI sum is unavailable and the annotation identifies actual fallback PWM.
+PI curves now load recorded P, I and sum from the selected device's SQLite
+`control_samples.control_json`, using observation timestamps converted to Zurich
+time. The selected sensor-chart time range also filters the PI history, including
+after reopening the viewer or while the device is offline. New rows append to a
+read-only in-memory cache; faults, manual operation, reboot boundaries and gaps
+longer than 15 seconds break the curve rather than suggesting continuous control.
+The lower PI annotations and Kp/Ti describe the last observed record inside that
+range. Live setpoints, buttons and status remain tied to the current device.
+An empty historical range is labelled explicitly; no history is invented before
+actuator logging began. Legacy databases without `control_samples` retain the
+live-only display.
 Older version sections and the original design below provide historical context.
 
 ## Humidity reference adjustment, firmware 3.5.6

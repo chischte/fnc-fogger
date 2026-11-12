@@ -96,13 +96,13 @@ class ManualPanel:
         def bounds(x, y, width, height):
             return [box.x0 + box.width*x, box.y0 + box.height*y,
                     box.width*width, box.height*height]
-        self.toggle.ax.set_position(bounds(.55, .86, .42, .19))
-        self.fan.ax.set_position(bounds(.20, .61, .54, .12))
-        self.fogger.ax.set_position(bounds(.20, .37, .54, .12))
-        self.fan_button.ax.set_position(bounds(.81, .58, .18, .18))
-        self.fogger_button.ax.set_position(bounds(.81, .34, .18, .18))
-        self.stop.ax.set_position(bounds(.03, .08, .44, .18))
-        self.calibration.ax.set_position(bounds(.52, .08, .47, .18))
+        self.toggle.ax.set_position(bounds(.53, .76, .41, .17))
+        self.fan.ax.set_position(bounds(.20, .53, .54, .12))
+        self.fogger.ax.set_position(bounds(.20, .30, .54, .12))
+        self.fan_button.ax.set_position(bounds(.81, .51, .13, .16))
+        self.fogger_button.ax.set_position(bounds(.81, .28, .13, .16))
+        self.stop.ax.set_position(bounds(.06, .08, .41, .18))
+        self.calibration.ax.set_position(bounds(.53, .08, .41, .18))
 
     def set_visible(self, visible):
         self.toggle.ax.set_visible(visible)

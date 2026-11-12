@@ -26,8 +26,8 @@ class AutomaticPanel:
         self.on_change()
 
     def layout(self, box):
-        self.button.ax.set_position([box.x0 + box.width*.04, box.y0 + box.height*.86,
-                                     box.width*.42, box.height*.19])
+        self.button.ax.set_position([box.x0 + box.width*.06, box.y0 + box.height*.76,
+                                     box.width*.41, box.height*.17])
 
     def update(self, state, visible, manual_selected, theme):
         if self.collector is not None:
