@@ -5,7 +5,7 @@
 struct ControlSettings {
   static constexpr float MAX_CO2_PPM = 20000.0f;
   static constexpr float MIN_HUMIDITY_RH = 70.0f;
-  static constexpr float MAX_HUMIDITY_RH = 99.0f;
+  static constexpr float MAX_HUMIDITY_RH = 98.0f;
   float co2Ppm = 1000.0f;
   float humidityRh = 90.0f;
 

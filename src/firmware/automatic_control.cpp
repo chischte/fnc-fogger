@@ -90,10 +90,6 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
     fail("automatic_co2_invalid", true);
     return;
   }
-  if (input.scdHumidityValid && input.scdHumidity >= HUMIDITY_LIMIT_RH) {
-    fail("automatic_co2_condensation_risk", true);
-    return;
-  }
   updateFan(now, effective, settings);
   // Below the measured starting duty, zero RPM is expected rather than a fault.
   if (fanPercent_ < FAN_STALL_CHECK_PERCENT) fanStartedAt_ = now;
@@ -109,27 +105,11 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
 void AutomaticControl::updateFan(uint32_t now, const ControlInput& input,
                                  const ControlSettings& settings) {
   const float error = input.co2 - settings.co2Ppm;
-  if (!fanDemand_ && error > CO2_HYSTERESIS_PPM) {
-    fanDemand_ = true;
-    fanStartedAt_ = now;
-  }
-  if (!fanDemand_) {
-    fanPercent_ = 0;
-    co2Pi_.reset();
-    co2Seen_ = false;
-    return;
-  }
   if (!co2Seen_ || input.co2At != co2At_) {
     const float seconds = co2Seen_ ? (input.co2At - co2At_) / 1000.0f : 0;
-    // Keep integrating below the setpoint until demand reaches zero.
     const float output = co2Pi_.update(error, seconds, 0, FAN_MAX_PERCENT);
-    if (output <= 0) {
-      fanDemand_ = false;
-      fanPercent_ = 0;
-      co2Pi_.reset();
-      co2Seen_ = false;
-      return;
-    }
+    if (!fanDemand_ && output > 0) fanStartedAt_ = now;
+    fanDemand_ = output > 0;
     fanPercent_ = static_cast<uint8_t>(output + 0.5f);
     co2Seen_ = true;
     co2At_ = input.co2At;
@@ -152,11 +132,6 @@ void AutomaticControl::updateFogger(uint32_t now, const ControlInput& input,
   if (!input.humidityValid || !isfinite(input.humidity) || input.humidity < 0 ||
       input.humidity > 100 || now - input.humidityAt >= HUMIDITY_MAX_AGE_MS) {
     inhibitFogger("automatic_humidity_invalid");
-    return;
-  }
-  if (input.humidity >= 100 ||
-      input.humidity >= settings.humidityRh + HUMIDITY_OVERSHOOT_RH) {
-    inhibitFogger("automatic_humidity_limit");
     return;
   }
   // Preserve learned demand during normal fan stops, but never integrate

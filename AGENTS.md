@@ -27,3 +27,10 @@ Follow Clean Code principles for all new and modified code.
 # Commit messages
 
 - Always start commit messages with an uppercase letter.
+
+# Control parameter recommendations
+
+- Present proposed PI settings as `Kp: ... | Ki: ... | Ti: ...`.
+- Humidity Kp uses `%/%RH` and Ki `%/(%RH*min)`; CO2 Kp uses `%/100 ppm` and Ki `%/(100 ppm*min)`. Express Ti in minutes.
+- Ki equals Kp/Ti in these display units; use minute-based Ki to avoid tiny decimal values.
+- Distinguish recommendations from installed settings; do not apply tuning merely because it was proposed.

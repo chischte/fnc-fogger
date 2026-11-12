@@ -121,3 +121,18 @@ Bei normaler Lüfterpause bleibt der Fogger-I-Anteil erhalten; der Ausgang ist
 gesperrt. Beim Wiederanlauf wird P aus der aktuellen Feuchte berechnet und
 ohne nachträgliche Integration der Pause weitergeregelt. Sensorfehler,
 Überfeuchte und Reset PI setzen weiterhin zurück. Parameter bleiben unverändert.
+
+## 3.5.8
+
+Automatic fogger output now permits 0-50%; fan remains 0-80%. Both PI loops
+run continuously through normal setpoint crossings and zero output, keeping
+signed P and nonnegative I terms. I is bounded to 0 through each channel's maximum;
+positive accumulation into upper output saturation remains inhibited. Normal
+RH overshoot no longer resets humidity PI. Sensor, fan and condensation
+fault handling is unchanged. Manual and calibration output limits are unchanged.
+
+## 3.5.9
+
+Removes the SCD41 humidity condensation fault and limits humidity setpoints to
+98% of the calibrated SHT45 reading. Automatic fogger maximum remains 50%.
+Calibration offsets, PI anti-windup and sensor/network/fan handling are unchanged.

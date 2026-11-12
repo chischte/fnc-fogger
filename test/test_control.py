@@ -114,7 +114,7 @@ class ControlDataTests(unittest.TestCase):
         self.assertEqual(self.monitor.snapshot()["setpoints"], Setpoints(1200, 92))
 
     def test_setpoint_ranges_and_nonfinite_values(self):
-        for co2, humidity in ((-1, 90), (20001, 90), (1000, 69), (1000, 101),
+        for co2, humidity in ((-1, 90), (20001, 90), (1000, 69), (1000, 99), (1000, 101),
                               (float("nan"), 90), (1000, float("inf"))):
             with self.subTest(co2=co2, humidity=humidity), self.assertRaises(ValueError):
                 Setpoints(co2, humidity)
@@ -169,11 +169,13 @@ class CommandLayoutTests(unittest.TestCase):
             if installed:
                 self.assertEqual(len(pi_axes), 2)
                 self.assertAlmostEqual(charts[0].get_position().width / pi_axes[0].get_position().width, 1.5)
-                self.assertTrue(all(axis.get_ylim() == (0, 100) for axis in pi_axes))
-                for axis in pi_axes:
-                    self.assertEqual([line.get_linestyle() for line in axis.lines], [":", "--", "-"])
+                self.assertTrue(all(axis.get_ylim() == (-20, 100) for axis in pi_axes))
+                for axis, maximum in zip(pi_axes, (50, 80)):
+                    self.assertEqual([line.get_linestyle() for line in axis.lines], [":", "--", "-", ":"])
                     self.assertEqual([text.get_text() for text in axis.get_legend().get_texts()],
                                      ["p", "i", "sum"])
+                    self.assertEqual(list(axis.lines[-1].get_ydata()), [maximum, maximum])
+                    self.assertEqual(axis.lines[-1].get_color(), "#e6c229")
             else:
                 self.assertEqual(pi_axes, [])
                 self.assertTrue(all(axis.get_position().x1 > .9 for axis in charts))

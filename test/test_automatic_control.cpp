@@ -11,7 +11,8 @@ int main() {
   assert(pi.terms().i == 0);  // No accumulation against the upper limit.
   assert(pi.update(5, 1, 0, 20) == 11);
   assert(pi.update(-20, 10, 0, 20) == 0);
-  assert(pi.terms().i == 1);  // No negative windup at the lower limit.
+  assert(pi.terms().i == 0);  // Unwind to zero without negative integral debt.
+  assert(pi.terms().p == -40 && pi.terms().sum == 0);
 
   ControlSettings settings;
   settings.co2Ppm = 2500;
@@ -33,7 +34,7 @@ int main() {
   input.co2 = 2540;
   input.co2At = 2000;
   control.poll(2000, input, settings, true, false);
-  assert(control.fanPercent() == 0);
+  assert(control.fanPercent() == 1);
   input.co2 = 2600;
   input.co2At = 3000;
   control.poll(3000, input, settings, true, false);
@@ -60,7 +61,7 @@ int main() {
   input.co2 = 2400;
   input.co2At = 18000;
   control.poll(18000, input, settings, true, false);
-  assert(control.fanPercent() == 0 && control.co2Terms().i == 0);
+  assert(control.fanPercent() == 0 && control.co2Terms().p < 0);
   input.co2 = 3000;
   input.co2At = 19000;
   control.poll(19000, input, settings, true, false);
@@ -89,7 +90,10 @@ int main() {
   input.scdHumidityValid = true;
   input.scdHumidity = 96;
   control.poll(40000, input, settings, true, false);
-  assert(control.fault() && control.foggerPercent() == 0);
+  assert(!control.fault() && control.fanPercent() > 0);
+  input.scdHumidity = 100;
+  control.poll(40000, input, settings, true, false);
+  assert(!control.fault());
   input.scdHumidity = 80;
   control.setEnabled(true, 40001);
   control.poll(40001, input, settings, true, true);
@@ -176,7 +180,7 @@ int main() {
   input.humidity = 90.6f;
   input.co2At = input.humidityAt = 277000;
   humidity.poll(277000, input, settings, true, false);
-  assert(humidity.foggerPercent() == 0 && humidity.humidityTerms().i == 0);
+  assert(humidity.foggerPercent() == 0 && humidity.humidityTerms().p < 0);
   input.humidity = 95;
   input.co2At = input.humidityAt = 278000;
   humidity.poll(278000, input, settings, true, false);
@@ -184,7 +188,7 @@ int main() {
   input.humidity = 40;
   input.co2At = input.humidityAt = 280000;
   humidity.poll(280000, input, settings, true, false);
-  assert(humidity.foggerPercent() == 20 && humidity.humidityTerms().i == 0);
+  assert(humidity.foggerPercent() == 50 && humidity.humidityTerms().i == 0);
   input.co2At = 415000;
   humidity.poll(415000, input, settings, true, false);
   assert(humidity.foggerPercent() == 0 && !humidity.fault());
@@ -237,17 +241,18 @@ int main() {
   input.rpm = 0;
   smooth.poll(815002, input, settings, true, false);
   assert(smooth.foggerPercent() == 0);
+  input.rpm = 650;
   input.co2 = 2540;
   input.co2At = 820000;
   smooth.poll(820000, input, settings, true, false);
-  assert(smooth.fanPercent() == 0);
+  assert(smooth.co2Terms().i > 0);
   input.co2 = 2560;
   input.co2At = 825000;
   smooth.poll(825000, input, settings, true, false);
-  assert(smooth.fanPercent() == 1);
+  assert(smooth.fanPercent() > 0);
   input.co2At = 831000;
   smooth.poll(831000, input, settings, true, false);
-  assert(!smooth.fault() && smooth.fanPercent() == 1);
+  assert(!smooth.fault() && smooth.fanPercent() > 0);
   input.rpmValid = false;
   smooth.poll(831001, input, settings, true, false);
   assert(smooth.foggerPercent() == 0);
@@ -305,6 +310,34 @@ int main() {
   input.humidity = 91;
   input.co2At = input.humidityAt = 2195000;
   pause.poll(2195000, input, settings, true, false);
-  assert(pause.humidityTerms().i == 0 && pause.foggerPercent() == 0);
+  assert(pause.humidityTerms().i > 0 && pause.foggerPercent() == 0);
+  // Normal RH overshoot must unwind I without clearing learned demand.
+  AutomaticControl continuous;
+  settings.co2Ppm = 1500;
+  settings.humidityRh = 98;
+  input.co2 = 1600;
+  input.humidity = 96;
+  input.rpm = 3000;
+  input.rpmValid = input.humidityValid = input.co2Valid = true;
+  input.co2At = input.humidityAt = 3000000;
+  continuous.setEnabled(true, 3000000);
+  continuous.poll(3000000, input, settings, true, false);
+  input.co2At = input.humidityAt = 3600000;
+  continuous.poll(3600000, input, settings, true, false);
+  assert(continuous.humidityTerms().i == 2);
+  input.humidity = 98.62f;
+  input.co2At = input.humidityAt = 3605000;
+  continuous.poll(3605000, input, settings, true, false);
+  assert(continuous.humidityTerms().p < 0 && continuous.humidityTerms().i > 1.9f);
+  assert(continuous.foggerPercent() > 0 && !continuous.fault());
+  input.humidity = 100;
+  input.co2 = 1000;
+  input.co2At = input.humidityAt = 4205000;
+  continuous.poll(4205000, input, settings, true, false);
+  assert(continuous.humidityTerms().i == 0 && continuous.foggerPercent() == 0);
+  assert(continuous.co2Terms().p < 0 && continuous.co2Terms().i == 0);
+  assert(continuous.fanPercent() == 0 && !continuous.fault());
+  // Large negative error cannot accumulate negative integral debt.
+  assert(pi.update(-100, 100000, 0, 20) == 0 && pi.terms().i == 0);
   return 0;
 }

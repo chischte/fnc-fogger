@@ -4,9 +4,9 @@ float PiController::update(float error, float elapsedSeconds, float minimum, flo
   terms_.p = gain_ * error;
   float integral = terms_.i + gain_ * error * elapsedSeconds / integralSeconds_;
   if (integral > maximum) integral = maximum;
-  if (integral < -maximum) integral = -maximum;
+  if (integral < 0) integral = 0;
   const float candidate = terms_.p + integral;
-  if (!((candidate > maximum && error > 0) || (candidate < minimum && error < 0))) {
+  if (!(candidate > maximum && error > 0)) {
     terms_.i = integral;
   }
   terms_.sum = terms_.p + terms_.i;

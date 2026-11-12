@@ -6,7 +6,7 @@ from matplotlib.widgets import Button
 CO2_LEVELS = (tuple(range(500, 2001, 100))
               + tuple(range(2500, 5001, 500))
               + tuple(range(6000, 15001, 1000)))
-HUMIDITY_LEVELS = tuple(range(70, 100))
+HUMIDITY_LEVELS = tuple(range(70, 99))
 
 
 class SetpointStepper:

@@ -6,6 +6,12 @@ extern "C" { int _fltused = 0; }
 #define assert(condition) do { if (!(condition)) return __LINE__; } while (false)
 
 int main() {
+  ControlSettings humidityLimit;
+  humidityLimit.humidityRh = 98;
+  assert(humidityLimit.valid());
+  humidityLimit.humidityRh = 99;
+  assert(!humidityLimit.valid());
+
   ControlSettingsStore first;
   first.begin();
   assert(first.available() && !first.persisted());

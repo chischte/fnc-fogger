@@ -6,7 +6,7 @@ struct PiTerms {
   float sum = 0;
 };
 
-// Conditional integration prevents windup at either actuator limit.
+// Bound I to 0..maximum and stop accumulation into upper output saturation.
 class PiController {
  public:
   PiController(float gain, float integralSeconds) : gain_(gain), integralSeconds_(integralSeconds) {}

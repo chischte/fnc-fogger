@@ -1,6 +1,34 @@
 # PI commissioning · 12 November 2026
 
-## Current revision 3.5.7: retain humidity integral during fan pauses
+## Firmware 3.5.9: calibrated humidity target up to 98%
+
+Humidity setpoints are limited to 70-98% in firmware validation, API and viewer.
+The target uses the calibrated SHT45 value (raw RH plus the stored calibration
+offset). Existing offsets are preserved. Automatic fogger output remains 0-50%.
+The raw SCD41 >=95% condensation fault is removed. There is no high-humidity
+cutoff or normal-overshoot PI reset; signed P and nonnegative I regulate output.
+Existing invalid/stale sensor, network and fan-RPM handling remains unchanged.
+Manual output and the 100% calibration routine are unchanged.
+
+## Firmware 3.5.8: continuous PI with anti-windup
+
+Automatic limits are fan 80% and fogger 50% (100 ms ON / 100 ms OFF at 50%).
+Normal humidity overshoot, including the previous target + 0.5% threshold,
+no longer clears P/I. CO2 PI also retains terms at zero output, without the
+previous 50 ppm restart deadband. P may be negative. I stays within 0-80% for
+CO2 and 0-50% for humidity. Actual output remains clamped to 0 through the
+channel maximum. Positive integration is blocked when its candidate P+I sum
+would exceed the output maximum. Negative error can always unwind I down to
+zero, even at zero output, without building negative integral debt.
+Gains and integral times are unchanged. Fan-RPM pauses still freeze humidity I.
+Invalid sensors and the separate raw SCD41 condensation threshold (95% RH)
+retain their existing fault/reset behavior.
+Viewer PI axes span -20 to 100%; yellow horizontal lines mark the current
+50% fogger and 80% fan limits. P terms outside the displayed range remain recorded.
+Historical ranges retain their recorded terms; yellow lines show current limits.
+
+
+## Previous revision 3.5.7: retain humidity integral during fan pauses
 
 Normal missing/zero RPM now inhibits actual fogger output without clearing the
 humidity PI integral. Humidity validity and upper-limit checks run before this

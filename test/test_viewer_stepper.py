@@ -76,14 +76,14 @@ class SetpointStepperTests(unittest.TestCase):
         self.assertFalse(stepper.plus.active)
         self.assertFalse(stepper.on_change.called)
 
-    def test_humidity_uses_integer_steps_and_stops_at_70_and_99(self):
+    def test_humidity_uses_integer_steps_and_stops_at_70_and_98(self):
         stepper = self.make_stepper(HUMIDITY_LEVELS, 70)
-        for expected in range(71, 100):
+        for expected in range(71, 99):
             stepper._step(1)
             self.assertEqual(stepper.value, expected)
         stepper._step(1)
-        self.assertEqual(stepper.value, 99)
-        for expected in range(98, 69, -1):
+        self.assertEqual(stepper.value, 98)
+        for expected in range(97, 69, -1):
             stepper._step(-1)
             self.assertEqual(stepper.value, expected)
         stepper._step(-1)

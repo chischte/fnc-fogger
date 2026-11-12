@@ -20,6 +20,9 @@ AUTOSAVE_DELAY_SECONDS = 3
 AUTOSAVE_RETRY_SECONDS = 5
 
 TERM_STYLES = (("p", "p", ":"), ("i", "i", "--"), ("sum", "sum", "-"))
+PI_OUTPUT_LIMITS = {"humidity": 50, "co2": 80}
+PI_LIMIT_COLOR = "#e6c229"
+
 CHANNEL_COLORS = {"humidity": "#2878a8", "co2": "#7b2cbf"}
 
 
@@ -258,9 +261,12 @@ class CommandPanel:
                 values = frame[f"{channel}_{term}"] if not frame.empty and not humidity_locked else []
                 axis.plot(timestamps, values, label=label, color=CHANNEL_COLORS[channel],
                           linestyle=style, linewidth=1.4, zorder=3)
-            axis.set_ylim(0, 100)
-            axis.set_yticks([0, 25, 50, 75, 100])
-            axis.spines["bottom"].set_position(("data", 0))
+            output_limit = PI_OUTPUT_LIMITS[channel]
+            axis.axhline(output_limit, color=PI_LIMIT_COLOR, linewidth=0.6,
+                         linestyle=":", zorder=2)
+            axis.set_ylim(-20, 100)
+            axis.set_yticks([-20, 0, 25, 50, 75, 100])
+            axis.spines["bottom"].set_position(("axes", 0))
             if limits is not None:
                 axis.set_xlim(limits)
             axis.xaxis.set_major_locator(mdates.AutoDateLocator(minticks=3, maxticks=5))
