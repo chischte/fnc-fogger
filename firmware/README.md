@@ -166,3 +166,15 @@ The compact timing row has its own frame directly below the main controls.
 Cyclic Mist now holds both PI loops during ON, with fixed fan 50% and fogger
 100%. Both resume with retained I after ON, excluding mist time from integration.
 OFF is 10-60 minutes in steps of 5; older shorter pauses migrate to 10.
+
+## Cyclic Mist per hour (firmware 3.6.3)
+
+The viewer offers one ON-time stepper: 0 (disabled) or 1-10 minutes per hour.
+The pause is calculated as 60 minus the ON time, so 5 minutes means 5 minutes
+of mist followed by 55 minutes of normal PI operation. Settings changes retain
+both PI integrals and all PI gains. A changed schedule starts a new mist phase.
+The API also retains support for legacy independent pause values; firmware 3.6.3
+accepts integer pauses from 10 to 60 minutes. Existing saved schedules are
+unchanged until the hourly setting is explicitly submitted. A firmware install
+requires a reboot and therefore resets volatile PI state; do not install while
+that state must be preserved.

@@ -39,14 +39,20 @@ class CyclicMistTests(unittest.TestCase):
         return response
 
     def test_validated_minute_steps_and_bounds(self):
-        self.assertEqual(MIST_PAUSE_LEVELS, tuple(range(10, 61, 5)))
+        self.assertEqual(MIST_PAUSE_LEVELS, tuple(range(10, 61)))
         for time in (1, 10):
             for pause in (10, 15, 60):
                 self.assertEqual(CyclicMistSettings(True, time, pause).mist_time_min, time)
-        for args in ((True, 0, 10), (True, 11, 10), (True, 1, 11), (True, 1, 61),
+        for args in ((True, 0, 10), (True, 11, 10), (True, 1, 61),
                      (True, 1, 1), (True, 1.5, 10), (1, 1, 10), (True, True, 10)):
             with self.subTest(args=args), self.assertRaises(ValueError):
                 CyclicMistSettings(*args)
+
+    def test_hourly_schedule_keeps_total_duration_at_sixty_minutes(self):
+        for minutes in range(11):
+            values = CyclicMistSettings.hourly(minutes)
+            self.assertEqual(values.mist_time_min + values.mist_pause_min, 60)
+            self.assertEqual(values.enabled, minutes > 0)
 
     def test_zero_on_is_off_and_increasing_it_activates_the_cycle(self):
         self.assertEqual(CyclicMistSettings(False, 0, 10).fields()["enabled"], 0)
@@ -56,7 +62,7 @@ class CyclicMistTests(unittest.TestCase):
         panel.update(DARK_THEME)
         self.assertEqual(panel.cyclic.mist_time.value, 0)
         panel.cyclic.mist_time._step(1)
-        self.assertEqual(self.collector.cyclic_mist_commands.get_nowait(), CyclicMistSettings(True, 1, 10))
+        self.assertEqual(self.collector.cyclic_mist_commands.get_nowait(), CyclicMistSettings(True, 1, 59))
 
     def test_latest_command_is_sent_and_device_confirmation_is_required(self):
         self.collector.submit_cyclic_mist(CyclicMistSettings(True, 1, 10))
@@ -96,36 +102,31 @@ class CyclicMistTests(unittest.TestCase):
         panel.update(DARK_THEME)
         self.assertEqual(panel.humidity.levels[-1], 99)
         self.assertTrue(panel.cyclic.enabled)
-        self.assertEqual(panel.cyclic.label.get_text(), "Cyclic Mist [min]")
+        self.assertEqual(panel.cyclic.label.get_text(), "Cyclic Mist [min/h]")
         self.assertFalse(hasattr(panel.cyclic, "toggle"))
         self.assertEqual(panel.cyclic.mist_time.label.get_ha(), "center")
-        self.assertEqual(panel.cyclic.mist_pause.label.get_ha(), "center")
         self.assertFalse(panel.cyclic.mist_time.value_text.get_visible())
-        self.assertFalse(panel.cyclic.mist_pause.value_text.get_visible())
         self.assertTrue(panel.cyclic.frame.get_visible())
         self.assertLess(panel.cyclic.frame.get_y() + panel.cyclic.frame.get_height(),
                                panel.frame.get_y())
-        self.assertEqual(panel.cyclic.mist_time.label.get_text(), "ON 3")
-        self.assertEqual(panel.cyclic.mist_pause.label.get_text(), "OFF 20")
+        self.assertEqual(panel.cyclic.mist_time.label.get_text(), "3")
+        self.assertFalse(hasattr(panel.cyclic, "mist_pause"))
         self.assertEqual(panel.cyclic.mist_time.value, 3)
         panel.cyclic.mist_time._step(1)
-        self.assertEqual(self.collector.cyclic_mist_commands.get_nowait(), CyclicMistSettings(True, 4, 20))
+        self.assertEqual(self.collector.cyclic_mist_commands.get_nowait(), CyclicMistSettings(True, 4, 56))
         for expected in (3, 2, 1, 0):
             panel.cyclic.mist_time._step(-1)
             self.assertEqual(self.collector.cyclic_mist_commands.get_nowait(),
-                             CyclicMistSettings(expected > 0, expected, 20))
-        for field in (panel.cyclic.mist_time, panel.cyclic.mist_pause):
+                             CyclicMistSettings.hourly(expected))
+        for field in (panel.cyclic.mist_time,):
             self.assertTrue(field.ax.get_visible())
         box = panel.editor.get_position()
-        row = [panel.cyclic.label_axis.get_position(), panel.cyclic.mist_time.ax.get_position(),
-               panel.cyclic.mist_pause.ax.get_position()]
+        row = [panel.cyclic.label_axis.get_position(), panel.cyclic.mist_time.ax.get_position()]
         self.assertTrue(all(abs(bounds.y0 - row[0].y0) < 1e-9 for bounds in row))
         self.assertLess(row[0].x1, row[1].x0)
-        self.assertLess(row[1].x1, row[2].x0)
         self.assertAlmostEqual(row[0].x0, panel.co2.ax.get_position().x0)
-        for group, button in ((row[1], panel.co2.minus), (row[2], panel.co2.plus)):
-            self.assertAlmostEqual(group.x0, button.ax.get_position().x0)
-            self.assertAlmostEqual(group.width, button.ax.get_position().width)
+        self.assertAlmostEqual(row[1].x0, panel.co2.minus.ax.get_position().x0)
+        self.assertAlmostEqual(row[1].x1, panel.co2.plus.ax.get_position().x1)
         panel.set_visible(False)
         self.assertFalse(panel.cyclic.label_axis.get_visible())
 
@@ -141,7 +142,7 @@ class CyclicMistTests(unittest.TestCase):
         self.assertTrue(panel.cyclic.mist_time.active)
         for _ in range(3):
             panel.cyclic.mist_time._step(-1)
-        self.assertEqual(self.collector.cyclic_mist_commands.get_nowait(), CyclicMistSettings(False, 0, 20))
+        self.assertEqual(self.collector.cyclic_mist_commands.get_nowait(), CyclicMistSettings(False, 0, 60))
 
     def test_device_state_can_resume_after_offline_without_enabling_from_viewer(self):
         saved = CyclicMistSettings(True, 10, 60)

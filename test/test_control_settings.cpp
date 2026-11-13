@@ -70,7 +70,7 @@ int main() {
   cyclic.mistMinutes = 0;
   assert(saveCyclicMistSettings(cyclic));
   assert(loadCyclicMistSettings(restored) && !restored.enabled && restored.mistMinutes == 0);
-  cyclic.pauseMinutes = 11;
+  cyclic.pauseMinutes = 61;
   assert(!saveCyclicMistSettings(cyclic));
   struct LegacyCyclicSettings { uint32_t version; CyclicMistSettings values; };
   const LegacyCyclicSettings legacy = {1, {true, 3, 1}};

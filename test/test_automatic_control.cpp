@@ -349,7 +349,11 @@ int main() {
   CyclicMist timer;
   assert(!timer.configure({true, 0, 10}, 0));
   assert(!timer.configure({true, 11, 10}, 0));
-  assert(!timer.configure({true, 1, 11}, 0));
+  assert(timer.configure({true, 1, 59}, 0));
+  timer.poll(60000);
+  assert(!timer.misting() && timer.remainingMs(60000) == 3540000);
+  timer.poll(3600000);
+  assert(timer.misting());
   assert(timer.configure({true, 1, 10}, 0xFFFFFF00U));
   timer.poll(0xFFFFFF00U + 60000U);
   assert(!timer.misting() && timer.remainingMs(0xFFFFFF00U + 60000U) == 600000);
@@ -372,7 +376,10 @@ int main() {
   const float fanIntegral = mist.co2Terms().i;
   const float fanP = mist.co2Terms().p;
   assert(mistIntegral > 0);
+  assert(mist.configureCyclicMist({true, 2, 58}, 5065000));
+  assert(mist.humidityTerms().i == mistIntegral && mist.co2Terms().i == fanIntegral);
   assert(mist.configureCyclicMist({true, 1, 10}, 5065000));
+  assert(mist.humidityTerms().i == mistIntegral && mist.co2Terms().i == fanIntegral);
   mist.poll(5065000, input, settings, false, false);
   assert(mist.enabled() && mist.foggerPercent() == 100 && mist.foggerOn(5065000));
   assert(mist.humidityTerms().i == mistIntegral);

@@ -9,7 +9,7 @@ struct CyclicMistSettings {
 
   bool valid() const {
     return mistMinutes <= 10 && (!enabled || mistMinutes > 0) && pauseMinutes >= 10 &&
-           pauseMinutes <= 60 && pauseMinutes % 5 == 0;
+           pauseMinutes <= 60;
   }
 };
 

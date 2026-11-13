@@ -153,9 +153,9 @@ class CommandPanel:
             field.layout([box.x0 + box.width * .04, bottom,
                           box.width * .92, height])
             field.value_text.set_position(((.65 - .04) / .92, .5))
-            for button, left in ((field.minus, .34), (field.plus, .74)):
+            for button, left in ((field.minus, .362), (field.plus, .762)):
                 button.ax.set_position([box.x0 + box.width * left, bottom,
-                                        box.width * .22, height])
+                                        box.width * .198, height])
         self.cyclic.layout(box, self.co2)
 
     def _layout_mode_buttons(self, box):

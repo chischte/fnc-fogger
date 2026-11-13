@@ -446,3 +446,11 @@ values, missing-sample hold without integral updates, timeout at 15 s, 10% fault
 output, fault display separation and skipped startup pulses. The updated Command
 Mode was rendered and inspected without a Save button. Viewer restart is needed
 to activate autosave and the revised fault/PWM display in an already open window.
+
+## Casing moisture observation (2026-11-13)
+
+User measurement: 10 minutes of active Cyclic Mist increased the casing mass
+by approximately **1 g** (about **0.1 g/min** under the observed conditions).
+Cyclic Mist uses 100% fogger output and 50% fan output during the mist phase.
+The duration refers to active mist time, excluding pauses. This is the measured
+water uptake of the casing, not the total water output of the fogger.
