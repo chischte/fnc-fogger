@@ -6,7 +6,7 @@ from matplotlib.widgets import Button
 CO2_LEVELS = (tuple(range(500, 2001, 100))
               + tuple(range(2500, 5001, 500))
               + tuple(range(6000, 15001, 1000)))
-HUMIDITY_LEVELS = tuple(range(70, 99))
+HUMIDITY_LEVELS = tuple(range(70, 100))
 
 
 class SetpointStepper:
@@ -62,7 +62,7 @@ class SetpointStepper:
         self.label.set_color(theme["text"])
         self.value_text.set_color(theme["text"])
         for button in (self.minus, self.plus):
-            button.color = theme["card"] if button.active else theme["button_off"]
-            button.hovercolor = theme["grid"]
+            button.color = theme["card"]
+            button.hovercolor = theme["card"]
             button.ax.set_facecolor(button.color)
             button.label.set_color(theme["text"] if button.active else theme["muted"])

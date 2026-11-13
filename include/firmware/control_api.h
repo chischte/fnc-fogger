@@ -8,6 +8,7 @@
 #include "firmware/automatic_control.h"
 #include "firmware/humidity_calibration.h"
 
+bool parseCyclicMistSettings(const String& body, CyclicMistSettings& settings);
 bool parseControlSettings(const String& body, ControlSettings& settings);
 bool parseHumidityReference(const String& body, float& sht, float& scd);
 bool parseManualSettings(const String& body, bool& active, uint8_t& fan, uint8_t& fogger, bool& renew);

@@ -89,6 +89,7 @@ class WebServer {
   bool manualRequest_ = false;
   bool automaticRequest_ = false;
   bool calibrationRequest_ = false;
+  bool cyclicMistRequest_ = false;
   String controlBody_;
   BacklogReader backlogReader_;
   ClientState clientState_ = ClientState::idle;

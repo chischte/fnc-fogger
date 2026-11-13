@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 
 MAX_CO2_PPM = 20000
 MIN_HUMIDITY_RH = 70
-MAX_HUMIDITY_RH = 98
+MAX_HUMIDITY_RH = 99
 MAX_CONTROL_SAMPLES = 2160
 
 
@@ -127,6 +127,7 @@ class ControlMonitor:
         self._fault = False
         self._parameters = {}
         self._calibration = {}
+        self._cyclic_mist = {}
         self._actuators = actuator_telemetry({})
 
     def ingest(self, payload):
@@ -136,6 +137,7 @@ class ControlMonitor:
                 self._online = True
                 self._manual_supported = False
                 self._manual = None
+                self._cyclic_mist = {}
                 self._supported = False
                 self._enabled = False
                 self._actuators = actuator_telemetry({})
@@ -153,6 +155,8 @@ class ControlMonitor:
             self._manual_supported = manual.get("supported") is True
             self._manual_timeout_ms = manual.get("lease_ms", 30000)
             self._manual = ManualOutputs.from_payload(manual) if self._manual_supported else None
+            cyclic = control.get("cyclic_mist", {})
+            self._cyclic_mist = cyclic if isinstance(cyclic, dict) else {}
             self._setpoints = setpoints
             self._supported = control.get("settings_supported") is True
             self._persisted = persisted
@@ -192,6 +196,7 @@ class ControlMonitor:
                 "automatic_humidity_invalid": "Humidity invalid or stale: fogger OFF.",
                 "automatic_waiting_for_fan": "Waiting for fan tach: fogger OFF.",
                 "automatic_humidity_limit": "Humidity limit reached: fogger OFF.",
+                "automatic_cyclic_mist": "Cyclic mist: fan 50%, fogger 100%; both PI controllers held.",
                 "automatic_running": "CO2 and humidity PI active.",
             }
             if control.get("reason") in commissioning:
@@ -223,6 +228,7 @@ class ControlMonitor:
                     "pi_reset_supported": self._pi_reset_supported,
                     "pi_reset_count": self._pi_reset_count,
                     "calibration": dict(self._calibration),
+                    "cyclic_mist": dict(self._cyclic_mist),
                     "fogger_enabled": self._fogger_enabled,
                     "fault": self._fault,
                     "parameters": dict(self._parameters),

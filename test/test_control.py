@@ -114,7 +114,7 @@ class ControlDataTests(unittest.TestCase):
         self.assertEqual(self.monitor.snapshot()["setpoints"], Setpoints(1200, 92))
 
     def test_setpoint_ranges_and_nonfinite_values(self):
-        for co2, humidity in ((-1, 90), (20001, 90), (1000, 69), (1000, 99), (1000, 101),
+        for co2, humidity in ((-1, 90), (20001, 90), (1000, 69), (1000, 100), (1000, 101),
                               (float("nan"), 90), (1000, float("inf"))):
             with self.subTest(co2=co2, humidity=humidity), self.assertRaises(ValueError):
                 Setpoints(co2, humidity)

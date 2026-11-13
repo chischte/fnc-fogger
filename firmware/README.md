@@ -145,3 +145,24 @@ Retunes both PI channels with stronger P and unchanged integral gains:
 - Humidity: Kp: 1.5 %/%RH | Ki: 0.1 %/(%RH·min) | Ti: 15 min
 
 Limits, anti-windup, setpoints and calibration are unchanged from 3.5.9.
+
+## 3.6.0
+
+Adds device-side Cyclic Mist with persistent On/Off state, 1-10 minute mist
+time and 1-10/15-60 minute pause settings. Mist phases override fogger output
+to continuous 100% while holding humidity PI. Normal humidity PI resumes in
+the pause; CO2 PI continues. Saved cycles survive reboot and continue during
+Wi-Fi loss. Manual mode/calibration temporarily take priority. Defaults Off.
+Maximum calibrated humidity setpoint increases from 98% to 99%.
+
+## 3.6.1
+
+Adds ON=0 as a persistable disabled Cyclic Mist duration. Positive ON durations
+1-10 minutes enable the cycle in the viewer; the separate toggle is removed.
+The compact timing row has its own frame directly below the main controls.
+
+## 3.6.2
+
+Cyclic Mist now holds both PI loops during ON, with fixed fan 50% and fogger
+100%. Both resume with retained I after ON, excluding mist time from integration.
+OFF is 10-60 minutes in steps of 5; older shorter pauses migrate to 10.

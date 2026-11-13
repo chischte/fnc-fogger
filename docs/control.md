@@ -1,5 +1,62 @@
 # Control concept
 
+## Firmware 3.6.2: hold both PI loops during mist
+
+During the ON phase, Cyclic Mist holds both CO2 and humidity P/I terms,
+commands the fan to a fixed 50% and fogger to 100% (subject to the existing
+sensor/fault and fan-RPM checks). Both loops resume with retained I and current
+P when the mist phase ends. Mist duration is excluded from both integration
+intervals, including a held sensor sample at the transition. The fan graph's
+output label reports actual PWM rather than the held CO2 PI sum.
+
+The minimum OFF duration is 10 minutes; choices are 10-60 in steps of 5.
+Saved older pauses of 1-9 minutes migrate to 10 without disabling the cycle.
+ON remains 0 (disabled) or 1-10 minutes. ON/value and OFF/value are each
+centered between their minus/plus buttons. The frame and alignment are unchanged.
+
+## Firmware 3.6.1: ON = 0 disables Cyclic Mist
+
+Cyclic Mist is a single row in its own narrow frame attached directly below
+the main controls: Cyclic Mist [min] | minus ON value plus | minus OFF value plus.
+There is no separate toggle button. ON can be 0-10 minutes; ON=0 saves the cycle
+as disabled. Selecting 1-10 enables it immediately. OFF remains 1-10 minutes,
+then 15-60 in steps of 5. Disabled settings from 3.6.0 are displayed as ON=0.
+Changing an already enabled cycle restarts its phase with the new duration.
+The saved state, reboot behavior and WLAN-independent operation are unchanged.
+
+## Firmware 3.6.0: persistent Cyclic Mist and 99% target
+
+The maximum selectable calibrated humidity target is now 99% in firmware,
+API and viewer. Existing PI gains and normal automatic output limits are unchanged.
+
+Control Panel includes Mist Time (1-10 minutes, steps of 1), Mist Pause
+(1-10 minutes, then 15-60 in steps of 5), and a Cyclic Mist On/Off
+switch in one centered row below the CO2 and humidity settings. Edits apply directly and are
+confirmed by the ESP32; there is no Apply button.
+
+Enabling starts a mist phase immediately. During this phase the fogger runs
+continuously at 100% (explicit cyclic override of the normal 50% PI cap).
+The humidity P/I terms are held. During Mist Pause the normal humidity PI
+resumes, recalculates P from the current measurement and retains I; mist time
+is excluded from the next integration interval. CO2 PI continues throughout.
+Existing sensor/fault and measured-fan-RPM handling still applies.
+
+The ESP32 runs the nonblocking schedule without a viewer. Settings and the
+On/Off state are saved atomically in NVS namespace `cyclic-mist`, key `settings`.
+They remain enabled until explicitly switched Off. WLAN loss does not stop the
+cycle or the associated automatic regulation. On reboot a saved enabled cycle
+starts a new mist phase once automatic operation can start. Manual mode and
+calibration temporarily take priority without disabling the saved cycle.
+Firmware maintenance pauses outputs; saved cyclic settings survive the update.
+First installation defaults to Off, 1 minute mist, 10 minutes pause.
+
+API: `POST /api/control/cyclic-mist` with `enabled=0|1`, `mist_time_min`,
+`mist_pause_min`; invalid steps and failed NVS writes are rejected without
+changing the active configuration. GET `/api/control` and `/api/current`
+report `control.cyclic_mist` (supported, enabled, minute settings, phase and
+remaining_ms). The background logger records this JSON and actual fogger duty
+in the device database's `control_samples`, independently of the viewer.
+
 ## Recorded setpoint lines
 
 The viewer's humidity and CO2 sensor graphs show observed setpoints as green

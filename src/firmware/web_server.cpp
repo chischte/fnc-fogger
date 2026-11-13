@@ -2,6 +2,7 @@
 
 #include "firmware/measurement_json.h"
 #include "firmware/control_api.h"
+#include "firmware/cyclic_mist_store.h"
 #include "firmware/time_utils.h"
 #include "wifi-credentials.h"
 #include "web_ui.h"
@@ -221,6 +222,7 @@ void WebServer::readUploadBytes(size_t& byteBudget, uint32_t now) {
 }
 
 void WebServer::handleRequest() {
+  cyclicMistRequest_ = false;
   String method;
   String path;
   if (!requestMethodAndPath(method, path)) {
@@ -257,6 +259,10 @@ void WebServer::handleRequest() {
     calibrationRequest_ = true;
     manualRequest_ = automaticRequest_ = false;
     prepareControlSettings();
+  } else if (method == "POST" && path == "/api/control/cyclic-mist") {
+    cyclicMistRequest_ = true;
+    manualRequest_ = automaticRequest_ = calibrationRequest_ = false;
+    prepareControlSettings();
   } else if (method == "GET" && path == "/api/measurement") {
     startApiResponse();
   } else if (method == "GET" && path == "/api/current") {
@@ -277,11 +283,11 @@ void WebServer::handleRequest() {
 }
 
 void WebServer::prepareControlSettings() {
-  if ((manualRequest_ || automaticRequest_ || calibrationRequest_) && (!manual_ || !actuators_ || !actuators_->hardwareReady)) {
+  if ((manualRequest_ || automaticRequest_ || calibrationRequest_ || cyclicMistRequest_) && (!manual_ || !actuators_ || !actuators_->hardwareReady)) {
     startResponse(503, "text/plain", "Manual outputs unavailable.");
     return;
   }
-  if (!manualRequest_ && !automaticRequest_ && !calibrationRequest_ && !controlSettings_.available()) {
+  if (!manualRequest_ && !automaticRequest_ && !calibrationRequest_ && !cyclicMistRequest_ && !controlSettings_.available()) {
     startResponse(503, "text/plain", "Persistent control settings unavailable.");
     return;
   }
@@ -296,6 +302,22 @@ void WebServer::prepareControlSettings() {
 }
 
 void WebServer::finishControlSettings() {
+  if (cyclicMistRequest_) {
+    CyclicMistSettings settings;
+    if (!automatic_ || !parseCyclicMistSettings(controlBody_, settings) ||
+        (settings.enabled && (!automatic_->enabled() || automatic_->fault()) &&
+         !automatic_->cyclicMist().settings().enabled)) {
+      startResponse(422, "text/plain", "Invalid cyclic mist request or automatic mode unavailable.");
+      return;
+    }
+    if (!saveCyclicMistSettings(settings)) {
+      startResponse(503, "text/plain", "Cyclic mist settings could not be persisted.");
+      return;
+    }
+    automatic_->configureCyclicMist(settings, millis());
+    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_));
+    return;
+  }
   if (calibrationRequest_) {
     if (!calibration_ || !automatic_) {
       startResponse(503, "text/plain", "Humidity reference unavailable.");

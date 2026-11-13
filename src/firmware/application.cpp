@@ -4,6 +4,7 @@
 #include "firmware/esp32_hardware.h"
 
 #include "firmware/time_utils.h"
+#include "firmware/cyclic_mist_store.h"
 
 namespace {
 constexpr uint32_t SERIAL_BAUD_RATE = 115200;
@@ -33,6 +34,10 @@ void Application::begin() {
   sensors_.begin(now);
   measurements_.begin(now);
   controlSettings_.begin();
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+  CyclicMistSettings cyclic;
+  if (loadCyclicMistSettings(cyclic)) automatic_.restoreCyclicMist(cyclic, now);
+#endif
   webServer_.begin(now);
 }
 

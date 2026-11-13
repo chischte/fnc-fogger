@@ -12,6 +12,7 @@ from matplotlib.patches import Rectangle
 from .control_data import Setpoints
 from .viewer_manual import ManualPanel
 from .viewer_automatic import AutomaticPanel
+from .viewer_cyclic_mist import CyclicMistPanel
 from .viewer_format import whole_percent, rounded_rpm
 from .viewer_stepper import CO2_LEVELS, HUMIDITY_LEVELS, SetpointStepper
 from .viewer_control_history import ControlHistoryCache
@@ -61,7 +62,10 @@ def actuator_graph_labels(state):
         fogger_duty = latest.get("humidity_sum")
     humidity = (f"fogger @ {whole_percent(fogger_duty)}%\n"
                 f"on: {seconds(values.get('on_time_s'))}s | off: {seconds(values.get('off_time_s'), 2)}s")
-    co2 = f"fan @ {whole_percent(latest.get('co2_sum'))}%\n{rounded_rpm(values.get('rpm'))}rpm"
+    fan_duty = values.get("pwm_percent")
+    if fan_duty is None:
+        fan_duty = latest.get("co2_sum")
+    co2 = f"fan @ {whole_percent(fan_duty)}%\n{rounded_rpm(values.get('rpm'))}rpm"
     if state.get("fault"):
         co2 += f" | Fan: {whole_percent(values.get('pwm_percent'))}% [fault]"
     return humidity, co2
@@ -98,6 +102,7 @@ class CommandPanel:
         self.humidity.set_val(90)
         self.manual = ManualPanel(figure, collector, self._refresh_manual)
         self.automatic = AutomaticPanel(figure, collector, self._refresh_manual)
+        self.cyclic = CyclicMistPanel(figure, collector, self._refresh_manual, self.editor)
         self.set_visible(False)
 
     def _refresh_manual(self):
@@ -139,9 +144,28 @@ class CommandPanel:
         box = self.editor.get_position()
         self.manual.layout(box)
         self.automatic.layout(box)
-        for field, y in ((self.co2, 0.43), (self.humidity, 0.10)):
-            field.layout([box.x0 + box.width * 0.06, box.y0 + box.height * y,
-                          box.width * 0.94, box.height * 0.17])
+        self.frame.set_bounds(0, 0 if self.manual.selected else .28, 1,
+                              1 if self.manual.selected else .72)
+        self._layout_mode_buttons(box)
+        for field, y in ((self.co2, .54), (self.humidity, .32)):
+            bottom = box.y0 + box.height * y
+            height = box.height * .16
+            field.layout([box.x0 + box.width * .04, bottom,
+                          box.width * .92, height])
+            field.value_text.set_position(((.65 - .04) / .92, .5))
+            for button, left in ((field.minus, .34), (field.plus, .74)):
+                button.ax.set_position([box.x0 + box.width * left, bottom,
+                                        box.width * .22, height])
+        self.cyclic.layout(box, self.co2)
+
+    def _layout_mode_buttons(self, box):
+        positions = [(self.manual.toggle, .47, .49)]
+        if not self.manual.selected:
+            positions.append((self.automatic.button, .04, .40))
+        for button, left, width in positions:
+            button.ax.set_position([box.x0 + box.width * left,
+                                    box.y0 + box.height * .76,
+                                    box.width * width, box.height * .16])
 
     def set_visible(self, visible):
         self.visible = visible
@@ -150,6 +174,7 @@ class CommandPanel:
         for widget in (self.co2, self.humidity):
             widget.set_active(visible)
         self.manual.set_visible(visible)
+        self.cyclic.set_visible(visible and not self.manual.selected)
         if not visible:
             self.automatic.button.ax.set_visible(False)
         self.layout()
@@ -184,6 +209,8 @@ class CommandPanel:
         self._maybe_save(state)
         manual_state = self.manual.update(state, self.visible, theme)
         automatic_state = self.automatic.update(state, self.visible, self.manual.selected, theme)
+        cyclic_state = self.cyclic.update(state, self.visible and not self.manual.selected, theme)
+        self.layout()
         history_window = None
         if self.visible and self.database is not None:
             try:
@@ -197,7 +224,7 @@ class CommandPanel:
         render_state = (tuple(theme.items()), tuple(limits) if limits is not None else None,
                         setpoints, state["supported"], state["online"], state["enabled"],
                         state["message"], len(samples), samples[-1]["timestamp"] if samples else None,
-                        actuator_graph_labels(graph_state), manual_state, automatic_state,
+                        actuator_graph_labels(graph_state), manual_state, automatic_state, cyclic_state,
                         pi_parameter_label(graph_state, "co2"), pi_parameter_label(graph_state, "humidity"),
                         self.history.revision, self._history_error,
                         self.feedback, self.pending, self.dirty, self.visible)
@@ -226,6 +253,8 @@ class CommandPanel:
         feedback = self.manual.feedback if self.manual.selected or self.manual.pending else self.feedback
         if feedback:
             message = feedback + "\n" + message
+        if self.cyclic.feedback and not self.manual.selected:
+            message = self.cyclic.feedback + "\n" + message
         if self.automatic.feedback and not self.manual.selected:
             message = self.automatic.feedback + "\n" + message
         self.status.set_text(textwrap.fill(message, 68))

@@ -11,6 +11,12 @@ class ViewerFormatTests(unittest.TestCase):
                  "actuators": {"duty_percent": 0, "on_time_s": 0, "off_time_s": None}}
         self.assertEqual(actuator_graph_labels(state)[0], "fogger @ 0%\non: 0s | off: --s")
 
+    def test_cyclic_mist_fan_label_shows_fixed_output_instead_of_held_pi_sum(self):
+        state = {"online": True, "enabled": True,
+                 "samples": [{"co2_sum": 17}],
+                 "actuators": {"pwm_percent": 50, "rpm": 2900}}
+        self.assertEqual(actuator_graph_labels(state)[1], "fan @ 50%\n2900rpm")
+
     def test_rpm_rounding_respects_ranges_and_missing_values(self):
         for value, expected in [(0, "0"), (324, "300"), (325, "350"),
                                 (975, "1000"), (1000, "1000"), (1050, "1100"),

@@ -8,6 +8,7 @@ import urllib.request
 
 from . import logger
 from .control_data import ControlMonitor, Setpoints, ManualOutputs
+from .cyclic_mist import CyclicMistSettings
 
 
 class LanceCollector:
@@ -23,6 +24,8 @@ class LanceCollector:
         self.manual_results = queue.Queue()
         self.automatic_commands = queue.Queue(maxsize=1)
         self.automatic_results = queue.Queue()
+        self.cyclic_mist_commands = queue.Queue(maxsize=1)
+        self.cyclic_mist_results = queue.Queue()
         self._manual_lease = None
         self._manual_renewed_at = 0
         self.control = ControlMonitor(database)
@@ -42,6 +45,7 @@ class LanceCollector:
                 self._send_pending_manual()
                 self._send_pending_automatic()
                 self._send_pending_setpoints()
+                self._send_pending_cyclic_mist()
                 payload = logger.fetch_json(self.lance.url + "/api/current")
                 if self.stop_event.is_set():
                     break
@@ -94,6 +98,37 @@ class LanceCollector:
             self.command_results.put((True, "Saved on the device and in SQLite."))
         except Exception as error:
             self.command_results.put((False, f"Unconfirmed: {error}. Check device values again."))
+
+    def submit_cyclic_mist(self, values):
+        state = self.control.snapshot()
+        if (not isinstance(values, CyclicMistSettings) or not state["online"]
+                or not state["cyclic_mist"].get("supported")
+                or (values.enabled and (not state["enabled"] or state.get("fault"))
+                    and not state["cyclic_mist"].get("enabled"))):
+            raise ValueError("Cyclic mist requires an online device with supported automatic mode.")
+        self._clear_commands(self.cyclic_mist_commands)
+        self.cyclic_mist_commands.put_nowait(values)
+        self.command_event.set()
+
+    def _send_pending_cyclic_mist(self):
+        try:
+            values = self.cyclic_mist_commands.get_nowait()
+        except queue.Empty:
+            return
+        try:
+            request = urllib.request.Request(
+                self.lance.url + "/api/control/cyclic-mist",
+                data=urllib.parse.urlencode(values.fields()).encode("ascii"),
+                headers={"Content-Type": "application/x-www-form-urlencoded"})
+            with urllib.request.urlopen(request, timeout=8) as response:
+                control = json.load(response)
+            confirmed = control.get("cyclic_mist", {})
+            if not confirmed.get("supported") or CyclicMistSettings.from_payload(confirmed) != values:
+                raise ValueError("Device did not confirm cyclic mist settings.")
+            self.control.ingest({"control": control})
+            self.cyclic_mist_results.put((True, "Cyclic mist saved on device.", values))
+        except Exception as error:
+            self.cyclic_mist_results.put((False, f"Cyclic mist unconfirmed: {error}", values))
 
     def submit_manual(self, values):
         state = self.control.snapshot()

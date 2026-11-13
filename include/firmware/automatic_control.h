@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "firmware/control_settings.h"
 #include "firmware/pi_controller.h"
+#include "firmware/cyclic_mist.h"
 
 namespace AutomaticLimits {
 constexpr float CO2_KP = 0.04f;
@@ -12,6 +13,7 @@ constexpr float HUMIDITY_TI_SECONDS = 900;
 constexpr uint8_t FAN_MIN_PERCENT = 0;
 constexpr uint8_t FAN_MAX_PERCENT = 80;
 constexpr uint8_t FAN_FAULT_PERCENT = 10;
+constexpr uint8_t CYCLIC_MIST_FAN_PERCENT = 50;
 constexpr uint8_t FOGGER_MAX_PERCENT = 50;
 constexpr uint8_t FAN_STALL_CHECK_PERCENT = 10;
 constexpr uint32_t FAN_START_GRACE_MS = 5000;
@@ -41,6 +43,15 @@ class AutomaticControl {
   void setEnabled(bool enabled, uint32_t now);
   void releaseToManual();
   void resetIntegrals();
+  bool configureCyclicMist(const CyclicMistSettings& settings, uint32_t now) {
+    if (settings.enabled && (!enabled_ || fault_) && !cyclicMist_.settings().enabled) return false;
+    return cyclicMist_.configure(settings, now);
+  }
+  void restoreCyclicMist(const CyclicMistSettings& settings, uint32_t now) {
+    cyclicMist_.configure(settings, now);
+  }
+  const CyclicMist& cyclicMist() const { return cyclicMist_; }
+
   void resumeIfIdle(uint32_t now, const ControlInput& input, bool manualActive,
                     bool networkAvailable, bool maintenance);
   void stop(const char* reason);
@@ -64,6 +75,7 @@ class AutomaticControl {
   void updateFan(uint32_t now, const ControlInput& input, const ControlSettings& settings);
   void updateFogger(uint32_t now, const ControlInput& input, const ControlSettings& settings);
   void inhibitFogger(const char* reason);
+  CyclicMist cyclicMist_;
   PiController co2Pi_{AutomaticLimits::CO2_KP, AutomaticLimits::CO2_TI_SECONDS};
   PiController humidityPi_{AutomaticLimits::HUMIDITY_KP, AutomaticLimits::HUMIDITY_TI_SECONDS};
   bool enabled_ = false;
@@ -76,6 +88,7 @@ class AutomaticControl {
   float lastValidCo2_ = 0;
   uint32_t lastValidCo2At_ = 0;
   uint32_t co2At_ = 0;
+  uint32_t co2ResumedAt_ = 0;
   uint32_t humidityAt_ = 0;
   uint32_t humidityResumedAt_ = 0;
   uint32_t fanStartedAt_ = 0;

@@ -1,5 +1,6 @@
 #include <Preferences.h>
 #include "firmware/control_settings_store.h"
+#include "firmware/cyclic_mist_store.h"
 
 extern "C" { int _fltused = 0; }
 
@@ -10,6 +11,8 @@ int main() {
   humidityLimit.humidityRh = 98;
   assert(humidityLimit.valid());
   humidityLimit.humidityRh = 99;
+  assert(humidityLimit.valid());
+  humidityLimit.humidityRh = 100;
   assert(!humidityLimit.valid());
 
   ControlSettingsStore first;
@@ -50,5 +53,30 @@ int main() {
   ControlSettingsStore unavailable;
   unavailable.begin();
   assert(!unavailable.available() && !unavailable.save(selected));
+  Preferences::failOpen = false;
+  CyclicMistSettings cyclic{true, 10, 60};
+  assert(saveCyclicMistSettings(cyclic));
+  CyclicMistSettings restored;
+  assert(loadCyclicMistSettings(restored));
+  assert(restored.enabled && restored.mistMinutes == 10 && restored.pauseMinutes == 60);
+  Preferences::failWrite = true;
+  cyclic.enabled = false;
+  assert(!saveCyclicMistSettings(cyclic));
+  assert(loadCyclicMistSettings(restored) && restored.enabled);
+  Preferences::failWrite = false;
+  assert(saveCyclicMistSettings(cyclic));
+  assert(loadCyclicMistSettings(restored) && !restored.enabled);
+  assert(restored.mistMinutes == 10 && restored.pauseMinutes == 60);
+  cyclic.mistMinutes = 0;
+  assert(saveCyclicMistSettings(cyclic));
+  assert(loadCyclicMistSettings(restored) && !restored.enabled && restored.mistMinutes == 0);
+  cyclic.pauseMinutes = 11;
+  assert(!saveCyclicMistSettings(cyclic));
+  struct LegacyCyclicSettings { uint32_t version; CyclicMistSettings values; };
+  const LegacyCyclicSettings legacy = {1, {true, 3, 1}};
+  Preferences migrationStorage;
+  assert(migrationStorage.putBytes("settings", &legacy, sizeof(legacy)) == sizeof(legacy));
+  assert(loadCyclicMistSettings(restored));
+  assert(restored.enabled && restored.mistMinutes == 3 && restored.pauseMinutes == 10);
   return 0;
 }

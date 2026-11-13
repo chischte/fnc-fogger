@@ -18,6 +18,37 @@ String piJson(const PiTerms& terms) {
 }
 }  // namespace
 
+bool parseCyclicMistSettings(const String& body, CyclicMistSettings& settings) {
+  bool enabledFound = false, mistFound = false, pauseFound = false;
+  int start = 0;
+  while (start < static_cast<int>(body.length())) {
+    const int end = body.indexOf('&', start);
+    const String field = end < 0 ? body.substring(start) : body.substring(start, end);
+    float value;
+    if (field == "enabled=0" || field == "enabled=1") {
+      if (enabledFound) return false;
+      settings.enabled = field == "enabled=1";
+      enabledFound = true;
+    } else if (field.startsWith("mist_time_min=")) {
+      if (mistFound || !parseNumber(field.substring(14), value) ||
+          value < 0 || value > 10 || value != floorf(value)) return false;
+      settings.mistMinutes = static_cast<uint8_t>(value);
+      mistFound = true;
+    } else if (field.startsWith("mist_pause_min=")) {
+      if (pauseFound || !parseNumber(field.substring(15), value) ||
+          value < 1 || value > 60 || value != floorf(value)) return false;
+      settings.pauseMinutes = static_cast<uint8_t>(value);
+      pauseFound = true;
+    } else {
+      return false;
+    }
+    if (end < 0) break;
+    start = end + 1;
+    if (start == static_cast<int>(body.length())) return false;
+  }
+  return enabledFound && mistFound && pauseFound && settings.valid();
+}
+
 bool parseHumidityReference(const String& body, float& sht, float& scd) {
   const int separator = body.indexOf('&');
   return body.startsWith("sht_raw=") && separator > 8 &&
@@ -113,6 +144,16 @@ String buildControlJson(const ControlSettingsStore& store, const ActuatorStatus*
   json += ",\"pi_reset_count\":" + String(automatic ? automatic->resetCount() : 0);
   json += ",\"fogger_enabled\":";
   json += AutomaticLimits::FOGGER_ENABLED ? "true" : "false";
+  json += ",\"cyclic_mist\":{\"supported\":";
+  json += automatic ? "true" : "false";
+  const CyclicMistSettings cyclic = automatic ? automatic->cyclicMist().settings() : CyclicMistSettings{};
+  json += ",\"enabled\":";
+  json += cyclic.enabled ? "true" : "false";
+  json += ",\"mist_time_min\":" + String(cyclic.mistMinutes);
+  json += ",\"mist_pause_min\":" + String(cyclic.pauseMinutes);
+  json += ",\"misting\":";
+  json += automatic && automatic->cyclicMist().misting() ? "true" : "false";
+  json += ",\"remaining_ms\":" + String(automatic ? automatic->cyclicMist().remainingMs(millis()) : 0) + "}";
   json += ",\"parameters\":{\"co2_kp\":" + String(AutomaticLimits::CO2_KP, 3);
   json += ",\"co2_ti_s\":" + String(AutomaticLimits::CO2_TI_SECONDS, 0);
   json += ",\"humidity_kp\":" + String(AutomaticLimits::HUMIDITY_KP, 3);

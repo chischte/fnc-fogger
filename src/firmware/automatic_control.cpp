@@ -13,7 +13,7 @@ void AutomaticControl::resetIntegrals() {
 void AutomaticControl::resumeIfIdle(uint32_t now, const ControlInput& input,
                                    bool manualActive, bool networkAvailable,
                                    bool maintenance) {
-  if (enabled_ || manualActive || !networkAvailable || maintenance ||
+  if (enabled_ || manualActive || (!networkAvailable && !cyclicMist_.settings().enabled) || maintenance ||
       !input.hardwareReady || !input.co2Valid || !isfinite(input.co2) ||
       input.co2 < 0 || now - input.co2At >= CO2_MAX_AGE_MS) return;
   setEnabled(true, now);
@@ -62,7 +62,7 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
                             const ControlSettings& settings, bool networkAvailable,
                             bool maintenance) {
   if (!enabled_) return;
-  if (maintenance || !networkAvailable) {
+  if (maintenance || (!networkAvailable && !cyclicMist_.settings().enabled)) {
     stop(maintenance ? "automatic_update" : "automatic_wifi_lost");
     return;
   }
@@ -90,7 +90,14 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
     fail("automatic_co2_invalid", true);
     return;
   }
-  updateFan(now, effective, settings);
+  cyclicMist_.poll(now);
+  if (cyclicMist_.misting()) {
+    if (fanPercent_ < FAN_STALL_CHECK_PERCENT) fanStartedAt_ = now;
+    fanPercent_ = CYCLIC_MIST_FAN_PERCENT;
+    co2Seen_ = false;
+  } else {
+    updateFan(now, effective, settings);
+  }
   // Below the measured starting duty, zero RPM is expected rather than a fault.
   if (fanPercent_ < FAN_STALL_CHECK_PERCENT) fanStartedAt_ = now;
   if (fanPercent_ >= FAN_STALL_CHECK_PERCENT &&
@@ -106,7 +113,10 @@ void AutomaticControl::updateFan(uint32_t now, const ControlInput& input,
                                  const ControlSettings& settings) {
   const float error = input.co2 - settings.co2Ppm;
   if (!co2Seen_ || input.co2At != co2At_) {
-    const float seconds = co2Seen_ ? (input.co2At - co2At_) / 1000.0f : 0;
+    if (!co2Seen_) co2ResumedAt_ = now;
+    const uint32_t sampleElapsed = co2Seen_ ? input.co2At - co2At_ : 0;
+    const uint32_t activeElapsed = now - co2ResumedAt_;
+    const float seconds = (sampleElapsed < activeElapsed ? sampleElapsed : activeElapsed) / 1000.0f;
     const float output = co2Pi_.update(error, seconds, 0, FAN_MAX_PERCENT);
     if (!fanDemand_ && output > 0) fanStartedAt_ = now;
     fanDemand_ = output > 0;
@@ -140,6 +150,12 @@ void AutomaticControl::updateFogger(uint32_t now, const ControlInput& input,
     foggerPercent_ = 0;
     humiditySeen_ = false;
     reason_ = "automatic_waiting_for_fan";
+    return;
+  }
+  if (cyclicMist_.misting()) {
+    foggerPercent_ = 100;
+    humiditySeen_ = false;
+    reason_ = "automatic_cyclic_mist";
     return;
   }
   reason_ = "automatic_running";

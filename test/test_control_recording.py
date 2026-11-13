@@ -33,6 +33,23 @@ class ControlRecordingTests(unittest.TestCase):
                         "fogger": {"on": False},
                         "setpoints": {"co2_ppm": 1000, "humidity_rh": 90}}}
 
+    def test_cyclic_mist_settings_and_override_are_recorded(self):
+        self.payload["control"].update(
+            enabled=True, reason="automatic_cyclic_mist",
+            cyclic_mist={"supported": True, "enabled": True, "mist_time_min": 3,
+                         "mist_pause_min": 20, "misting": True, "remaining_ms": 1000},
+            humidity={"p": -1, "i": 25, "sum": 24},
+            fogger={"on": True, "duty_percent": 100})
+        self.payload["control"]["manual"]["active"] = False
+        MeasurementRecorder(self.db).record_live(self.payload)
+        duty, raw = self.db.execute("SELECT fogger_percent,control_json FROM control_samples").fetchone()
+        self.assertEqual(duty, 100)
+        recorded = json.loads(raw)
+        self.assertEqual(recorded["cyclic_mist"]["mist_time_min"], 3)
+        self.assertEqual(recorded["cyclic_mist"]["mist_pause_min"], 20)
+        self.assertTrue(recorded["cyclic_mist"]["misting"])
+        self.assertEqual(recorded["humidity"]["i"], 25)
+
     def test_setpoint_changes_are_recorded_without_a_new_sensor_sample(self):
         recorder = MeasurementRecorder(self.db)
         now = datetime(2026, 11, 13, 12, tzinfo=timezone.utc)
