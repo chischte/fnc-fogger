@@ -7,6 +7,7 @@ Requirements:
 """
 
 import sys
+import sqlite3
 from datetime import timedelta
 from pathlib import Path
 from functools import partial
@@ -51,6 +52,7 @@ TOGGLE_BUTTON_HEIGHT_INCHES = 0.37
 CONTROL_ROW_TOP = 0.09
 X_AXIS_LABEL_SPACE_INCHES = 0.45
 CONTROL_BUTTON_GAP_INCHES = 0.10
+SETPOINT_COLOR = "#43b86b"
 
 
 def current_theme() -> dict:
@@ -271,7 +273,7 @@ def create_toggle_button(fig: "plt.Figure", center_x: float,
     return button, background
 
 
-def plot_series(ax: "plt.Axes", df: pd.DataFrame, s: dict) -> None:
+def plot_series(ax: "plt.Axes", df: pd.DataFrame, s: dict, setpoint_history=None) -> None:
     theme = current_theme()
     ax.clear()
     col = s["col"]
@@ -299,7 +301,16 @@ def plot_series(ax: "plt.Axes", df: pd.DataFrame, s: dict) -> None:
         ax.plot(df["timestamp"], df[overlay_column], color=overlay["color"],
                 linewidth=1.2, linestyle=overlay["style"], zorder=4,
                 label=overlay["label"])
-    if overlays or s.get("line_label"):
+    setpoint_column = {"humidity_corrected_rh": "humidity_setpoint",
+                       "co2_ppm": "co2_setpoint"}.get(col)
+    has_setpoint = (setpoint_column is not None and setpoint_history is not None
+                    and not setpoint_history.empty
+                    and setpoint_history[setpoint_column].notna().any())
+    if has_setpoint:
+        ax.step(setpoint_history["timestamp"], setpoint_history[setpoint_column],
+                where="post", color=SETPOINT_COLOR, linestyle=":", linewidth=1,
+                label="Setpoint", zorder=4)
+    if overlays or s.get("line_label") or has_setpoint:
         ax.legend(fontsize=8, loc="upper left", framealpha=0.7,
                   facecolor=theme["card"], edgecolor=theme["grid"],
                   labelcolor=theme["text"])
@@ -477,16 +488,26 @@ def range_index_for_click(x_position: float) -> int:
 def draw(fig: "plt.Figure", box_axes: list, chart_axes: list,
          range_axis: "plt.Axes", footer_text: "plt.Text",
          preserve_view: bool = False, data_cache=None,
-         skip_unchanged: bool = False, database=None, csv=None, control_monitor=None) -> None:
+         skip_unchanged: bool = False, database=None, csv=None, control_monitor=None,
+         control_history=None) -> None:
     preserved_limits = (
         [(axis.get_xlim(), axis.get_ylim()) for axis in chart_axes]
         if preserve_view else None
     )
 
+    history = None
+    history_changed = False
+    if control_history is not None:
+        try:
+            previous_history_revision = control_history.revision
+            history = control_history.load(database or DB_FILE)
+            history_changed = control_history.revision != previous_history_revision
+        except (OSError, sqlite3.Error) as exc:
+            print(f"Could not read recorded setpoints: {exc}", file=sys.stderr)
     try:
         previous_revision = data_cache.revision if data_cache else None
         df_all = data_cache.load(database or DB_FILE, csv or CSV_FILE) if data_cache else load_data()
-        if skip_unchanged and data_cache and data_cache.revision == previous_revision:
+        if skip_unchanged and not history_changed and data_cache and data_cache.revision == previous_revision:
             return
     except Exception as exc:
         print(f"Could not read measurements: {exc}", file=sys.stderr)
@@ -505,8 +526,10 @@ def draw(fig: "plt.Figure", box_axes: list, chart_axes: list,
     control_state = control_monitor.snapshot() if control_monitor else None
     setpoints = control_state["setpoints"] if control_state else None
     draw_value_boxes(box_axes, last, setpoints, control_state)
+    if history is not None and not history.empty:
+        history = history.loc[history["timestamp"].between(df["timestamp"].min(), df["timestamp"].max())]
     for ax, s in zip(chart_axes, SERIES):
-        plot_series(ax, df, s)
+        plot_series(ax, df, s, history)
     if preserved_limits:
         for axis, series, (x_limits, y_limits) in zip(chart_axes, SERIES, preserved_limits):
             axis.set_xlim(x_limits)
@@ -593,6 +616,7 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None,
     chart_axes = [fig.add_subplot(gs_charts[r, 0] if command_mode else gs_charts[r, :])
                   for r in range(3)]
     command_panel = CommandPanel(fig, gs_charts, collector, database=database)
+    render = partial(render, control_history=command_panel.history)
 
     command_panel.set_visible(command_mode)
 

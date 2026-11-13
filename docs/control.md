@@ -1,5 +1,21 @@
 # Control concept
 
+## Recorded setpoint lines
+
+The viewer's humidity and CO2 sensor graphs show observed setpoints as green
+dotted step lines labeled Setpoint. Temperature has no setpoint line.
+The lines use recorded history rather than extending today's targets into the
+past. Time-range selection, offline viewing and viewer restarts preserve the
+historical values; missing history, recording gaps and reboots break the line.
+
+The independent logger already stores targets on every live poll in each
+device database, `control_samples.co2_setpoint_ppm` and
+`control_samples.humidity_setpoint_rh`, plus `control_json.setpoints` and
+`received_at`. Changes are recorded even when the sensor sequence is unchanged
+or manual mode is active. `control_setpoints` holds only the latest confirmed
+pair; it is not the historical source. No firmware or database migration is
+required for these lines. Old sensor backfill cannot recreate past setpoints.
+
 ## Firmware 3.5.10: stronger proportional response
 
 The evening-review proposal is now selected for both channels:

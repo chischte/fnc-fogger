@@ -1,4 +1,4 @@
-"""Persist observed actuator state independently of sensor sample deduplication."""
+"""Persist observed actuators and setpoints independently of sensor deduplication."""
 import json
 
 SCHEMA = """

@@ -14,6 +14,7 @@ from .control_data import actuator_telemetry
 
 PI_COLUMNS = tuple(f"{channel}_{term}" for channel in ("humidity", "co2")
                    for term in ("p", "i", "sum"))
+SETPOINT_COLUMNS = ("humidity_setpoint", "co2_setpoint")
 MAX_CONTINUOUS_GAP_SECONDS = 15
 DISPLAY_TIMEZONE = ZoneInfo("Europe/Zurich")
 
@@ -40,6 +41,11 @@ def recorded_sample(row):
               "fogger_enabled": control.get("fogger_enabled", True),
               "actuators": actuator_telemetry(control),
               "parameters": parameters if isinstance(parameters, dict) else {}}
+    setpoints = control.get("setpoints", {})
+    for column, key in (("humidity_setpoint", "humidity_rh"), ("co2_setpoint", "co2_ppm")):
+        value = setpoints.get(key) if isinstance(setpoints, dict) else None
+        valid = isinstance(value, (int, float)) and not isinstance(value, bool)
+        sample[column] = float(value) if valid and math.isfinite(value) and value >= 0 else float("nan")
     for column in PI_COLUMNS:
         channel, term = column.split("_")
         terms = control.get(channel, {})
@@ -84,7 +90,7 @@ class ControlHistoryCache:
             if previous is not None and (sample["boot_id"] != previous["boot_id"] or
                     (sample["timestamp"] - previous["timestamp"]).total_seconds() > MAX_CONTINUOUS_GAP_SECONDS):
                 gap = dict(sample, gap=True, timestamp=sample["timestamp"] - pd.Timedelta(microseconds=1))
-                gap.update({column: float("nan") for column in PI_COLUMNS})
+                gap.update({column: float("nan") for column in (*PI_COLUMNS, *SETPOINT_COLUMNS)})
                 samples.append(gap)
             samples.append(sample)
             previous = sample

@@ -33,6 +33,17 @@ class ControlRecordingTests(unittest.TestCase):
                         "fogger": {"on": False},
                         "setpoints": {"co2_ppm": 1000, "humidity_rh": 90}}}
 
+    def test_setpoint_changes_are_recorded_without_a_new_sensor_sample(self):
+        recorder = MeasurementRecorder(self.db)
+        now = datetime(2026, 11, 13, 12, tzinfo=timezone.utc)
+        recorder.record_live(self.payload, now)
+        self.payload["control"]["setpoints"] = {"co2_ppm": 1500, "humidity_rh": 98}
+        recorder.record_live(self.payload, now + timedelta(seconds=5))
+        self.assertEqual(self.db.execute(
+            "SELECT co2_setpoint_ppm,humidity_setpoint_rh FROM control_samples ORDER BY id"
+        ).fetchall(), [(1000, 90), (1500, 98)])
+        self.assertEqual(self.db.execute("SELECT count(*) FROM measurements").fetchone()[0], 1)
+
     def test_manual_changes_are_recorded_even_when_sensor_sample_is_unchanged(self):
         recorder = MeasurementRecorder(self.db)
         now = datetime(2026, 11, 12, 12, tzinfo=timezone.utc)
