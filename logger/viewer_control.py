@@ -9,7 +9,7 @@ import pandas as pd
 from matplotlib import dates as mdates
 from matplotlib.patches import Rectangle
 
-from .control_data import Setpoints
+from .control_data import Setpoints, HUMIDITY_EMERGENCY_MESSAGE
 from .viewer_manual import ManualPanel
 from .viewer_automatic import AutomaticPanel
 from .viewer_cyclic_mist import CyclicMistPanel
@@ -257,8 +257,12 @@ class CommandPanel:
             message = self.cyclic.feedback + "\n" + message
         if self.automatic.feedback and not self.manual.selected:
             message = self.automatic.feedback + "\n" + message
+        emergency = state.get("humidity_emergency", {}).get("active") is True
+        if emergency:
+            message = HUMIDITY_EMERGENCY_MESSAGE
         self.status.set_text(textwrap.fill(message, 68))
-        self.status.set_color(theme["muted"])
+        self.status.set_color("#ff5252" if emergency else theme["muted"])
+        self.status.set_fontweight("bold" if emergency else "normal")
         for field in (self.co2, self.humidity):
             field.style(theme)
         if self.visible:

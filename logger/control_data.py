@@ -15,6 +15,20 @@ MAX_HUMIDITY_RH = 99
 MAX_CONTROL_SAMPLES = 2160
 
 
+HUMIDITY_EMERGENCY_MESSAGE = (
+    "Emergency mode: humidity too low for over 30 min. Check water/fogger. "
+    "CO2 target: 5,000 ppm. Release: Manual Mode then PI, or restart device.")
+
+
+def effective_co2_target(control, configured):
+    emergency = control.get("humidity_emergency", {})
+    if not isinstance(emergency, dict) or emergency.get("active") is not True:
+        return configured
+    value = emergency.get("co2_target_ppm")
+    return value if (isinstance(value, (int, float)) and not isinstance(value, bool)
+                     and math.isfinite(value) and 0 <= value <= MAX_CO2_PPM) else configured
+
+
 def actuator_telemetry(control):
     values = {}
     for section, field in (("fan", "rpm"), ("fan", "pwm_percent"),
@@ -127,6 +141,7 @@ class ControlMonitor:
         self._fault = False
         self._parameters = {}
         self._calibration = {}
+        self._humidity_emergency = {}
         self._cyclic_mist = {}
         self._actuators = actuator_telemetry({})
 
@@ -158,6 +173,8 @@ class ControlMonitor:
             cyclic = control.get("cyclic_mist", {})
             self._cyclic_mist = cyclic if isinstance(cyclic, dict) else {}
             self._setpoints = setpoints
+            emergency = control.get("humidity_emergency", {})
+            self._humidity_emergency = dict(emergency) if isinstance(emergency, dict) else {}
             self._supported = control.get("settings_supported") is True
             self._persisted = persisted
             self._online = True
@@ -201,6 +218,8 @@ class ControlMonitor:
             }
             if control.get("reason") in commissioning:
                 self._message = commissioning[control["reason"]]
+            if self._humidity_emergency.get("active") is True:
+                self._message = HUMIDITY_EMERGENCY_MESSAGE
             if not persisted:
                 self._message += " Setpoints are factory defaults."
             has_measurement = sample_id[0] is not None and sample_id[1] is not None
@@ -229,6 +248,7 @@ class ControlMonitor:
                     "pi_reset_count": self._pi_reset_count,
                     "calibration": dict(self._calibration),
                     "cyclic_mist": dict(self._cyclic_mist),
+                    "humidity_emergency": dict(self._humidity_emergency),
                     "fogger_enabled": self._fogger_enabled,
                     "fault": self._fault,
                     "parameters": dict(self._parameters),

@@ -46,7 +46,7 @@ int main() {
   assert(hardware.status().hardwareReady && pwmPin == 10);
   assert(pinModes[7] == INPUT_PULLUP && pinValues[3] == LOW);
   hardware.poll(1000, false);
-  assert(pinValues[3] == LOW && pwmDuty == 0 && hardware.status().startupComplete);
+  assert(pinValues[3] == HIGH && pwmDuty == 255 && hardware.status().startupActive);
   for (unsigned pulse = 0; pulse < 100; ++pulse) tachHandler(tachInstance);
   hardware.poll(1500, false);
   hardware.poll(2000, false);

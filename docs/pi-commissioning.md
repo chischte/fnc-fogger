@@ -454,3 +454,22 @@ by approximately **1 g** (about **0.1 g/min** under the observed conditions).
 Cyclic Mist uses 100% fogger output and 50% fan output during the mist phase.
 The duration refers to active mist time, excluding pauses. This is the measured
 water uptake of the casing, not the total water output of the fogger.
+
+## Water consumption observation (2026-11-12 to 2026-11-14)
+
+Device: Primus Popinus @ Lilith (`B8:1F:3F:27:F4:E0`).
+Observation period: 12 November 2026, 19:00 to 14 November 2026, 00:23
+(Europe/Zurich), a duration of 29 h 23 min.
+
+- User-reported water consumption: approximately **0.21 L**.
+- Time-weighted mean CO2: **1,513 ppm**.
+- Time-weighted mean calibrated humidity: **97.4 %RH**.
+- Recorded active Cyclic Mist time: approximately **96 min**; normal PI fogging
+  also operated outside these phases. Do not attribute the total consumption
+  exclusively to Cyclic Mist.
+- Linear equivalent: `0.21 L / (29 + 23/60 h) * 24 h` = approximately
+  **0.172 L per 24 h (172 mL/day)** under the observed operating conditions.
+
+Telemetry gaps totalling about four minutes were excluded from the averages
+and active mist duration. The water-consumption estimate covers the full
+observation period. This is total water consumption, not measured casing uptake.

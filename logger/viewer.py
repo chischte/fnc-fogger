@@ -18,6 +18,7 @@ if __package__:
     from .viewer_window import configure_viewer_window
     from .viewer_control import CommandPanel
     from .viewer_format import whole_percent
+    from .control_data import effective_co2_target
 else:
     import viewer_data
     from viewer_style import DARK_THEME, LIGHT_THEME, SERIES
@@ -25,6 +26,7 @@ else:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from logger.viewer_control import CommandPanel
     from logger.viewer_format import whole_percent
+    from logger.control_data import effective_co2_target
 
 try:
     import pandas as pd
@@ -337,6 +339,8 @@ def draw_control_values(ax, value, series, setpoints, control_state):
     target = None
     if setpoints is not None:
         target = setpoints.humidity_rh if series["col"] == "humidity_corrected_rh" else setpoints.co2_ppm
+    if series["col"] == "co2_ppm" and control_state:
+        target = effective_co2_target(control_state, target)
     difference = value - target if target is not None and pd.notna(value) else None
     output = None
     if control_state and control_state["online"] and control_state["enabled"] and not control_state.get("fault"):
@@ -787,7 +791,7 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None,
                 if not frame.empty:
                     state = collector.control.snapshot()
                     samples = state["samples"]
-                    card_state = (data_cache.revision, state["setpoints"], state["online"],
+                    card_state = (data_cache.revision, state["setpoints"], state.get("humidity_emergency", {}).get("active"), state["online"],
                                   state["enabled"], samples[-1]["timestamp"] if samples else None)
                     if card_state != last_card_state:
                         last_card_state = card_state

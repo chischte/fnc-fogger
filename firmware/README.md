@@ -178,3 +178,30 @@ accepts integer pauses from 10 to 60 minutes. Existing saved schedules are
 unchanged until the hourly setting is explicitly submitted. A firmware install
 requires a reboot and therefore resets volatile PI state; do not install while
 that state must be preserved.
+
+## Firmware 3.6.4: humidity emergency and startup test
+
+During automatic operation, a continuous valid, fresh calibrated humidity deficit
+strictly greater than 10 percentage points for strictly more than 30 minutes
+latches a humidity emergency. Invalid/stale humidity, recovery to the threshold,
+or interrupted automatic operation clears the pending timer. Missing observation
+intervals of 135 seconds or more do not count as continuous evidence.
+
+The effective CO2 target becomes 5,000 ppm, with unchanged PI gains and limits.
+The configured CO2 setpoint stays saved. Both cyclic-mist output overrides are
+suspended while latched, so they cannot force the fan to 50%; normal humidity PI
+continues subject to the existing sensor/RPM checks. The saved mist schedule is
+retained. This is inferred humidification failure, not confirmed empty water.
+
+The latch survives humidity recovery, setpoint edits and Reset PI. Restarting the
+device or entering Manual Mode releases it; returning to PI starts a fresh
+30-minute observation. Existing sensor and fan fault handling retains priority.
+
+The API includes `humidity_emergency.active` and `co2_target_ppm`; the independent
+logger records these in `control_samples.control_json`. Viewer warnings are bold
+red. CO2 SET/DIF and recorded setpoint graphs use the effective target while the
+editable Control Panel keeps the configured target.
+
+Startup testing is enabled again: 1-second initial delay, one 3-second fan pulse
+at 100%, concurrent fogger pulses of 100 ms ON / 100 ms OFF, then a 1-second pause.
+An OTA installation restarts the device and resets volatile PI state.

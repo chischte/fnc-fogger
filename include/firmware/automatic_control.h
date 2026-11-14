@@ -4,6 +4,7 @@
 #include "firmware/control_settings.h"
 #include "firmware/pi_controller.h"
 #include "firmware/cyclic_mist.h"
+#include "firmware/humidity_emergency.h"
 
 namespace AutomaticLimits {
 constexpr float CO2_KP = 0.04f;
@@ -21,7 +22,7 @@ constexpr uint32_t CO2_MAX_AGE_MS = 15000;
 constexpr uint32_t HUMIDITY_MAX_AGE_MS = 135000;
 constexpr uint32_t FOGGER_PULSE_MS = 100;
 constexpr bool FOGGER_ENABLED = true;
-constexpr bool STARTUP_TEST_ENABLED = false;
+constexpr bool STARTUP_TEST_ENABLED = true;
 }
 
 struct ControlInput {
@@ -57,6 +58,11 @@ class AutomaticControl {
   void stop(const char* reason);
   void poll(uint32_t now, const ControlInput& input, const ControlSettings& settings,
             bool networkAvailable, bool maintenance);
+  bool humidityEmergency() const { return humidityEmergency_.active(); }
+  float effectiveCo2Target(float configured) const {
+    return humidityEmergency() ? HumidityEmergency::CO2_TARGET_PPM : configured;
+  }
+  bool cyclicMisting() const { return !humidityEmergency() && cyclicMist_.misting(); }
   bool enabled() const { return enabled_; }
   bool ownsOutputs() const { return ownsOutputs_; }
   bool fault() const { return fault_; }
@@ -76,6 +82,7 @@ class AutomaticControl {
   void updateFogger(uint32_t now, const ControlInput& input, const ControlSettings& settings);
   void inhibitFogger(const char* reason);
   CyclicMist cyclicMist_;
+  HumidityEmergency humidityEmergency_;
   PiController co2Pi_{AutomaticLimits::CO2_KP, AutomaticLimits::CO2_TI_SECONDS};
   PiController humidityPi_{AutomaticLimits::HUMIDITY_KP, AutomaticLimits::HUMIDITY_TI_SECONDS};
   bool enabled_ = false;

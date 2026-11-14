@@ -118,6 +118,10 @@ String buildControlJson(const ControlSettingsStore& store, const ActuatorStatus*
   json += store.persisted() ? "true" : "false";
   json += ",\"setpoints\":{\"co2_ppm\":" + String(settings.co2Ppm, 1);
   json += ",\"humidity_rh\":" + String(settings.humidityRh, 1) + "}";
+  json += ",\"humidity_emergency\":{\"active\":";
+  json += automatic && automatic->humidityEmergency() ? "true" : "false";
+  json += ",\"co2_target_ppm\":" + String(automatic ?
+      automatic->effectiveCo2Target(settings.co2Ppm) : settings.co2Ppm, 1) + "}";
   const char* reason = "not_configured";
   if (actuators) {
     reason = !actuators->hardwareReady ? "hardware_error" :
@@ -152,7 +156,7 @@ String buildControlJson(const ControlSettingsStore& store, const ActuatorStatus*
   json += ",\"mist_time_min\":" + String(cyclic.mistMinutes);
   json += ",\"mist_pause_min\":" + String(cyclic.pauseMinutes);
   json += ",\"misting\":";
-  json += automatic && automatic->cyclicMist().misting() ? "true" : "false";
+  json += automatic && automatic->cyclicMisting() ? "true" : "false";
   json += ",\"remaining_ms\":" + String(automatic ? automatic->cyclicMist().remainingMs(millis()) : 0) + "}";
   json += ",\"parameters\":{\"co2_kp\":" + String(AutomaticLimits::CO2_KP, 3);
   json += ",\"co2_ti_s\":" + String(AutomaticLimits::CO2_TI_SECONDS, 0);

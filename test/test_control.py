@@ -21,6 +21,29 @@ def control_payload(sequence=1, co2=1200, humidity=92, persisted=True, enabled=F
 
 
 class ControlDataTests(unittest.TestCase):
+    def test_humidity_emergency_is_red_bold_and_keeps_configured_target(self):
+        from matplotlib.figure import Figure
+        from logger.viewer_control import CommandPanel
+        from logger.viewer_style import DARK_THEME
+        payload = control_payload(enabled=True)
+        payload["control"]["humidity_emergency"] = {"active": True, "co2_target_ppm": 5000}
+        self.monitor.ingest(payload)
+        collector = LanceCollector(Lance("b81f3f27f4e0", "test.local", 80), self.database)
+        collector.control.ingest(payload)
+        figure = Figure()
+        panel = CommandPanel(figure, figure.add_gridspec(3, 2), collector)
+        panel.set_visible(True)
+        panel.update(DARK_THEME)
+        self.assertEqual(panel.status.get_color(), "#ff5252")
+        self.assertEqual(panel.status.get_fontweight(), "bold")
+        self.assertIn("5,000 ppm", panel.status.get_text())
+        self.assertEqual(panel.co2.value, 1200)
+        self.assertEqual(self.monitor.repository.load().co2_ppm, 1200)
+        payload["control"]["humidity_emergency"]["active"] = False
+        collector.control.ingest(payload)
+        panel.update(DARK_THEME)
+        self.assertEqual(panel.status.get_fontweight(), "normal")
+
     def test_fault_title_distinguishes_fallback_pwm_from_pi_output(self):
         import math
         from logger.viewer_control import actuator_graph_labels

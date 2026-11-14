@@ -20,6 +20,7 @@ void AutomaticControl::resumeIfIdle(uint32_t now, const ControlInput& input,
 }
 
 void AutomaticControl::reset() {
+  humidityEmergency_.clearPending();
   co2Pi_.reset();
   humidityPi_.reset();
   fanDemand_ = false;
@@ -40,6 +41,7 @@ void AutomaticControl::setEnabled(bool enabled, uint32_t now) {
 }
 
 void AutomaticControl::releaseToManual() {
+  humidityEmergency_.release();
   reset();
   enabled_ = false;
   ownsOutputs_ = false;
@@ -90,8 +92,16 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
     fail("automatic_co2_invalid", true);
     return;
   }
+  const bool humidityFresh = input.humidityValid && isfinite(input.humidity) &&
+      input.humidity >= 0 && input.humidity <= 100 &&
+      now - input.humidityAt < HUMIDITY_MAX_AGE_MS;
+  const bool wasEmergency = humidityEmergency();
+  humidityEmergency_.poll(now, humidityFresh &&
+      settings.humidityRh - input.humidity > HumidityEmergency::DEFICIT_RH,
+      HUMIDITY_MAX_AGE_MS);
+  if (!wasEmergency && humidityEmergency()) co2Seen_ = false;
   cyclicMist_.poll(now);
-  if (cyclicMist_.misting()) {
+  if (cyclicMisting()) {
     if (fanPercent_ < FAN_STALL_CHECK_PERCENT) fanStartedAt_ = now;
     fanPercent_ = CYCLIC_MIST_FAN_PERCENT;
     co2Seen_ = false;
@@ -107,11 +117,12 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
     return;
   }
   updateFogger(now, input, settings);
+  if (humidityEmergency()) reason_ = "automatic_humidity_emergency";
 }
 
 void AutomaticControl::updateFan(uint32_t now, const ControlInput& input,
                                  const ControlSettings& settings) {
-  const float error = input.co2 - settings.co2Ppm;
+  const float error = input.co2 - effectiveCo2Target(settings.co2Ppm);
   if (!co2Seen_ || input.co2At != co2At_) {
     if (!co2Seen_) co2ResumedAt_ = now;
     const uint32_t sampleElapsed = co2Seen_ ? input.co2At - co2At_ : 0;
@@ -152,7 +163,7 @@ void AutomaticControl::updateFogger(uint32_t now, const ControlInput& input,
     reason_ = "automatic_waiting_for_fan";
     return;
   }
-  if (cyclicMist_.misting()) {
+  if (cyclicMisting()) {
     foggerPercent_ = 100;
     humiditySeen_ = false;
     reason_ = "automatic_cyclic_mist";

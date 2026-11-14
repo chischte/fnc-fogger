@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 from matplotlib import dates as mdates
 
-from .control_data import actuator_telemetry
+from .control_data import actuator_telemetry, effective_co2_target
 
 PI_COLUMNS = tuple(f"{channel}_{term}" for channel in ("humidity", "co2")
                    for term in ("p", "i", "sum"))
@@ -44,6 +44,8 @@ def recorded_sample(row):
     setpoints = control.get("setpoints", {})
     for column, key in (("humidity_setpoint", "humidity_rh"), ("co2_setpoint", "co2_ppm")):
         value = setpoints.get(key) if isinstance(setpoints, dict) else None
+        if key == "co2_ppm":
+            value = effective_co2_target(control, value)
         valid = isinstance(value, (int, float)) and not isinstance(value, bool)
         sample[column] = float(value) if valid and math.isfinite(value) and value >= 0 else float("nan")
     for column in PI_COLUMNS:

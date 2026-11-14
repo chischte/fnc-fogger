@@ -57,11 +57,11 @@ int main() {
   control.poll(13000, input, settings, true, false);
   assert(control.fanPercent() == 80 && !control.foggerOn(13000));
 
-  // Startup pulses remain disabled; automatic high-humidity state keeps fogger off.
+  // Startup pulses run before the automatic controller takes ownership.
   StartupActuators hardware;
   hardware.begin(0);
   hardware.poll(1000, false);
-  assert(pinValues[3] == LOW && !hardware.status().foggerOn && pwmDuty == 0);
+  assert(pinValues[3] == HIGH && hardware.status().foggerOn && pwmDuty == 255);
   hardware.poll(13000, false, true, &control);
   assert(pwmDuty == 80*255/100 && pinValues[3] == LOW);
 
@@ -417,5 +417,52 @@ int main() {
   assert(mist.foggerPercent() == 100);
   mist.poll(5725003, input, settings, false, true);
   assert(!mist.enabled() && !mist.foggerOn(5725003) && mist.cyclicMist().settings().enabled);
+  HumidityEmergency guard;
+  const uint32_t origin = 0xFFFF0000U;
+  for (uint32_t elapsed = 0; elapsed <= HumidityEmergency::DELAY_MS; elapsed += 1000) {
+    guard.poll(origin + elapsed, true, 135000);
+  }
+  assert(!guard.active());
+  guard.poll(origin + HumidityEmergency::DELAY_MS + 1, true, 135000);
+  assert(guard.active());
+  guard.poll(origin + HumidityEmergency::DELAY_MS + 2, false, 135000);
+  guard.clearPending();
+  assert(guard.active());
+  guard.release();
+  assert(!guard.active());
+  guard.poll(0, true, 135000);
+  guard.poll(1800001, true, 135000);
+  assert(!guard.active()); // An unobserved interval is not a continuous deficit.
+  guard.poll(1800002, false, 135000);
+  guard.poll(1800003, true, 135000);
+  assert(!guard.active());
+
+  AutomaticControl dry;
+  input.hardwareReady = input.co2Valid = input.humidityValid = input.rpmValid = true;
+  input.rpm = 3000;
+  input.co2 = 1800;
+  input.humidity = settings.humidityRh - 11;
+  dry.setEnabled(true, 0);
+  assert(dry.configureCyclicMist({true, 5, 55}, 0));
+  for (uint32_t now = 0; now <= 1801000; now += 1000) {
+    input.co2At = input.humidityAt = now;
+    dry.poll(now, input, settings, true, false);
+  }
+  assert(dry.humidityEmergency() && dry.effectiveCo2Target(1500) == 5000);
+  assert(dry.fanPercent() == 0 && !dry.cyclicMisting());
+  input.co2At = input.humidityAt = 3600000;
+  input.humidity = settings.humidityRh;
+  dry.poll(3600000, input, settings, true, false);
+  assert(dry.cyclicMist().misting() && !dry.cyclicMisting() && dry.fanPercent() == 0);
+  dry.resetIntegrals();
+  assert(dry.humidityEmergency());
+  dry.setEnabled(false, 3600001);
+  dry.setEnabled(true, 3600002);
+  assert(dry.humidityEmergency());
+  dry.releaseToManual();
+  assert(!dry.humidityEmergency());
+  dry.setEnabled(true, 3600003);
+  assert(dry.effectiveCo2Target(1500) == 1500);
+  assert(AutomaticLimits::STARTUP_TEST_ENABLED);
   return 0;
 }
