@@ -20,6 +20,7 @@ class MeasurementController {
   uint32_t bootId() const;
   bool sensorReady() const;
   uint16_t sensorErrorCount() const;
+  const SensorDiagnostics& sensorDiagnostics() const { return sensors_.diagnostics(); }
 
  private:
   void acquire(uint32_t now);

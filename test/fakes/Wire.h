@@ -1,10 +1,23 @@
 #pragma once
 #include <stdint.h>
+struct FakeScdState {
+  bool present = true;
+  bool measuring = false;
+  int bus = 0;
+  int starts = 0;
+  bool requiresReinit = false;
+  uint64_t serial = 1;
+  float offset = 0;
+};
+inline FakeScdState fakeScd;
+
 struct FakeSht {
   bool present = true;
   int bus = 0;
   uint8_t lastCommand = 0;
   int heaterCommands = 0;
+  int resets = 0;
+  bool requiresReset = false;
   bool corrupt = false;
   bool shortResponse = false;
   uint16_t temperature = 26214;
@@ -31,6 +44,12 @@ struct TwoWire {
   void beginTransmission(uint8_t value) { address = value; command = 0; }
   void write(uint8_t value) { command = (command << 8) | value; }
   int endTransmission() {
+    if (address == 0x62) {
+      if (!fakeScd.present || fakeScd.bus != index) return 1;
+      if (command == 0x3F86) fakeScd.measuring = false;
+      if (command == 0x3646) fakeScd.requiresReinit = false;
+      return 0;
+    }
     if (address == 0x70) {
       fakeShtc3.lastCommand = command;
       if (command == 0x7866) ++fakeShtc3.measurementCommands;
@@ -39,6 +58,8 @@ struct TwoWire {
     if (!fakeSht.present || fakeSht.bus != index) return 1;
     fakeSht.lastCommand = command;
     if (command == 0x39) ++fakeSht.heaterCommands;
+    if (command == 0x94) { ++fakeSht.resets; fakeSht.requiresReset = false; }
+    if (fakeSht.requiresReset) return 1;
     return 0;
   }
   uint8_t requestFrom(uint8_t value, uint8_t) {

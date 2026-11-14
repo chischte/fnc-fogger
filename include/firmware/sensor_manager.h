@@ -5,6 +5,7 @@
 #include <Wire.h>
 
 #include "firmware/measurement.h"
+#include "firmware/sensor_diagnostics.h"
 #include "firmware/sht45_sensor.h"
 #include "firmware/shtc3_sensor.h"
 
@@ -17,15 +18,19 @@ class SensorManager {
 
   bool isReady() const;
   uint16_t errorCount() const;
+  const SensorDiagnostics& diagnostics() const { return diagnostics_; }
 
  private:
   enum class InitializationState {
     idle,
     waitingAfterWake,
     waitingAfterStop,
+    waitingAfterReinit,
   };
 
-  void startInitialization(uint32_t now);
+  void startInitialization(uint32_t now, bool recovery = true);
+  void restartSht(uint32_t now);
+  void recoverBus(uint32_t now);
   void continueInitialization(uint32_t now);
   void finishInitialization(uint32_t now);
   void scheduleRetry(uint32_t now);
@@ -40,6 +45,11 @@ class SensorManager {
     uint32_t readAt = 0;
     bool valid = false;
   };
+  SensorDiagnostics diagnostics_;
+  uint32_t lastShtRestartAt_ = 0;
+  uint32_t lastBusRestartAt_ = 0;
+  bool shtRecovering_ = false;
+  bool busRestarted_ = false;
   ShtReading shtReading_;
   Sht45Sensor sht45_;
   Shtc3Sensor shtc3_{Wire};

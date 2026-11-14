@@ -498,3 +498,82 @@ editable Control Panel keeps the configured target.
 Startup testing is enabled again: 1-second initial delay, one 3-second fan pulse
 at 100%, concurrent fogger pulses of 100 ms ON / 100 ms OFF, then a 1-second pause.
 An OTA installation restarts the device and resets volatile PI state.
+
+## Firmware 3.6.5: tolerate brief fan tach gaps
+
+At a commanded fan output of at least 10%, after the existing 5-second startup
+allowance, missing/zero RPM must persist continuously for **more than 5 seconds**
+before `automatic_fan_stalled` is latched. Exactly five seconds is tolerated.
+Any valid positive RPM, output below 10%, or a new startup allowance clears the
+pending stall timer. Brief gaps keep CO2 PI running and preserve its integrator;
+the fogger is paused while RPM is absent, retaining its humidity integral.
+Sustained stalls still use the existing 10% fault output and disable the fogger.
+Installing this firmware restarts the controller and clears the previous latched
+fault and volatile PI integrals; configured gains, targets and mist settings remain.
+
+## Firmware 3.6.6: automatic sensor recovery and outage counters
+
+Failed sensors are retried automatically without rebooting the ESP32. Healthy
+sensors are not restarted periodically. SHT45 invalid scheduled readouts trigger
+a soft reset (0x94); recovery readouts run every 5 seconds, with reset attempts
+limited to once per 30 seconds. Normal 65-second readout and heater scheduling
+resume after a valid reading. Heater/cooldown readings remain excluded.
+
+SCD41 errors or a 15-second measurement timeout restart its initialization:
+wake, stop periodic acquisition, wait, reinitialize (0x3646), wait, restore
+settings and start acquisition. The stop/reinit wait states are nonblocking.
+The ESP32 I2C peripheral is reinitialized at most once per 30 seconds during
+SCD recovery; the shared SHT drivers are also restarted then. This is not a
+physical sensor power cycle and cannot fix sustained electrical interference,
+missing supply, or a slave holding a bus line indefinitely.
+
+CO2 unavailability beyond the existing 15-second last-good-value window now
+pauses automatic operation at fan 10% / fogger OFF and resumes on valid CO2.
+Both PI integrals survive this pause. Missing humidity pauses the humidity PI
+without clearing its integral. Recovery excludes the elapsed pause from PI
+integration. Fan/hardware faults still latch; the humidity emergency remains
+latched until its documented release. No PI gains or saved targets change.
+
+`control.sensor_diagnostics` reports CO2/SHT45 outage episodes, restart attempts,
+last failure/recovery uptime timestamps, I2C restart attempts, and SHT45 heater
+activity/last heater-start uptime. One uninterrupted failure counts once;
+repeated attempts count separately. Counters reset on ESP32 boot, not on sensor
+restart. The viewer displays counts since boot under the Control Panel.
+The background logger preserves the complete diagnostics in
+`control_samples.control_json`, together with receipt timestamp, boot ID,
+actuator duty and cyclic-mist state, allowing comparisons across reboots.
+
+Command references: [SHT4x datasheet](https://sensirion.com/media/documents/33FD6951/662A593A/HT_DS_Datasheet_SHT4x.pdf),
+[SCD4x datasheet](https://admin.sensirion.com/media/documents/48C4B7FB/64C134E7/Sensirion_SCD4x_Datasheet.pdf).
+
+## Firmware 3.6.7: retain learned PI demand until explicit Reset PI
+
+Manual/automatic transitions, Wi-Fi interruptions, sensor recovery, hardware or
+fan faults, setpoint edits, and firmware gain changes no longer clear either
+integral. Inactive periods freeze learned demand and are excluded from elapsed
+integration time on resumption. P is derived from current error/current gain;
+it is recalculated on resumption rather than restored as an old measurement.
+
+The ESP32 saves both integrals as one versioned NVS record (`pi-memory`, key
+`integrals`). Checkpoints run at most 30 seconds apart, with immediate saves on
+control mode changes and during OTA maintenance (bounded 1-second write retry).
+Unchanged snapshots do not write flash. Startup restores validated nonnegative
+integrals within the existing fan/fogger output limits, regardless of firmware
+Kp/Ti. A hard power loss can lose at most the last normal checkpoint interval;
+no integration is performed for time while powered off. Flash failures are
+reported through `control.pi_memory_saved` and a viewer warning; retries continue.
+
+Only an explicit Reset PI clears learned demand in normal operation. The endpoint
+first atomically saves zero; a failed write returns HTTP 503 without changing the
+running integrators. Fan/hardware faults still require their existing release;
+preserving their integrals does not automatically clear their fault latches.
+
+`POST /api/control/pi-memory` accepts `co2_i` and `humidity_i` for explicit state
+restoration/migration. Values must be finite and within 0..80 / 0..50 percent.
+Both are persisted atomically before the live state is restored. This permits
+migration from older firmware which had no NVS checkpoints: capture the old
+live integrals before OTA, then restore them immediately after installation.
+No gain/target/mist configuration is changed by a PI-memory restoration.
+
+This section supersedes earlier descriptions of integral resets on mode changes,
+faults, setpoint edits or firmware restart.

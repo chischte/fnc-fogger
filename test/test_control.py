@@ -44,6 +44,18 @@ class ControlDataTests(unittest.TestCase):
         panel.update(DARK_THEME)
         self.assertEqual(panel.status.get_fontweight(), "normal")
 
+    def test_sensor_counters_are_exposed_without_changing_setpoints(self):
+        from logger.viewer_control import sensor_diagnostics_label
+        payload = control_payload(enabled=True)
+        payload["control"]["sensor_diagnostics"] = {
+            "co2": {"outages": 3, "restarts": 4},
+            "sht45": {"outages": 2, "restarts": 5}, "bus_restarts": 1}
+        self.monitor.ingest(payload)
+        state = self.monitor.snapshot()
+        self.assertIn("CO2 3 | SHT45 2", sensor_diagnostics_label(state))
+        self.assertIn("CO2 4, SHT45 5, bus 1", sensor_diagnostics_label(state))
+        self.assertEqual(state["setpoints"].co2_ppm, 1200)
+
     def test_fault_title_distinguishes_fallback_pwm_from_pi_output(self):
         import math
         from logger.viewer_control import actuator_graph_labels

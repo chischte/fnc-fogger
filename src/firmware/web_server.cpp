@@ -223,6 +223,7 @@ void WebServer::readUploadBytes(size_t& byteBudget, uint32_t now) {
 
 void WebServer::handleRequest() {
   cyclicMistRequest_ = false;
+  piMemoryRequest_ = false;
   String method;
   String path;
   if (!requestMethodAndPath(method, path)) {
@@ -239,11 +240,15 @@ void WebServer::handleRequest() {
     return;
   }
   if (method == "GET" && path == "/api/control") {
-    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_));
+    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_, &measurements_.sensorDiagnostics()));
   } else if (method == "POST" && path == "/api/control/setpoints") {
     calibrationRequest_ = false;
     manualRequest_ = false;
     automaticRequest_ = false;
+    prepareControlSettings();
+  } else if (method == "POST" && path == "/api/control/pi-memory") {
+    piMemoryRequest_ = true;
+    calibrationRequest_ = manualRequest_ = automaticRequest_ = false;
     prepareControlSettings();
   } else if (method == "POST" && path == "/api/control/manual") {
     calibrationRequest_ = false;
@@ -283,11 +288,11 @@ void WebServer::handleRequest() {
 }
 
 void WebServer::prepareControlSettings() {
-  if ((manualRequest_ || automaticRequest_ || calibrationRequest_ || cyclicMistRequest_) && (!manual_ || !actuators_ || !actuators_->hardwareReady)) {
+  if ((manualRequest_ || automaticRequest_ || calibrationRequest_ || cyclicMistRequest_ || piMemoryRequest_) && (!manual_ || !actuators_ || !actuators_->hardwareReady)) {
     startResponse(503, "text/plain", "Manual outputs unavailable.");
     return;
   }
-  if (!manualRequest_ && !automaticRequest_ && !calibrationRequest_ && !cyclicMistRequest_ && !controlSettings_.available()) {
+  if (!manualRequest_ && !automaticRequest_ && !calibrationRequest_ && !cyclicMistRequest_ && !piMemoryRequest_ && !controlSettings_.available()) {
     startResponse(503, "text/plain", "Persistent control settings unavailable.");
     return;
   }
@@ -302,6 +307,21 @@ void WebServer::prepareControlSettings() {
 }
 
 void WebServer::finishControlSettings() {
+  if (piMemoryRequest_) {
+    PiMemory memory;
+    if (!automatic_ || !parsePiMemory(controlBody_, memory)) {
+      startResponse(422, "text/plain", "Invalid PI memory.");
+      return;
+    }
+    if (!savePiMemory(memory)) {
+      startResponse(503, "text/plain", "PI memory could not be saved.");
+      return;
+    }
+    automatic_->restoreMemory(memory);
+    automatic_->setMemorySaved(true);
+    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_, &measurements_.sensorDiagnostics()));
+    return;
+  }
   if (cyclicMistRequest_) {
     CyclicMistSettings settings;
     if (!automatic_ || !parseCyclicMistSettings(controlBody_, settings) ||
@@ -315,7 +335,7 @@ void WebServer::finishControlSettings() {
       return;
     }
     automatic_->configureCyclicMist(settings, millis());
-    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_));
+    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_, &measurements_.sensorDiagnostics()));
     return;
   }
   if (calibrationRequest_) {
@@ -345,7 +365,7 @@ void WebServer::finishControlSettings() {
       manual_->stop();
       automatic_->setEnabled(true, millis());
     }
-    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_));
+    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_, &measurements_.sensorDiagnostics()));
     return;
   }
   if (automaticRequest_) {
@@ -354,8 +374,13 @@ void WebServer::finishControlSettings() {
         startResponse(409, "text/plain", "PI reset requires automatic mode.");
         return;
       }
+      if (!savePiMemory(PiMemory{})) {
+        startResponse(503, "text/plain", "PI reset could not be saved.");
+        return;
+      }
       automatic_->resetIntegrals();
-      startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_));
+      automatic_->setMemorySaved(true);
+      startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_, &measurements_.sensorDiagnostics()));
       return;
     }
     if (!automatic_ || controlBody_ != "enabled=1") {
@@ -364,7 +389,7 @@ void WebServer::finishControlSettings() {
     }
     manual_->stop();
     automatic_->setEnabled(controlBody_ == "enabled=1", millis());
-    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_));
+    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_, &measurements_.sensorDiagnostics()));
     return;
   }
   if (manualRequest_) {
@@ -389,7 +414,7 @@ void WebServer::finishControlSettings() {
       else automatic_->setEnabled(true, millis());
     }
     // Output drivers apply this accepted command on the next application poll.
-    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_));
+    startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_, &measurements_.sensorDiagnostics()));
     return;
   }
   ControlSettings settings;
@@ -402,8 +427,8 @@ void WebServer::finishControlSettings() {
     startResponse(503, "text/plain", "Setpoints could not be persisted.");
     return;
   }
-  if (settingsChanged && automatic_ && automatic_->enabled()) automatic_->setEnabled(true, millis());
-  startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_));
+  if (settingsChanged && automatic_) automatic_->refreshMeasurements();
+  startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_, &measurements_.sensorDiagnostics()));
 }
 
 void WebServer::prepareUpload() {
@@ -485,7 +510,7 @@ String WebServer::buildApiJson(bool includeHistory) const {
   json += ",\"storage_ready\":";
   json += storage_.isDataReady() ? "true" : "false";
   json += ",\"scd_errors\":" + String(measurements_.sensorErrorCount());
-  json += ",\"control\":" + buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_);
+  json += ",\"control\":" + buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_, &measurements_.sensorDiagnostics());
   json += ",\"measurement\":";
   appendMeasurementJson(json, measurements_.current(), measurements_.bootId());
   json += includeHistory ? ",\"history\":[" : "}";

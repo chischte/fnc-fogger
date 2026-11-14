@@ -19,7 +19,7 @@ class ControlSettingsTests(unittest.TestCase):
                 "clang++", "-std=c++17", "-ffreestanding", "-fno-exceptions",
                 "-fno-rtti", "-fno-stack-protector", "-fuse-ld=lld", "-nostdlib",
                 "-DARDUINO_ARCH_ESP32", "-Itest/control_fakes", "-Iinclude",
-                "test/test_control_settings.cpp", "src/firmware/control_settings_store.cpp", "src/esp32/cyclic_mist_store.cpp",
+                "test/test_control_settings.cpp", "src/firmware/control_settings_store.cpp", "src/esp32/cyclic_mist_store.cpp", "src/esp32/pi_memory.cpp",
                 "-Wl,/entry:main,/subsystem:console", "-o", str(executable),
             ]
             compiled = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)

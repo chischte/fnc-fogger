@@ -12,11 +12,44 @@ bool parseNumber(const String& text, float& result) {
   return end != text.c_str() && *end == '\0' && isfinite(result);
 }
 
+String sensorFailureJson(const SensorFailure& status) {
+  String json = "{\"outages\":" + String(status.outages);
+  json += ",\"restarts\":" + String(status.restarts);
+  json += ",\"failed\":";
+  json += status.failed ? "true" : "false";
+  json += ",\"last_failure_ms\":" + String(status.lastFailureMs);
+  json += ",\"last_recovery_ms\":" + String(status.lastRecoveryMs) + "}";
+  return json;
+}
+
 String piJson(const PiTerms& terms) {
   return "{\"p\":" + String(terms.p, 2) + ",\"i\":" + String(terms.i, 2) +
          ",\"sum\":" + String(terms.sum, 2) + "}";
 }
 }  // namespace
+
+bool parsePiMemory(const String& body, PiMemory& memory) {
+  bool co2Found = false, humidityFound = false;
+  int start = 0;
+  while (start < static_cast<int>(body.length())) {
+    const int end = body.indexOf('&', start);
+    const String field = end < 0 ? body.substring(start) : body.substring(start, end);
+    float value;
+    if (field.startsWith("co2_i=")) {
+      if (co2Found || !parseNumber(field.substring(6), value) || value < 0 || value > AutomaticLimits::FAN_MAX_PERCENT) return false;
+      memory.co2 = value;
+      co2Found = true;
+    } else if (field.startsWith("humidity_i=")) {
+      if (humidityFound || !parseNumber(field.substring(11), value) || value < 0 || value > AutomaticLimits::FOGGER_MAX_PERCENT) return false;
+      memory.humidity = value;
+      humidityFound = true;
+    } else return false;
+    if (end < 0) break;
+    start = end + 1;
+    if (start == static_cast<int>(body.length())) return false;
+  }
+  return co2Found && humidityFound;
+}
 
 bool parseCyclicMistSettings(const String& body, CyclicMistSettings& settings) {
   bool enabledFound = false, mistFound = false, pauseFound = false;
@@ -110,7 +143,7 @@ bool parseManualSettings(const String& body, bool& active, uint8_t& fan, uint8_t
 
 String buildControlJson(const ControlSettingsStore& store, const ActuatorStatus* actuators,
                         const ManualControl* manual, const AutomaticControl* automatic,
-                        const HumidityCalibration* calibration) {
+                        const HumidityCalibration* calibration, const SensorDiagnostics* diagnostics) {
   const ControlSettings& settings = store.settings();
   String json = "{\"version\":1,\"settings_supported\":";
   json += store.available() ? "true" : "false";
@@ -122,6 +155,14 @@ String buildControlJson(const ControlSettingsStore& store, const ActuatorStatus*
   json += automatic && automatic->humidityEmergency() ? "true" : "false";
   json += ",\"co2_target_ppm\":" + String(automatic ?
       automatic->effectiveCo2Target(settings.co2Ppm) : settings.co2Ppm, 1) + "}";
+  if (diagnostics) {
+    json += ",\"sensor_diagnostics\":{\"co2\":" + sensorFailureJson(diagnostics->co2);
+    json += ",\"sht45\":" + sensorFailureJson(diagnostics->sht45);
+    json += ",\"bus_restarts\":" + String(diagnostics->busRestarts);
+    json += ",\"last_heater_start_ms\":" + String(diagnostics->lastHeaterStartMs);
+    json += ",\"heater_active\":";
+    json += diagnostics->heaterActive ? "true}" : "false}";
+  }
   const char* reason = "not_configured";
   if (actuators) {
     reason = !actuators->hardwareReady ? "hardware_error" :
@@ -145,6 +186,8 @@ String buildControlJson(const ControlSettingsStore& store, const ActuatorStatus*
   json += automatic ? "true" : "false";
   json += ",\"pi_reset_supported\":";
   json += automatic ? "true" : "false";
+  json += ",\"pi_memory_saved\":";
+  json += automatic && automatic->memorySaved() ? "true" : "false";
   json += ",\"pi_reset_count\":" + String(automatic ? automatic->resetCount() : 0);
   json += ",\"fogger_enabled\":";
   json += AutomaticLimits::FOGGER_ENABLED ? "true" : "false";
@@ -174,9 +217,9 @@ String buildControlJson(const ControlSettingsStore& store, const ActuatorStatus*
   json += reason;
   json += '"';
   json += ",\"humidity\":";
-  json += automaticActive ? piJson(automatic->humidityTerms()) : "{\"p\":null,\"i\":null,\"sum\":null}";
+  json += automatic ? piJson(automatic->humidityTerms()) : "{\"p\":null,\"i\":null,\"sum\":null}";
   json += ",\"co2\":";
-  json += automaticActive ? piJson(automatic->co2Terms()) : "{\"p\":null,\"i\":null,\"sum\":null}";
+  json += automatic ? piJson(automatic->co2Terms()) : "{\"p\":null,\"i\":null,\"sum\":null}";
   json += ",\"fan\":{\"rpm\":";
   json += actuators && actuators->rpmValid ? String(actuators->rpm) : String("null");
   json += ",\"pwm_percent\":";

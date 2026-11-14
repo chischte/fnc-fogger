@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include "firmware/control_settings.h"
 #include "firmware/pi_controller.h"
+#include "firmware/pi_memory.h"
 #include "firmware/cyclic_mist.h"
 #include "firmware/humidity_emergency.h"
 
@@ -18,6 +19,7 @@ constexpr uint8_t CYCLIC_MIST_FAN_PERCENT = 50;
 constexpr uint8_t FOGGER_MAX_PERCENT = 50;
 constexpr uint8_t FAN_STALL_CHECK_PERCENT = 10;
 constexpr uint32_t FAN_START_GRACE_MS = 5000;
+constexpr uint32_t FAN_STALL_TIMEOUT_MS = 5000;
 constexpr uint32_t CO2_MAX_AGE_MS = 15000;
 constexpr uint32_t HUMIDITY_MAX_AGE_MS = 135000;
 constexpr uint32_t FOGGER_PULSE_MS = 100;
@@ -44,6 +46,12 @@ class AutomaticControl {
   void setEnabled(bool enabled, uint32_t now);
   void releaseToManual();
   void resetIntegrals();
+  PiMemory memory() const { return {co2Pi_.terms().i, humidityPi_.terms().i}; }
+  bool restoreMemory(const PiMemory& memory);
+  void refreshMeasurements() { co2Seen_ = humiditySeen_ = false; }
+  uint32_t memoryRevision() const { return memoryRevision_; }
+  void setMemorySaved(bool saved) { memorySaved_ = saved; }
+  bool memorySaved() const { return memorySaved_; }
   bool configureCyclicMist(const CyclicMistSettings& settings, uint32_t now) {
     if (settings.enabled && (!enabled_ || fault_) && !cyclicMist_.settings().enabled) return false;
     return cyclicMist_.configure(settings, now);
@@ -76,8 +84,10 @@ class AutomaticControl {
   const PiTerms& humidityTerms() const { return humidityPi_.terms(); }
 
  private:
-  void reset();
+  void resetRuntimeState();
+  bool fanStalled(uint32_t now, const ControlInput& input);
   void fail(const char* reason, bool hardwareReady);
+  void pauseForCo2();
   void updateFan(uint32_t now, const ControlInput& input, const ControlSettings& settings);
   void updateFogger(uint32_t now, const ControlInput& input, const ControlSettings& settings);
   void inhibitFogger(const char* reason);
@@ -89,9 +99,12 @@ class AutomaticControl {
   bool ownsOutputs_ = false;
   bool fault_ = false;
   bool fanDemand_ = false;
+  bool fanMissing_ = false;
+  uint32_t fanMissingAt_ = 0;
   bool co2Seen_ = false;
   bool humiditySeen_ = false;
   bool co2Available_ = false;
+  bool co2Interrupted_ = false;
   float lastValidCo2_ = 0;
   uint32_t lastValidCo2At_ = 0;
   uint32_t co2At_ = 0;
@@ -103,5 +116,7 @@ class AutomaticControl {
   uint8_t fanPercent_ = 0;
   uint8_t foggerPercent_ = 0;
   uint32_t resetCount_ = 0;
+  uint32_t memoryRevision_ = 0;
+  bool memorySaved_ = false;
   const char* reason_ = "automatic_off";
 };

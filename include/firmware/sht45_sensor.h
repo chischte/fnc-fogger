@@ -7,7 +7,10 @@ class Sht45Sensor {
  public:
   void begin(uint32_t now);
   void poll(uint32_t now);
+  void restart(uint32_t now);
   bool read(float& temperature, float& humidity, uint32_t now);
+  bool heaterActive() const { return pending_ && heating_; }
+  uint32_t lastHeaterStartMs() const { return hasHeated_ ? lastHeaterStartedAt_ : 0; }
   bool heatedReading() const;
   bool coolingReading() const;
   int32_t heaterElapsedMs() const;
@@ -25,6 +28,7 @@ class Sht45Sensor {
   float temperature_ = NAN;
   float humidity_ = NAN;
   bool pending_ = false;
+  bool resetPending_ = false;
   bool valid_ = false;
   bool heating_ = false;
   bool hasHeated_ = false;

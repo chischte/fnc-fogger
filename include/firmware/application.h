@@ -18,6 +18,7 @@ class Application {
 
  private:
   void beginSerial();
+  void checkpointPi(uint32_t now, bool force);
   void pollCalibration(uint32_t now, bool networkAvailable, bool maintenance);
 
   QspiStorage storage_;
@@ -29,6 +30,9 @@ class Application {
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
   StartupActuators actuators_;
   AutomaticControl automatic_;
+  uint32_t lastPiSaveAt_ = 0;
+  uint32_t lastPiSaveAttemptAt_ = 0;
+  uint32_t savedPiRevision_ = 0;
 #endif
   WebServer webServer_;
 };

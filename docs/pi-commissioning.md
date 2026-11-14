@@ -455,6 +455,12 @@ Cyclic Mist uses 100% fogger output and 50% fan output during the mist phase.
 The duration refers to active mist time, excluding pauses. This is the measured
 water uptake of the casing, not the total water output of the fogger.
 
+**Retrospective qualification (14 November 2026):** both fogger membranes were
+replaced at approximately 04:20 Europe/Zurich. The user reports that one membrane
+had stopped working completely; the onset of the failure is unknown. This
+measurement predates the replacement and may reflect reduced fogger output.
+Do not use it as the reference performance of two functioning membranes.
+
 ## Water consumption observation (2026-11-12 to 2026-11-14)
 
 Device: Primus Popinus @ Lilith (`B8:1F:3F:27:F4:E0`).
@@ -473,3 +479,22 @@ Observation period: 12 November 2026, 19:00 to 14 November 2026, 00:23
 Telemetry gaps totalling about four minutes were excluded from the averages
 and active mist duration. The water-consumption estimate covers the full
 observation period. This is total water consumption, not measured casing uptake.
+
+**Retrospective qualification (14 November 2026):** both fogger membranes were
+replaced at approximately 04:20 Europe/Zurich. The user reports that one membrane
+had stopped working completely; the onset of the failure is unknown. This
+measurement predates the replacement and may reflect reduced fogger output.
+Do not use it as the reference performance of two functioning membranes.
+
+## Fogger membrane replacement (2026-11-14, approximately 04:20)
+
+User-reported maintenance: both fogger membranes were replaced. One membrane
+was no longer operating at all. The time at which performance began declining
+is not known, so earlier fogger tests cannot reliably characterize full output.
+
+Treat approximately 04:20 Europe/Zurich as a hardware-change boundary when
+comparing mist output, water consumption, casing uptake and humidity-controller
+response. Earlier observations remain valid descriptions of the tested assembly,
+but should not be extrapolated to the repaired fogger. Repeat the casing-uptake
+and water-consumption measurements to establish a new baseline. Controller gains
+were not changed as part of recording this maintenance event.

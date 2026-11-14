@@ -7,6 +7,7 @@
 
 namespace {
 constexpr uint8_t SCD41_ADDRESS = 0x62;
+constexpr uint16_t I2C_RECOVERY_TIMEOUT_MS = 50;
 
 void printDeviceStatus(uint8_t address, const char* name) {
   Wire.beginTransmission(address);
@@ -38,4 +39,12 @@ void beginEsp32Hardware() {
   printDeviceStatus(Config::SHT45_I2C_ADDRESS, "SHT45");
   printDeviceStatus(SCD41_ADDRESS, "SCD41");
   printDeviceStatus(Config::SHTC3_I2C_ADDRESS, "SHTC3");
+}
+
+bool restartSensorBus() {
+  Wire.end();
+  if (!Wire.begin(Config::I2C_SDA_PIN, Config::I2C_SCL_PIN)) return false;
+  Wire.setClock(Config::I2C_CLOCK_HZ);
+  Wire.setTimeOut(I2C_RECOVERY_TIMEOUT_MS);
+  return true;
 }

@@ -1,15 +1,6 @@
 #pragma once
 #include "Wire.h"
 constexpr uint8_t SCD41_I2C_ADDR_62 = 0x62;
-struct FakeScdState {
-  bool present = true;
-  bool measuring = false;
-  int bus = 0;
-  int starts = 0;
-  uint64_t serial = 1;
-  float offset = 0;
-};
-inline FakeScdState fakeScd;
 class SensirionI2cScd4x {
  public:
   void begin(TwoWire& bus, uint8_t) { bus_ = bus.index; }
@@ -44,6 +35,7 @@ class SensirionI2cScd4x {
     return status();
   }
   int16_t readMeasurement(uint16_t& co2, float& temperature, float& humidity) {
+    if (fakeScd.requiresReinit) return 1;
     co2 = 800;
     temperature = 25;
     humidity = 90;

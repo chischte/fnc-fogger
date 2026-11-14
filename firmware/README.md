@@ -205,3 +205,14 @@ editable Control Panel keeps the configured target.
 Startup testing is enabled again: 1-second initial delay, one 3-second fan pulse
 at 100%, concurrent fogger pulses of 100 ms ON / 100 ms OFF, then a 1-second pause.
 An OTA installation restarts the device and resets volatile PI state.
+
+Firmware **3.6.6** adds automatic SHT45/SCD41 sensor recovery, bounded I2C
+peripheral restarts, outage/restart counters and heater timing diagnostics.
+CO2 sensor interruptions now resume automatically with preserved PI integrals;
+fan and hardware faults remain latched. See [control documentation](../docs/control.md).
+
+Firmware **3.6.7** preserves PI integrals across mode/fault/setpoint transitions
+and restores them from NVS after reboot/OTA or compiled Kp/Ti changes. Normal
+checkpoints are 30 seconds apart; mode changes and OTA force a checkpoint.
+Only explicit Reset PI clears the persisted integrals. Initial migration from
+3.6.6 requires capturing and restoring live integrals once; see [control documentation](../docs/control.md).

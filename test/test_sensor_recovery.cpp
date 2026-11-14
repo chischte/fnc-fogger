@@ -5,9 +5,12 @@ extern "C" { int _fltused = 0; }
 #include "config.h"
 #include "firmware/sensor_manager.h"
 
+bool restartSensorBus() { return true; }
+
 void finishInitialization(SensorManager& sensor, uint32_t started) {
   sensor.poll(started + Config::SCD_WAKE_DELAY_MS);
   sensor.poll(started + Config::SCD_WAKE_DELAY_MS + Config::SCD_STOP_DELAY_MS);
+  sensor.poll(started + Config::SCD_WAKE_DELAY_MS + Config::SCD_STOP_DELAY_MS + 30);
 }
 
 int main() {
@@ -271,5 +274,49 @@ int main() {
     }
   }
   assert(checkedDelayedOffset);
+  fakeSht = FakeSht{};
+  fakeScd = FakeScdState{};
+  SensorManager restarting;
+  restarting.begin(0);
+  finishInitialization(restarting, 0);
+  Measurement firstGood;
+  restarting.read(firstGood, 6000);
+  fakeSht.requiresReset = true;
+  for (uint32_t time = 6010; time <= 71000; time += 10) {
+    restarting.poll(time);
+    if (time % 5000 == 0) { Measurement sample; restarting.read(sample, time); }
+  }
+  Measurement firstFailure;
+  restarting.read(firstFailure, 71000);
+  assert(!firstFailure.humidityValid && fakeSht.resets == 1);
+  assert(restarting.diagnostics().sht45.outages == 1);
+  for (uint32_t time = 71010; time <= 76000; time += 10) restarting.poll(time);
+  Measurement recoveredSht;
+  restarting.read(recoveredSht, 76000);
+  assert(recoveredSht.humidityValid);
+  assert(restarting.diagnostics().sht45.outages == 1 && !restarting.diagnostics().sht45.failed);
+  assert(restarting.diagnostics().sht45.lastRecoveryMs == 76000);
+  fakeScd.requiresReinit = true;
+  uint32_t failedAt = 81000;
+  for (int index = 0; index < Config::SCD_MAX_CONSECUTIVE_ERRORS; ++index) {
+    Measurement failed;
+    restarting.read(failed, failedAt);
+    failedAt += 5000;
+  }
+  assert(restarting.diagnostics().co2.outages >= 1);
+  const uint32_t outageCount = restarting.diagnostics().co2.outages;
+  assert(restarting.diagnostics().co2.restarts >= 1);
+  finishInitialization(restarting, failedAt - 5000);
+  Measurement recoveredCo2;
+  restarting.read(recoveredCo2, failedAt + 6000);
+  assert(recoveredCo2.co2Valid && !fakeScd.requiresReinit);
+  assert(restarting.diagnostics().co2.outages == outageCount && !restarting.diagnostics().co2.failed);
+  SensorFailure episode;
+  episode.observe(false, 1);
+  episode.observe(false, 2);
+  assert(episode.outages == 1);
+  episode.observe(true, 3);
+  episode.observe(false, 4);
+  assert(episode.outages == 2 && episode.lastFailureMs == 4 && episode.lastRecoveryMs == 3);
   return 0;
 }

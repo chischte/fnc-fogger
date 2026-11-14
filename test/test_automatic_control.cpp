@@ -83,13 +83,27 @@ int main() {
   input.co2At = 25000;
   input.rpm = 0;
   control.poll(25000, input, settings, true, false);
-  assert(control.fault() && control.fanPercent() == 10 && !control.foggerOn(25000));
-  input.rpm = 1000;
-  control.poll(25001, input, settings, true, false);
-  assert(control.fault());  // No silent fault restart.
-  control.setEnabled(true, 30000);
-  input.co2At = 10000;
+  const float beforeGapIntegral = control.co2Terms().i;
+  assert(!control.fault() && control.enabled());
   control.poll(30000, input, settings, true, false);
+  assert(!control.fault() && control.co2Terms().i == beforeGapIntegral);
+  input.rpm = 1000;
+  control.poll(30001, input, settings, true, false);
+  assert(!control.fault() && control.co2Terms().i == beforeGapIntegral);
+  input.rpm = 0;
+  input.co2At = 30002;
+  control.poll(30002, input, settings, true, false);
+  input.co2At = 35002;
+  control.poll(35002, input, settings, true, false);
+  assert(!control.fault());
+  control.poll(35003, input, settings, true, false);
+  assert(control.fault() && control.fanPercent() == 10 && !control.foggerOn(35003));
+  input.rpm = 1000;
+  control.poll(35004, input, settings, true, false);
+  assert(control.fault());  // Sustained stalls remain latched.
+  control.setEnabled(true, 36000);
+  input.co2At = 10000;
+  control.poll(36000, input, settings, true, false);
   assert(control.fault());
 
   control.setEnabled(true, 40000);
@@ -134,12 +148,13 @@ int main() {
   input.co2Valid = false;
   control.poll(124999, input, settings, true, false);
   assert(!control.fault());
+  const float beforeSensorLoss = control.co2Terms().i;
   control.poll(125000, input, settings, true, false);
   assert(control.fault() && control.fanPercent() == 10);
   input.co2Valid = true;
   input.co2At = 125001;
   control.poll(125001, input, settings, true, false);
-  assert(control.fault());
+  assert(!control.fault() && control.co2Terms().i == beforeSensorLoss);
 
   AutomaticControl humidity;
   input.co2 = 3000;
@@ -195,7 +210,7 @@ int main() {
   input.humidity = 40;
   input.co2At = input.humidityAt = 280000;
   humidity.poll(280000, input, settings, true, false);
-  assert(humidity.foggerPercent() == 50 && humidity.humidityTerms().i == 0);
+  assert(humidity.foggerPercent() == 50 && humidity.humidityTerms().i > 0);
   input.co2At = 415000;
   humidity.poll(415000, input, settings, true, false);
   assert(humidity.foggerPercent() == 0 && !humidity.fault());
@@ -221,7 +236,8 @@ int main() {
   input.humidityAt = 1100001;
   smooth.poll(1100001, input, settings, true, false);
   assert(smooth.co2Terms().i == 10);
-  // Reset timing for the remaining independent rundown scenario.
+  // Start the independent rundown scenario with an explicit PI reset.
+  smooth.resetIntegrals();
   smooth.setEnabled(true, 500000);
   input.co2At = input.humidityAt = 500000;
   smooth.poll(500000, input, settings, true, false);
@@ -464,5 +480,58 @@ int main() {
   dry.setEnabled(true, 3600003);
   assert(dry.effectiveCo2Target(1500) == 1500);
   assert(AutomaticLimits::STARTUP_TEST_ENABLED);
+  AutomaticControl recovering;
+  input.co2 = settings.co2Ppm + 100;
+  input.humidity = settings.humidityRh - 5;
+  input.co2Valid = input.humidityValid = input.rpmValid = true;
+  input.rpm = 1000;
+  input.co2At = input.humidityAt = 10000000;
+  recovering.setEnabled(true, 10000000);
+  recovering.poll(10000000, input, settings, true, false);
+  input.co2At = input.humidityAt = 10065000;
+  recovering.poll(10065000, input, settings, true, false);
+  const float learnedCo2 = recovering.co2Terms().i;
+  const float learnedHumidity = recovering.humidityTerms().i;
+  assert(learnedCo2 > 0 && learnedHumidity > 0);
+  input.co2Valid = false;
+  recovering.poll(10080000, input, settings, true, false);
+  assert(recovering.fault() && recovering.fanPercent() == 10 && recovering.foggerPercent() == 0);
+  assert(recovering.co2Terms().i == learnedCo2 && recovering.humidityTerms().i == learnedHumidity);
+  input.co2Valid = true;
+  input.co2At = input.humidityAt = 10150000;
+  recovering.poll(10150000, input, settings, true, false);
+  assert(!recovering.fault() && recovering.enabled());
+  assert(recovering.co2Terms().i == learnedCo2 && recovering.humidityTerms().i == learnedHumidity);
+  input.humidityValid = false;
+  recovering.poll(10150001, input, settings, true, false);
+  assert(recovering.foggerPercent() == 0 && recovering.humidityTerms().i == learnedHumidity);
+  const PiMemory learned = recovering.memory();
+  recovering.releaseToManual();
+  assert(recovering.memory() == learned && !recovering.enabled());
+  recovering.setEnabled(true, 20000000);
+  assert(recovering.memory() == learned);
+  recovering.refreshMeasurements();
+  input.co2At = input.humidityAt = 20000000;
+  input.co2Valid = input.humidityValid = true;
+  recovering.poll(20000000, input, settings, true, false);
+  assert(recovering.memory() == learned);
+  recovering.stop("automatic_update");
+  assert(recovering.memory() == learned);
+  recovering.setEnabled(true, 20000001);
+  input.hardwareReady = false;
+  recovering.poll(20000001, input, settings, true, false);
+  assert(recovering.fault() && recovering.memory() == learned);
+  AutomaticControl rebooted;
+  assert(rebooted.restoreMemory(learned));
+  assert(rebooted.memory() == learned);
+  rebooted.setEnabled(true, 0);
+  assert(rebooted.memory() == learned);
+  assert(!rebooted.restoreMemory({81, 10}) && rebooted.memory() == learned);
+  rebooted.resetIntegrals();
+  assert(rebooted.memory().co2 == 0 && rebooted.memory().humidity == 0);
+  PiController retuned(0.08f, 1200);
+  retuned.restoreIntegral(17, 80);
+  retuned.update(100, 0, 0, 80);
+  assert(retuned.terms().i == 17 && retuned.terms().sum == 25);
   return 0;
 }

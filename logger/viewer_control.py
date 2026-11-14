@@ -27,6 +27,17 @@ PI_LIMIT_COLOR = "#e6c229"
 CHANNEL_COLORS = {"humidity": "#2878a8", "co2": "#7b2cbf"}
 
 
+def sensor_diagnostics_label(state):
+    diagnostics = state.get("sensor_diagnostics", {})
+    if not diagnostics:
+        return ""
+    co2 = diagnostics.get("co2", {})
+    sht = diagnostics.get("sht45", {})
+    return (f"Sensor outages: CO2 {co2.get('outages', 0)} | SHT45 {sht.get('outages', 0)}"
+            f" | restarts: CO2 {co2.get('restarts', 0)}, SHT45 {sht.get('restarts', 0)}"
+            f", bus {diagnostics.get('bus_restarts', 0)}")
+
+
 def pi_parameter_label(state, channel):
     parameters = state.get("parameters", {})
     gain = parameters.get(channel + "_kp")
@@ -227,7 +238,7 @@ class CommandPanel:
                         actuator_graph_labels(graph_state), manual_state, automatic_state, cyclic_state,
                         pi_parameter_label(graph_state, "co2"), pi_parameter_label(graph_state, "humidity"),
                         self.history.revision, self._history_error,
-                        self.feedback, self.pending, self.dirty, self.visible)
+                        sensor_diagnostics_label(state), self.feedback, self.pending, self.dirty, self.visible)
         if render_state == self._last_render_state:
             return setpoints
         self._last_render_state = render_state
@@ -260,7 +271,11 @@ class CommandPanel:
         emergency = state.get("humidity_emergency", {}).get("active") is True
         if emergency:
             message = HUMIDITY_EMERGENCY_MESSAGE
-        self.status.set_text(textwrap.fill(message, 68))
+        diagnostics = sensor_diagnostics_label(state)
+        message = textwrap.fill(message, 68)
+        if diagnostics:
+            message += "\n" + textwrap.fill(diagnostics, 68)
+        self.status.set_text(message)
         self.status.set_color("#ff5252" if emergency else theme["muted"])
         self.status.set_fontweight("bold" if emergency else "normal")
         for field in (self.co2, self.humidity):

@@ -1,6 +1,7 @@
 #include <Preferences.h>
 #include "firmware/control_settings_store.h"
 #include "firmware/cyclic_mist_store.h"
+#include "firmware/pi_memory.h"
 
 extern "C" { int _fltused = 0; }
 
@@ -78,5 +79,22 @@ int main() {
   assert(migrationStorage.putBytes("settings", &legacy, sizeof(legacy)) == sizeof(legacy));
   assert(loadCyclicMistSettings(restored));
   assert(restored.enabled && restored.mistMinutes == 3 && restored.pauseMinutes == 10);
+  Preferences::length = 0; // The fake models a single namespace at a time.
+  PiMemory memory;
+  assert(!loadPiMemory(memory));
+  const PiMemory learned{23.5f, 18.75f};
+  assert(savePiMemory(learned));
+  assert(loadPiMemory(memory) && memory == learned);
+  const unsigned writes = Preferences::writes;
+  assert(savePiMemory(learned) && Preferences::writes == writes);
+  Preferences::failWrite = true;
+  assert(!savePiMemory({0, 0}));
+  assert(loadPiMemory(memory) && memory == learned);
+  Preferences::failWrite = false;
+  assert(!savePiMemory({81, 10}) && !savePiMemory({10, -1}));
+  assert(savePiMemory({0, 0}));
+  assert(loadPiMemory(memory) && memory.co2 == 0 && memory.humidity == 0);
+  Preferences::bytes[0] = 255;
+  assert(!loadPiMemory(memory));
   return 0;
 }

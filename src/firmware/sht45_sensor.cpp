@@ -5,6 +5,8 @@
 #include "firmware/time_utils.h"
 
 namespace {
+constexpr uint8_t SOFT_RESET = 0x94;
+constexpr uint32_t SOFT_RESET_MS = 1;
 constexpr uint8_t MEASURE_HIGH_PRECISION = 0xFD;
 constexpr uint8_t HEAT_200_MW_ONE_SECOND = 0x39;
 constexpr uint32_t CONVERSION_TIME_MS = 10;
@@ -25,7 +27,29 @@ void Sht45Sensor::begin(uint32_t now) {
   poll(now);
 }
 
+void Sht45Sensor::restart(uint32_t now) {
+  bus_ = nullptr;
+  pending_ = false;
+  valid_ = false;
+  heating_ = false;
+  hasHeated_ = false;
+  heatedReading_ = false;
+  heaterRequested_ = false;
+  lastHeaterStartedAt_ = now;
+  Wire.beginTransmission(Config::SHT45_I2C_ADDRESS);
+  Wire.write(SOFT_RESET);
+  Wire.endTransmission();
+  resetPending_ = true;
+  lastAttemptAt_ = now;
+}
+
 void Sht45Sensor::poll(uint32_t now) {
+  if (resetPending_) {
+    if (!hasElapsed(now, lastAttemptAt_, SOFT_RESET_MS)) return;
+    resetPending_ = false;
+    begin(now);
+    return;
+  }
   if (pending_) {
     const uint32_t waitMs = heating_ ? HEATER_CONVERSION_TIME_MS : CONVERSION_TIME_MS;
     if (hasElapsed(now, lastAttemptAt_, waitMs)) {

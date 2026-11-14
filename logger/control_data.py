@@ -137,10 +137,12 @@ class ControlMonitor:
         self._automatic_supported = False
         self._pi_reset_supported = False
         self._pi_reset_count = 0
+        self._pi_memory_saved = None
         self._fogger_enabled = True
         self._fault = False
         self._parameters = {}
         self._calibration = {}
+        self._sensor_diagnostics = {}
         self._humidity_emergency = {}
         self._cyclic_mist = {}
         self._actuators = actuator_telemetry({})
@@ -172,6 +174,9 @@ class ControlMonitor:
             self._manual = ManualOutputs.from_payload(manual) if self._manual_supported else None
             cyclic = control.get("cyclic_mist", {})
             self._cyclic_mist = cyclic if isinstance(cyclic, dict) else {}
+            diagnostics = control.get("sensor_diagnostics", {})
+            self._sensor_diagnostics = dict(diagnostics) if isinstance(diagnostics, dict) else {}
+            self._pi_memory_saved = control.get("pi_memory_saved")
             self._setpoints = setpoints
             emergency = control.get("humidity_emergency", {})
             self._humidity_emergency = dict(emergency) if isinstance(emergency, dict) else {}
@@ -207,7 +212,7 @@ class ControlMonitor:
                                         "Device Wi-Fi lost: PI stopped. Start explicitly to resume."),
                 "automatic_update": "Firmware update: PI stopped.",
                 "automatic_hardware_error": "PI fault: actuator hardware unavailable.",
-                "automatic_co2_invalid": "PI fault: CO2 invalid or stale. Fan fault speed; fogger OFF.",
+                "automatic_co2_invalid": "CO2 unavailable: restarting sensors; fan 10%, fogger OFF. PI resumes automatically.",
                 "automatic_co2_condensation_risk": "PI fault: SCD41 humidity at least 95%; CO2 unreliable. Fogger OFF.",
                 "automatic_fan_stalled": "PI fault: no fan tach at running duty. Fogger OFF.",
                 "automatic_humidity_invalid": "Humidity invalid or stale: fogger OFF.",
@@ -222,6 +227,8 @@ class ControlMonitor:
                 self._message = HUMIDITY_EMERGENCY_MESSAGE
             if not persisted:
                 self._message += " Setpoints are factory defaults."
+            if self._pi_memory_saved is False:
+                self._message += " Warning: PI memory not saved; restart may lose integral values."
             has_measurement = sample_id[0] is not None and sample_id[1] is not None
             if has_measurement and self._last_boot is not None and self._last_boot != sample_id[0]:
                 self._samples.clear()
@@ -246,9 +253,11 @@ class ControlMonitor:
                     "automatic_supported": self._automatic_supported,
                     "pi_reset_supported": self._pi_reset_supported,
                     "pi_reset_count": self._pi_reset_count,
+                    "pi_memory_saved": self._pi_memory_saved,
                     "calibration": dict(self._calibration),
                     "cyclic_mist": dict(self._cyclic_mist),
                     "humidity_emergency": dict(self._humidity_emergency),
+                    "sensor_diagnostics": dict(self._sensor_diagnostics),
                     "fogger_enabled": self._fogger_enabled,
                     "fault": self._fault,
                     "parameters": dict(self._parameters),

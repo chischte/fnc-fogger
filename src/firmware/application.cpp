@@ -7,6 +7,8 @@
 #include "firmware/cyclic_mist_store.h"
 
 namespace {
+constexpr uint32_t PI_CHECKPOINT_MS = 30000;
+constexpr uint32_t PI_SAVE_RETRY_MS = 1000;
 constexpr uint32_t SERIAL_BAUD_RATE = 115200;
 constexpr uint32_t SERIAL_WAIT_TIMEOUT_MS = 2000;
 constexpr uint32_t SERIAL_POLL_INTERVAL_MS = 10;
@@ -35,6 +37,12 @@ void Application::begin() {
   measurements_.begin(now);
   controlSettings_.begin();
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
+  PiMemory memory;
+  if (loadPiMemory(memory)) {
+    automatic_.restoreMemory(memory);
+    automatic_.setMemorySaved(true);
+  }
+  lastPiSaveAttemptAt_ = now - PI_SAVE_RETRY_MS;
   CyclicMistSettings cyclic;
   if (loadCyclicMistSettings(cyclic)) automatic_.restoreCyclicMist(cyclic, now);
 #endif
@@ -69,6 +77,24 @@ void Application::poll() {
                           networkAvailable, maintenance);
   automatic_.poll(controlNow, input, controlSettings_.settings(), networkAvailable, maintenance);
   actuators_.poll(controlNow, maintenance, networkAvailable, &automatic_);
+  checkpointPi(controlNow, maintenance);
+#endif
+}
+
+void Application::checkpointPi(uint32_t now, bool force) {
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+  const uint32_t revision = automatic_.memoryRevision();
+  if (!force && revision == savedPiRevision_ && !hasElapsed(now, lastPiSaveAt_, PI_CHECKPOINT_MS)) return;
+  if (!hasElapsed(now, lastPiSaveAttemptAt_, PI_SAVE_RETRY_MS)) return;
+  lastPiSaveAttemptAt_ = now;
+  const bool saved = savePiMemory(automatic_.memory());
+  automatic_.setMemorySaved(saved);
+  if (!saved) {
+    Serial.println("PI memory could not be saved; retry pending");
+    return;
+  }
+  lastPiSaveAt_ = now;
+  savedPiRevision_ = revision;
 #endif
 }
 

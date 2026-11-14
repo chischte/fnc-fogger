@@ -86,6 +86,7 @@ class WebServer {
   ManualControl* manual_;
   AutomaticControl* automatic_;
   HumidityCalibration* calibration_;
+  bool piMemoryRequest_ = false;
   bool manualRequest_ = false;
   bool automaticRequest_ = false;
   bool calibrationRequest_ = false;

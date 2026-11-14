@@ -11,6 +11,12 @@ class PiController {
  public:
   PiController(float gain, float integralSeconds) : gain_(gain), integralSeconds_(integralSeconds) {}
   void reset() { terms_ = {}; }
+  void restoreIntegral(float integral, float maximum) {
+    terms_.i = integral;
+    terms_.sum = terms_.p + integral;
+    if (terms_.sum < 0) terms_.sum = 0;
+    if (terms_.sum > maximum) terms_.sum = maximum;
+  }
   void resetIntegral(float maximum) {
     terms_.i = 0;
     terms_.sum = terms_.p < 0 ? 0 : terms_.p > maximum ? maximum : terms_.p;

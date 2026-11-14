@@ -8,6 +8,17 @@ void AutomaticControl::resetIntegrals() {
   co2Seen_ = false;
   humiditySeen_ = false;
   ++resetCount_;
+  ++memoryRevision_;
+}
+
+bool AutomaticControl::restoreMemory(const PiMemory& memory) {
+  if (!(memory.co2 >= 0 && memory.co2 <= FAN_MAX_PERCENT &&
+        memory.humidity >= 0 && memory.humidity <= FOGGER_MAX_PERCENT)) return false;
+  co2Pi_.restoreIntegral(memory.co2, FAN_MAX_PERCENT);
+  humidityPi_.restoreIntegral(memory.humidity, FOGGER_MAX_PERCENT);
+  refreshMeasurements();
+  ++memoryRevision_;
+  return true;
 }
 
 void AutomaticControl::resumeIfIdle(uint32_t now, const ControlInput& input,
@@ -19,21 +30,22 @@ void AutomaticControl::resumeIfIdle(uint32_t now, const ControlInput& input,
   setEnabled(true, now);
 }
 
-void AutomaticControl::reset() {
+void AutomaticControl::resetRuntimeState() {
+  ++memoryRevision_;
   humidityEmergency_.clearPending();
-  co2Pi_.reset();
-  humidityPi_.reset();
   fanDemand_ = false;
+  fanMissing_ = false;
   co2Seen_ = false;
   humiditySeen_ = false;
   co2Available_ = false;
+  co2Interrupted_ = false;
   fanPercent_ = 0;
   foggerPercent_ = 0;
   fault_ = false;
 }
 
 void AutomaticControl::setEnabled(bool enabled, uint32_t now) {
-  reset();
+  resetRuntimeState();
   enabled_ = enabled;
   ownsOutputs_ = true;
   cycleStartedAt_ = now;
@@ -42,7 +54,7 @@ void AutomaticControl::setEnabled(bool enabled, uint32_t now) {
 
 void AutomaticControl::releaseToManual() {
   humidityEmergency_.release();
-  reset();
+  resetRuntimeState();
   enabled_ = false;
   ownsOutputs_ = false;
   reason_ = "automatic_off";
@@ -54,10 +66,20 @@ void AutomaticControl::stop(const char* reason) {
 }
 
 void AutomaticControl::fail(const char* reason, bool hardwareReady) {
-  reset();
+  resetRuntimeState();
   fault_ = true;
   fanPercent_ = hardwareReady ? FAN_FAULT_PERCENT : 0;
   reason_ = reason;
+}
+
+void AutomaticControl::pauseForCo2() {
+  co2Interrupted_ = true;
+  fault_ = true;
+  fanPercent_ = FAN_FAULT_PERCENT;
+  foggerPercent_ = 0;
+  co2Seen_ = humiditySeen_ = false;
+  humidityEmergency_.clearPending();
+  reason_ = "automatic_co2_invalid";
 }
 
 void AutomaticControl::poll(uint32_t now, const ControlInput& input,
@@ -68,7 +90,7 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
     stop(maintenance ? "automatic_update" : "automatic_wifi_lost");
     return;
   }
-  if (fault_) return;
+  if (fault_ && !co2Interrupted_) return;
   if (!input.hardwareReady) {
     fail("automatic_hardware_error", false);
     return;
@@ -85,8 +107,16 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
     effective.co2At = lastValidCo2At_;
     effective.co2Valid = true;
   } else {
-    fail("automatic_co2_invalid", true);
+    pauseForCo2();
     return;
+  }
+  if (co2Interrupted_) {
+    co2Interrupted_ = false;
+    fault_ = false;
+    co2Seen_ = humiditySeen_ = false;
+    fanMissing_ = false;
+    fanDemand_ = false;
+    fanStartedAt_ = now;
   }
   if (!settings.valid()) {
     fail("automatic_co2_invalid", true);
@@ -110,14 +140,26 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
   }
   // Below the measured starting duty, zero RPM is expected rather than a fault.
   if (fanPercent_ < FAN_STALL_CHECK_PERCENT) fanStartedAt_ = now;
-  if (fanPercent_ >= FAN_STALL_CHECK_PERCENT &&
-      now - fanStartedAt_ >= FAN_START_GRACE_MS &&
-      (!input.rpmValid || input.rpm == 0)) {
+  if (fanStalled(now, input)) {
     fail("automatic_fan_stalled", true);
     return;
   }
   updateFogger(now, input, settings);
   if (humidityEmergency()) reason_ = "automatic_humidity_emergency";
+}
+
+bool AutomaticControl::fanStalled(uint32_t now, const ControlInput& input) {
+  if (fanPercent_ < FAN_STALL_CHECK_PERCENT ||
+      now - fanStartedAt_ < FAN_START_GRACE_MS ||
+      (input.rpmValid && input.rpm > 0)) {
+    fanMissing_ = false;
+    return false;
+  }
+  if (!fanMissing_) {
+    fanMissing_ = true;
+    fanMissingAt_ = now;
+  }
+  return now - fanMissingAt_ > FAN_STALL_TIMEOUT_MS;
 }
 
 void AutomaticControl::updateFan(uint32_t now, const ControlInput& input,
@@ -139,7 +181,6 @@ void AutomaticControl::updateFan(uint32_t now, const ControlInput& input,
 
 void AutomaticControl::inhibitFogger(const char* reason) {
   foggerPercent_ = 0;
-  humidityPi_.reset();
   humiditySeen_ = false;
   reason_ = reason;
 }
@@ -156,7 +197,7 @@ void AutomaticControl::updateFogger(uint32_t now, const ControlInput& input,
     return;
   }
   // Preserve learned demand during normal fan stops, but never integrate
-  // elapsed pause time when rotation resumes. Sensor/limit checks still reset it.
+  // elapsed pause time when rotation resumes. Sensor interruptions also preserve I.
   if (!input.rpmValid || input.rpm == 0) {
     foggerPercent_ = 0;
     humiditySeen_ = false;
