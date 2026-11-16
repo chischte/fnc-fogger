@@ -71,7 +71,8 @@ def _add_sensor_columns(db: sqlite3.Connection) -> None:
     db.commit()
 
 def fetch_json(url: str) -> dict:
-    with urllib.request.urlopen(url, timeout=8) as response:
+    request = urllib.request.Request(url, headers={"X-Unix-Time": str(int(time.time()))})
+    with urllib.request.urlopen(request, timeout=8) as response:
         return json.load(response)
 
 def fetch_backlog(url: str):

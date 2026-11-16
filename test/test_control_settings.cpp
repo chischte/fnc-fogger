@@ -96,5 +96,15 @@ int main() {
   assert(loadPiMemory(memory) && memory.co2 == 0 && memory.humidity == 0);
   Preferences::bytes[0] = 255;
   assert(!loadPiMemory(memory));
+  Preferences::length = 0;
+  uint32_t lastStart = 0;
+  assert(!loadCyclicMistStart(lastStart));
+  assert(saveCyclicMistStart(1794687300));
+  assert(loadCyclicMistStart(lastStart) && lastStart == 1794687300);
+  Preferences::failWrite = true;
+  assert(!saveCyclicMistStart(1794690900));
+  assert(loadCyclicMistStart(lastStart) && lastStart == 1794687300);
+  Preferences::failWrite = false;
+  assert(!saveCyclicMistStart(0));
   return 0;
 }

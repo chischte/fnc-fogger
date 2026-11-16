@@ -16,7 +16,7 @@ constexpr uint8_t FAN_MIN_PERCENT = 0;
 constexpr uint8_t FAN_MAX_PERCENT = 80;
 constexpr uint8_t FAN_FAULT_PERCENT = 10;
 constexpr uint8_t CYCLIC_MIST_FAN_PERCENT = 50;
-constexpr uint8_t FOGGER_MAX_PERCENT = 50;
+constexpr uint8_t FOGGER_MAX_PERCENT = 100;
 constexpr uint8_t FAN_STALL_CHECK_PERCENT = 10;
 constexpr uint32_t FAN_START_GRACE_MS = 5000;
 constexpr uint32_t FAN_STALL_TIMEOUT_MS = 5000;
@@ -60,6 +60,10 @@ class AutomaticControl {
     cyclicMist_.configure(settings, now);
   }
   const CyclicMist& cyclicMist() const { return cyclicMist_; }
+  void waitForCyclicMistClock() { cyclicMist_.waitForClock(); }
+  void restoreCyclicMistPhase(uint32_t now, uint32_t elapsedMs) {
+    cyclicMist_.restorePhase(now, elapsedMs);
+  }
 
   void resumeIfIdle(uint32_t now, const ControlInput& input, bool manualActive,
                     bool networkAvailable, bool maintenance);

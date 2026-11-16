@@ -28,6 +28,18 @@ String piJson(const PiTerms& terms) {
 }
 }  // namespace
 
+bool parseUnixSeconds(const String& text, uint32_t& result) {
+  if (text.length() != 10) return false;
+  uint64_t value = 0;
+  for (unsigned index = 0; index < text.length(); ++index) {
+    if (text[index] < '0' || text[index] > '9') return false;
+    value = value * 10 + text[index] - '0';
+  }
+  if (value < 1704067200ULL || value > 4102444800ULL) return false;
+  result = static_cast<uint32_t>(value);
+  return true;
+}
+
 bool parsePiMemory(const String& body, PiMemory& memory) {
   bool co2Found = false, humidityFound = false;
   int start = 0;
@@ -196,6 +208,8 @@ String buildControlJson(const ControlSettingsStore& store, const ActuatorStatus*
   const CyclicMistSettings cyclic = automatic ? automatic->cyclicMist().settings() : CyclicMistSettings{};
   json += ",\"enabled\":";
   json += cyclic.enabled ? "true" : "false";
+  json += ",\"waiting_for_clock\":";
+  json += automatic && automatic->cyclicMist().waitingForClock() ? "true" : "false";
   json += ",\"mist_time_min\":" + String(cyclic.mistMinutes);
   json += ",\"mist_pause_min\":" + String(cyclic.pauseMinutes);
   json += ",\"misting\":";

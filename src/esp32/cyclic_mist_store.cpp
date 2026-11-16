@@ -38,3 +38,24 @@ bool saveCyclicMistSettings(const CyclicMistSettings& settings) {
   storage.end();
   return saved;
 }
+
+bool loadCyclicMistStart(uint32_t& unixSeconds) {
+  Preferences storage;
+  if (!storage.begin(STORAGE_NAMESPACE, true)) return false;
+  uint32_t value = 0;
+  const bool read = storage.getBytesLength("last-start") == sizeof(value) &&
+      storage.getBytes("last-start", &value, sizeof(value)) == sizeof(value);
+  storage.end();
+  if (!read || value == 0) return false;
+  unixSeconds = value;
+  return true;
+}
+
+bool saveCyclicMistStart(uint32_t unixSeconds) {
+  if (unixSeconds == 0) return false;
+  Preferences storage;
+  if (!storage.begin(STORAGE_NAMESPACE, false)) return false;
+  const bool saved = storage.putBytes("last-start", &unixSeconds, sizeof(unixSeconds)) == sizeof(unixSeconds);
+  storage.end();
+  return saved;
+}

@@ -66,7 +66,7 @@ class ControlDataTests(unittest.TestCase):
         state = self.monitor.snapshot()
         title = actuator_graph_labels(state)[1]
         self.assertIn("Fan: 10%", title)
-        self.assertIn("300rpm", title)
+        self.assertIn("300 rpm", title)
         self.assertIn("[fault]", title)
         self.assertNotIn("fan @ 0", title)
         self.assertTrue(math.isnan(state["samples"][-1]["co2_sum"]))
@@ -81,12 +81,12 @@ class ControlDataTests(unittest.TestCase):
         titles = actuator_graph_titles(self.monitor.snapshot())
         self.assertEqual(titles, ("Humidity PI [%]", "CO2 PI [%]"))
         labels = actuator_graph_labels(self.monitor.snapshot())
-        self.assertIn("fan @ 40%\n1200rpm", labels[1])
+        self.assertIn("fan @ 40%\n1230 rpm", labels[1])
         self.assertIn("fogger @ 30%", labels[0])
         self.assertIn("on: 2s | off: 18.00s", labels[0])
         self.monitor.disconnected("Offline")
         self.assertNotIn("1234", actuator_graph_titles(self.monitor.snapshot())[1])
-        self.assertIn("fan @ --%\n--rpm", actuator_graph_labels(self.monitor.snapshot())[1])
+        self.assertIn("fan @ --%\n-- rpm", actuator_graph_labels(self.monitor.snapshot())[1])
         self.assertIn("on: --s | off: --s", actuator_graph_labels(self.monitor.snapshot())[0])
 
     def test_invalid_or_missing_actuator_values_remain_unavailable(self):
@@ -205,7 +205,7 @@ class CommandLayoutTests(unittest.TestCase):
                 self.assertEqual(len(pi_axes), 2)
                 self.assertAlmostEqual(charts[0].get_position().width / pi_axes[0].get_position().width, 1.5)
                 self.assertTrue(all(axis.get_ylim() == (-20, 100) for axis in pi_axes))
-                for axis, maximum in zip(pi_axes, (50, 80)):
+                for axis, maximum in zip(pi_axes, (100, 80)):
                     self.assertEqual([line.get_linestyle() for line in axis.lines], [":", "--", "-", ":"])
                     self.assertEqual([text.get_text() for text in axis.get_legend().get_texts()],
                                      ["p", "i", "sum"])

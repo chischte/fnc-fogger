@@ -216,3 +216,28 @@ and restores them from NVS after reboot/OTA or compiled Kp/Ti changes. Normal
 checkpoints are 30 seconds apart; mode changes and OTA force a checkpoint.
 Only explicit Reset PI clears the persisted integrals. Initial migration from
 3.6.6 requires capturing and restoring live integrals once; see [control documentation](../docs/control.md).
+
+## Firmware 3.6.8: automatic fogger maximum 60%
+
+Automatic humidity PI output and its integral ceiling are increased from 50% to 60%.
+Existing PI integrals and tuning are retained. Cyclic mist and manual output still permit 100%.
+
+## Firmware 3.6.9: retain cyclic mist timing across restarts
+
+The device persists the UTC start of each cyclic mist period in NVS. After a
+restart it skips the interrupted mist phase and waits until the next period is
+due, rather than starting another mist immediately. Changes to the mist duration
+preserve the period origin and both PI integrals. An overdue period starts once;
+missed periods are not replayed.
+
+Clock recovery is nonblocking, using NTP or the logger/viewer X-Unix-Time header.
+Until a valid clock is available, cyclic mist waits; ordinary PI control continues.
+Without an earlier saved start, the initial wait is one full period. The migration
+endpoint POST /api/control/cyclic-mist-phase accepts last_start_unix to restore a
+known earlier start from recorded telemetry. This does not change PI memory.
+
+## Firmware 3.6.10: automatic fogger maximum 100%
+
+Automatic humidity PI output and its integral ceiling now allow 0-100%.
+At 100%, the fogger remains continuously on. Fan maximum remains 80%.
+Existing PI integrals, tuning, setpoints and the persisted cyclic mist origin are retained.

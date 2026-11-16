@@ -3,6 +3,8 @@
 #include "firmware/measurement_json.h"
 #include "firmware/control_api.h"
 #include "firmware/cyclic_mist_store.h"
+#include "firmware/cyclic_mist_clock.h"
+#include <time.h>
 #include "firmware/time_utils.h"
 #include "wifi-credentials.h"
 #include "web_ui.h"
@@ -222,7 +224,10 @@ void WebServer::readUploadBytes(size_t& byteBudget, uint32_t now) {
 }
 
 void WebServer::handleRequest() {
+  uint32_t hostTime;
+  if (parseUnixSeconds(headerValue("X-Unix-Time"), hostTime)) seedCyclicMistClock(hostTime);
   cyclicMistRequest_ = false;
+  cyclicMistPhaseRequest_ = false;
   piMemoryRequest_ = false;
   String method;
   String path;
@@ -264,6 +269,10 @@ void WebServer::handleRequest() {
     calibrationRequest_ = true;
     manualRequest_ = automaticRequest_ = false;
     prepareControlSettings();
+  } else if (method == "POST" && path == "/api/control/cyclic-mist-phase") {
+    cyclicMistPhaseRequest_ = true;
+    manualRequest_ = automaticRequest_ = calibrationRequest_ = false;
+    prepareControlSettings();
   } else if (method == "POST" && path == "/api/control/cyclic-mist") {
     cyclicMistRequest_ = true;
     manualRequest_ = automaticRequest_ = calibrationRequest_ = false;
@@ -288,11 +297,11 @@ void WebServer::handleRequest() {
 }
 
 void WebServer::prepareControlSettings() {
-  if ((manualRequest_ || automaticRequest_ || calibrationRequest_ || cyclicMistRequest_ || piMemoryRequest_) && (!manual_ || !actuators_ || !actuators_->hardwareReady)) {
+  if ((manualRequest_ || automaticRequest_ || calibrationRequest_ || cyclicMistRequest_ || cyclicMistPhaseRequest_ || piMemoryRequest_) && (!manual_ || !actuators_ || !actuators_->hardwareReady)) {
     startResponse(503, "text/plain", "Manual outputs unavailable.");
     return;
   }
-  if (!manualRequest_ && !automaticRequest_ && !calibrationRequest_ && !cyclicMistRequest_ && !piMemoryRequest_ && !controlSettings_.available()) {
+  if (!manualRequest_ && !automaticRequest_ && !calibrationRequest_ && !cyclicMistRequest_ && !cyclicMistPhaseRequest_ && !piMemoryRequest_ && !controlSettings_.available()) {
     startResponse(503, "text/plain", "Persistent control settings unavailable.");
     return;
   }
@@ -307,6 +316,21 @@ void WebServer::prepareControlSettings() {
 }
 
 void WebServer::finishControlSettings() {
+  if (cyclicMistPhaseRequest_) {
+    uint32_t start;
+    if (!automatic_ || !controlBody_.startsWith("last_start_unix=") ||
+        !parseUnixSeconds(controlBody_.substring(16), start) || start > time(nullptr)) {
+      startResponse(422, "text/plain", "Invalid cyclic mist start time.");
+      return;
+    }
+    if (!saveCyclicMistStart(start)) {
+      startResponse(503, "text/plain", "Cyclic mist start could not be saved.");
+      return;
+    }
+    automatic_->waitForCyclicMistClock();
+    startResponse(200, "application/json", "{\"persisted\":true}");
+    return;
+  }
   if (piMemoryRequest_) {
     PiMemory memory;
     if (!automatic_ || !parsePiMemory(controlBody_, memory)) {

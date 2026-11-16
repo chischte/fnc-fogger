@@ -13,7 +13,7 @@ from .control_data import Setpoints, HUMIDITY_EMERGENCY_MESSAGE
 from .viewer_manual import ManualPanel
 from .viewer_automatic import AutomaticPanel
 from .viewer_cyclic_mist import CyclicMistPanel
-from .viewer_format import whole_percent, rounded_rpm
+from .viewer_format import whole_percent, format_rpm
 from .viewer_stepper import CO2_LEVELS, HUMIDITY_LEVELS, SetpointStepper
 from .viewer_control_history import ControlHistoryCache
 
@@ -21,7 +21,7 @@ AUTOSAVE_DELAY_SECONDS = 3
 AUTOSAVE_RETRY_SECONDS = 5
 
 TERM_STYLES = (("p", "p", ":"), ("i", "i", "--"), ("sum", "sum", "-"))
-PI_OUTPUT_LIMITS = {"humidity": 50, "co2": 80}
+PI_OUTPUT_LIMITS = {"humidity": 100, "co2": 80}
 PI_LIMIT_COLOR = "#e6c229"
 
 CHANNEL_COLORS = {"humidity": "#2878a8", "co2": "#7b2cbf"}
@@ -76,7 +76,7 @@ def actuator_graph_labels(state):
     fan_duty = values.get("pwm_percent")
     if fan_duty is None:
         fan_duty = latest.get("co2_sum")
-    co2 = f"fan @ {whole_percent(fan_duty)}%\n{rounded_rpm(values.get('rpm'))}rpm"
+    co2 = f"fan @ {whole_percent(fan_duty)}%\n{format_rpm(values.get('rpm'))} rpm"
     if state.get("fault"):
         co2 += f" | Fan: {whole_percent(values.get('pwm_percent'))}% [fault]"
     return humidity, co2

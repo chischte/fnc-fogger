@@ -33,7 +33,7 @@ try:
     import matplotlib.pyplot as plt
     import matplotlib.dates as mdates
     import matplotlib.patches as mpatches
-    from matplotlib.ticker import AutoLocator, FixedLocator, MultipleLocator
+    from matplotlib.ticker import AutoLocator, FixedLocator, MaxNLocator, MultipleLocator
     from matplotlib.patches import FancyBboxPatch
     from matplotlib.widgets import Button
 except ImportError:
@@ -67,6 +67,7 @@ _state = {
     "adaptive_y": True,
     "dark_mode": True,
     "manual_view": False,
+    "manual_y": False,
 }
 
 RANGES = [
@@ -538,10 +539,11 @@ def draw(fig: "plt.Figure", box_axes: list, chart_axes: list,
         for axis, series, (x_limits, y_limits) in zip(chart_axes, SERIES, preserved_limits):
             axis.set_xlim(x_limits)
             format_zoomed_xaxis(axis)
-            if _state["adaptive_y"]:
+            if _state["adaptive_y"] and not _state["manual_y"]:
                 set_y_axis(axis, series)
             else:
                 axis.set_ylim(y_limits)
+                axis.yaxis.set_major_locator(MaxNLocator(nbins=5, min_n_ticks=3))
     draw_range_selector(range_axis)
 
     footer_text.set_text(
@@ -566,6 +568,7 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None,
                      control_monitor=collector.control if collector else None)
     return_home = False
     _state["manual_view"] = False
+    _state["manual_y"] = False
 
     data_cache = viewer_data.MeasurementCache()
     fig = plt.figure(figsize=(11, 8.5))
@@ -649,6 +652,7 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None,
             idx = range_index_for_click(event.xdata)
             _state["range"] = RANGES[idx][0]
             _state["manual_view"] = False
+            _state["manual_y"] = False
             render(fig, box_axes, chart_axes, range_axis, footer_text, data_cache=data_cache)
             command_panel.update(current_theme(), chart_axes[0].get_xlim())
             fig.canvas.draw_idle()
@@ -656,6 +660,7 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None,
     fig.canvas.mpl_connect("button_press_event", _on_click)
 
     def _toggle_adaptive_y(_event):
+        _state["manual_y"] = False
         _state["adaptive_y"] = not _state["adaptive_y"]
         style_toggle_button(
             adaptive_button, adaptive_button_background, "adaptive y", _state["adaptive_y"]
@@ -718,20 +723,30 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None,
     _layout_controls()
     fig.canvas.mpl_connect("resize_event", _layout_controls)
 
-    def _remember_manual_view(event):
-        if event.inaxes in chart_axes:
-            toolbar = getattr(fig.canvas, "toolbar", None)
-            if toolbar and toolbar.mode:
-                _state["manual_view"] = True
-                synchronize_x_axes(chart_axes, event.inaxes)
-                for axis in chart_axes:
-                    format_zoomed_xaxis(axis)
-            if _state["adaptive_y"]:
-                for axis, series in zip(chart_axes, SERIES):
-                    set_y_axis(axis, series)
-            command_panel.update(current_theme(), chart_axes[0].get_xlim())
-            fig.canvas.draw_idle()
+    navigation_source = None
 
+    def _start_manual_view(event):
+        nonlocal navigation_source
+        toolbar = getattr(fig.canvas.manager, "toolbar", None)
+        if event.inaxes in chart_axes and toolbar and toolbar.mode:
+            navigation_source = event.inaxes
+            _state["manual_view"] = True
+
+    def _remember_manual_view(event):
+        nonlocal navigation_source
+        source = navigation_source
+        navigation_source = None
+        if source is None:
+            return
+        _state["manual_y"] = True
+        synchronize_x_axes(chart_axes, source)
+        for axis in chart_axes:
+            format_zoomed_xaxis(axis)
+            axis.yaxis.set_major_locator(MaxNLocator(nbins=5, min_n_ticks=3))
+        command_panel.update(current_theme(), chart_axes[0].get_xlim())
+        fig.canvas.draw_idle()
+
+    fig.canvas.mpl_connect("button_press_event", _start_manual_view)
     fig.canvas.mpl_connect("button_release_event", _remember_manual_view)
 
     def _remember_scroll_zoom(event):
@@ -752,6 +767,8 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None,
 
     def _update(_frame):
         nonlocal last_plot_revision
+        if navigation_source is not None:
+            return
         render(
             fig,
             box_axes,
@@ -779,7 +796,7 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None,
             connection_text.set_color(current_theme()["muted"])
             fig.canvas.draw_idle()
         setpoints = command_panel.update(current_theme(), chart_axes[0].get_xlim())
-        if setpoints != last_setpoints:
+        if setpoints != last_setpoints and navigation_source is None:
             last_setpoints = setpoints
             render(fig, box_axes, chart_axes, range_axis, footer_text,
                    preserve_view=_state["manual_view"], data_cache=data_cache)

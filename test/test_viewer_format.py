@@ -1,6 +1,6 @@
 import unittest
 
-from logger.viewer_format import rounded_rpm, whole_percent
+from logger.viewer_format import format_rpm, whole_percent
 from logger.viewer_control import actuator_graph_labels
 
 
@@ -15,13 +15,13 @@ class ViewerFormatTests(unittest.TestCase):
         state = {"online": True, "enabled": True,
                  "samples": [{"co2_sum": 17}],
                  "actuators": {"pwm_percent": 50, "rpm": 2900}}
-        self.assertEqual(actuator_graph_labels(state)[1], "fan @ 50%\n2900rpm")
+        self.assertEqual(actuator_graph_labels(state)[1], "fan @ 50%\n2900 rpm")
 
-    def test_rpm_rounding_respects_ranges_and_missing_values(self):
-        for value, expected in [(0, "0"), (324, "300"), (325, "350"),
-                                (975, "1000"), (1000, "1000"), (1050, "1100"),
-                                (4220, "4200"), (None, "--")]:
-            self.assertEqual(rounded_rpm(value), expected)
+    def test_rpm_rounds_to_ten_and_handles_missing_values(self):
+        for value, expected in [(0, "0"), (324, "320"), (325, "330"),
+                                (975, "980"), (1000, "1000"), (1050, "1050"),
+                                (4220, "4220"), (324.5, "320"), (None, "--")]:
+            self.assertEqual(format_rpm(value), expected)
 
     def test_graph_labels_use_actual_duty_and_clear_offline(self):
         state = {"online": True, "enabled": True,
@@ -29,9 +29,9 @@ class ViewerFormatTests(unittest.TestCase):
                  "actuators": {"pwm_percent": 80, "rpm": 4220,
                                "on_time_s": .1, "off_time_s": .567}}
         self.assertEqual(actuator_graph_labels(state),
-                         ("fogger @ 15%\non: 0.1s | off: 0.57s", "fan @ 80%\n4200rpm"))
+                         ("fogger @ 15%\non: 0.1s | off: 0.57s", "fan @ 80%\n4220 rpm"))
         state["online"] = False
         self.assertEqual(actuator_graph_labels(state),
-                         ("fogger @ --%\non: --s | off: --s", "fan @ --%\n--rpm"))
+                         ("fogger @ --%\non: --s | off: --s", "fan @ --%\n-- rpm"))
         self.assertEqual(whole_percent(15.5), "16")
         self.assertEqual(whole_percent(float("nan")), "--")

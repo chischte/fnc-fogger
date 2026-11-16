@@ -227,6 +227,8 @@ class ControlMonitor:
                 self._message = HUMIDITY_EMERGENCY_MESSAGE
             if not persisted:
                 self._message += " Setpoints are factory defaults."
+            if self._cyclic_mist.get("enabled") and self._cyclic_mist.get("waiting_for_clock"):
+                self._message += " Cyclic mist waiting for clock synchronization."
             if self._pi_memory_saved is False:
                 self._message += " Warning: PI memory not saved; restart may lose integral values."
             has_measurement = sample_id[0] is not None and sample_id[1] is not None

@@ -45,6 +45,7 @@ void Application::begin() {
   lastPiSaveAttemptAt_ = now - PI_SAVE_RETRY_MS;
   CyclicMistSettings cyclic;
   if (loadCyclicMistSettings(cyclic)) automatic_.restoreCyclicMist(cyclic, now);
+  cyclicMistClock_.begin(automatic_);
 #endif
   webServer_.begin(now);
 }
@@ -76,6 +77,7 @@ void Application::poll() {
   automatic_.resumeIfIdle(controlNow, input, actuators_.manualControl().active(),
                           networkAvailable, maintenance);
   automatic_.poll(controlNow, input, controlSettings_.settings(), networkAvailable, maintenance);
+  cyclicMistClock_.poll(automatic_, controlNow);
   actuators_.poll(controlNow, maintenance, networkAvailable, &automatic_);
   checkpointPi(controlNow, maintenance);
 #endif

@@ -55,3 +55,69 @@ class ViewerRefreshTests(unittest.TestCase):
         for axis, series in zip(self.charts, viewer.SERIES):
             self.assertNotEqual(self.x_limits, axis.get_xlim())
             self.assertEqual((series["ymin"], series["ymax"]), axis.get_ylim())
+
+    def test_rectangle_zoom_survives_adaptive_refresh_with_readable_y_ticks(self):
+        with patch.dict(viewer._state, {"manual_y": True}):
+            self.refresh(adaptive_y=True)
+        for axis, limits in zip(self.charts, self.y_limits):
+            self.assertEqual(self.x_limits, axis.get_xlim())
+            self.assertEqual(limits, axis.get_ylim())
+            ticks = [tick for tick in axis.get_yticks() if limits[0] <= tick <= limits[1]]
+            self.assertGreaterEqual(len(ticks), 3)
+
+    def test_real_rectangle_events_and_refresh_timer_keep_selected_co2_view(self):
+        from types import SimpleNamespace
+        from unittest.mock import Mock
+        from matplotlib.backend_bases import MouseEvent, NavigationToolbar2, TimerBase
+        from matplotlib.backends.backend_agg import FigureCanvasAgg
+
+        figure = Figure(figsize=(11, 8.5))
+        canvas = FigureCanvasAgg(figure)
+        toolbar = NavigationToolbar2(canvas)
+        canvas.manager = SimpleNamespace(toolbar=toolbar, set_window_title=Mock())
+        cache = Mock(revision=1)
+        cache.load.return_value = self.frame
+        timers = {}
+
+        def timer(interval):
+            timers[interval] = TimerBase(interval=interval)
+            return timers[interval]
+
+        def interact():
+            axis = next(axis for axis in figure.axes if axis.get_title() == "CO2 [ppm]")
+            canvas.draw()
+            toolbar.zoom()
+            limits = axis.get_xlim()
+            points = [(limits[0] + (limits[1] - limits[0]) * fraction, value)
+                      for fraction, value in [(0.3, 1020), (0.8, 1180)]]
+            pixels = [axis.transData.transform(point) for point in points]
+            line = axis.lines[0]
+            for name, pixel in [("button_press_event", pixels[0]),
+                                ("motion_notify_event", pixels[1])]:
+                event = MouseEvent(name, canvas, *pixel, button=1,
+                                   buttons={1} if name == "motion_notify_event" else None)
+                canvas.callbacks.process(name, event)
+            timers[viewer.REFRESH_INTERVAL_MS]._on_timer()
+            self.assertIs(line, axis.lines[0], "Refresh must not clear an active selection")
+            canvas.callbacks.process("button_release_event",
+                                     MouseEvent("button_release_event", canvas, *pixels[1], button=1))
+            selected = axis.get_xlim(), axis.get_ylim()
+            self.assertTrue(viewer._state["manual_view"])
+            self.assertTrue(viewer._state["manual_y"])
+            self.assertLess(selected[0][1] - selected[0][0], limits[1] - limits[0])
+            for _ in range(2):
+                cache.revision += 1
+                timers[viewer.REFRESH_INTERVAL_MS]._on_timer()
+                self.assertEqual(selected, (axis.get_xlim(), axis.get_ylim()))
+
+        panel = Mock()
+        panel.history = None
+        panel.update.return_value = None
+        with patch.object(viewer.plt, "figure", return_value=figure), \
+                patch.object(viewer.plt, "show", side_effect=interact), \
+                patch.object(viewer, "configure_viewer_window", return_value=None), \
+                patch.object(viewer, "CommandPanel", return_value=panel), \
+                patch.object(viewer.viewer_data, "MeasurementCache", return_value=cache), \
+                patch.object(canvas, "new_timer", side_effect=timer), \
+                patch.dict(viewer._state, {"adaptive_y": True}):
+            viewer.show_charts()

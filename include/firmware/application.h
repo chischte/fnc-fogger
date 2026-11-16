@@ -7,6 +7,7 @@
 #include "firmware/web_server.h"
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
 #include "firmware/startup_actuators.h"
+#include "firmware/cyclic_mist_clock.h"
 #endif
 
 class Application {
@@ -30,6 +31,7 @@ class Application {
 #if defined(CONFIG_IDF_TARGET_ESP32C3)
   StartupActuators actuators_;
   AutomaticControl automatic_;
+  CyclicMistClock cyclicMistClock_;
   uint32_t lastPiSaveAt_ = 0;
   uint32_t lastPiSaveAttemptAt_ = 0;
   uint32_t savedPiRevision_ = 0;

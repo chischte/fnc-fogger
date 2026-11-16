@@ -11,6 +11,7 @@
 
 bool parsePiMemory(const String& body, PiMemory& memory);
 bool parseCyclicMistSettings(const String& body, CyclicMistSettings& settings);
+bool parseUnixSeconds(const String& text, uint32_t& result);
 bool parseControlSettings(const String& body, ControlSettings& settings);
 bool parseHumidityReference(const String& body, float& sht, float& scd);
 bool parseManualSettings(const String& body, bool& active, uint8_t& fan, uint8_t& fogger, bool& renew);
