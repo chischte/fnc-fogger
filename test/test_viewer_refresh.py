@@ -121,3 +121,18 @@ class ViewerRefreshTests(unittest.TestCase):
                 patch.object(canvas, "new_timer", side_effect=timer), \
                 patch.dict(viewer._state, {"adaptive_y": True}):
             viewer.show_charts()
+
+    def test_sensor_only_view_hides_recorded_setpoints_and_all_card_pi_details(self):
+        from unittest.mock import Mock
+        history = Mock()
+        with patch.object(viewer, "load_data", return_value=self.frame), \
+                patch.dict(viewer._state, {"range": "30m"}):
+            viewer.draw(self.figure, self.boxes, self.charts, self.range_axis,
+                        self.footer, control_history=history, show_control_details=False)
+        history.load.assert_not_called()
+        for axis in self.charts:
+            self.assertNotIn("Setpoint", [line.get_label() for line in axis.lines])
+        for axis in self.boxes:
+            self.assertFalse({"SET:", "DIF:", "PI%:"} & {text.get_text() for text in axis.texts})
+        for axis in self.boxes[:2]:
+            self.assertTrue(all(text.get_position()[0] == .5 for text in axis.texts))

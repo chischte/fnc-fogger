@@ -281,9 +281,38 @@ int main() {
   input.rpmValid = false;
   smooth.poll(831001, input, settings, true, false);
   assert(smooth.foggerPercent() == 0);
+  AutomaticControl missingAtBoot;
+  const PiMemory beforeMissingSensors{35, 22};
+  assert(missingAtBoot.restoreMemory(beforeMissingSensors));
+  missingAtBoot.restoreCyclicMist({true, 1, 59}, 0);
+  ControlInput absentSensors;
+  absentSensors.hardwareReady = true;
+  missingAtBoot.resumeIfIdle(14999, absentSensors, false, true, false);
+  assert(!missingAtBoot.enabled());
+  missingAtBoot.resumeIfIdle(15000, absentSensors, false, true, false);
+  missingAtBoot.poll(15000, absentSensors, settings, true, false);
+  assert(missingAtBoot.enabled() && missingAtBoot.fault());
+  assert(missingAtBoot.fanPercent() == 10 && missingAtBoot.foggerPercent() == 0);
+  assert(missingAtBoot.memory() == beforeMissingSensors);
+  // A scheduled mist or settling phase cannot suspend the sensor fallback.
+  const uint32_t missingSensorPhases[] = {3600000U, 3660000U, 3719999U};
+  for (uint32_t now : missingSensorPhases) {
+    missingAtBoot.poll(now, absentSensors, settings, true, false);
+    assert(missingAtBoot.fault() && missingAtBoot.fanPercent() == 10);
+    assert(missingAtBoot.foggerPercent() == 0 && missingAtBoot.memory() == beforeMissingSensors);
+  }
+  absentSensors.co2Valid = absentSensors.humidityValid = absentSensors.rpmValid = true;
+  absentSensors.co2 = settings.co2Ppm;
+  absentSensors.humidity = settings.humidityRh;
+  absentSensors.rpm = 1200;
+  absentSensors.co2At = absentSensors.humidityAt = 3720000;
+  missingAtBoot.poll(3720000, absentSensors, settings, true, false);
+  assert(!missingAtBoot.fault() && missingAtBoot.fanPercent() == 35);
+  assert(missingAtBoot.memory() == beforeMissingSensors);
+
   AutomaticControl idle;
   input.co2Valid = false;
-  idle.resumeIfIdle(831001, input, false, true, false);
+  idle.resumeIfIdle(AutomaticLimits::CO2_MAX_AGE_MS - 1, input, false, true, false);
   assert(!idle.enabled());
   input.co2Valid = true;
   idle.resumeIfIdle(831001, input, true, true, false);

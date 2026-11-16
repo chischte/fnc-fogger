@@ -25,8 +25,11 @@ void AutomaticControl::resumeIfIdle(uint32_t now, const ControlInput& input,
                                    bool manualActive, bool networkAvailable,
                                    bool maintenance) {
   if (enabled_ || manualActive || (!networkAvailable && !cyclicMist_.settings().enabled) || maintenance ||
-      !input.hardwareReady || !input.co2Valid || !isfinite(input.co2) ||
-      input.co2 < 0 || now - input.co2At >= CO2_MAX_AGE_MS) return;
+      !input.hardwareReady) return;
+  const bool co2Ready = input.co2Valid && isfinite(input.co2) && input.co2 >= 0 &&
+      now - input.co2At < CO2_MAX_AGE_MS;
+  // Missing sensors must enter the normal fallback after the boot grace period.
+  if (!co2Ready && now < CO2_MAX_AGE_MS) return;
   setEnabled(true, now);
 }
 
@@ -96,14 +99,6 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
     return;
   }
   cyclicMist_.poll(now);
-  if (cyclicSettling()) {
-    fanPercent_ = foggerPercent_ = 0;
-    co2Seen_ = humiditySeen_ = false;
-    fanMissing_ = fanDemand_ = false;
-    fanStartedAt_ = now;
-    reason_ = "automatic_cyclic_settling";
-    return;
-  }
   ControlInput effective = input;
   if (input.co2Valid && isfinite(input.co2) && input.co2 >= 0 &&
       now - input.co2At < CO2_MAX_AGE_MS) {
@@ -139,6 +134,14 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
       settings.humidityRh - input.humidity > HumidityEmergency::DEFICIT_RH,
       HUMIDITY_MAX_AGE_MS);
   if (!wasEmergency && humidityEmergency()) co2Seen_ = false;
+  if (cyclicSettling()) {
+    fanPercent_ = foggerPercent_ = 0;
+    co2Seen_ = humiditySeen_ = false;
+    fanMissing_ = fanDemand_ = false;
+    fanStartedAt_ = now;
+    reason_ = "automatic_cyclic_settling";
+    return;
+  }
   if (cyclicMisting()) {
     if (fanPercent_ < FAN_STALL_CHECK_PERCENT) fanStartedAt_ = now;
     fanPercent_ = CYCLIC_MIST_FAN_PERCENT;

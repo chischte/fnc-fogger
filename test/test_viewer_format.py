@@ -38,9 +38,9 @@ class ViewerFormatTests(unittest.TestCase):
 
     def test_cyclic_activity_covers_misting_and_settling_only_in_automatic_mode(self):
         state = {"online": True, "enabled": True, "cyclic_mist": {"misting": True}}
-        self.assertEqual(cyclic_mist_activity_label(state), "cyclic mist active")
+        self.assertEqual(cyclic_mist_activity_label(state), "Cyclic Mist active")
         state["cyclic_mist"] = {"misting": False, "settling": True}
-        self.assertEqual(cyclic_mist_activity_label(state), "cyclic mist active")
+        self.assertEqual(cyclic_mist_activity_label(state), "Cyclic Mist active")
         state["cyclic_mist"] = {"misting": False, "settling": False}
         self.assertEqual(cyclic_mist_activity_label(state), "")
         state["cyclic_mist"]["settling"] = True

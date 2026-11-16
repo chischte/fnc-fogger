@@ -148,9 +148,10 @@ class ControlHistoryTests(unittest.TestCase):
                                                          f"2026-11-12 11:00:0{index}"))
             panel._draw_graphs(window[1], DARK_THEME, None, window)
             for axis in panel.graphs:
-                activity = [text for text in axis.texts if text.get_text() == "cyclic mist active"]
+                activity = [text for text in axis.texts if text.get_text() == "Cyclic Mist active"]
                 self.assertEqual(len(activity), 1 if index < 2 else 0)
                 if activity:
                     self.assertEqual(activity[0].get_fontsize(), 9)
-                    summary = next(text for text in axis.texts if " @ " in text.get_text())
-                    self.assertGreater(activity[0].get_position()[1], summary.get_position()[1])
+                    self.assertEqual(activity[0].get_position(), (.5, .5))
+                    self.assertEqual(activity[0].get_verticalalignment(), "center")
+                    self.assertEqual(activity[0].get_color(), DARK_THEME["muted"])

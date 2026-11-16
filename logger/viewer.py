@@ -359,7 +359,8 @@ def draw_control_values(ax, value, series, setpoints, control_state):
                     transform=ax.transAxes, zorder=2)
 
 
-def draw_value_boxes(box_axes: list, last: pd.Series, setpoints=None, control_state=None) -> None:
+def draw_value_boxes(box_axes: list, last: pd.Series, setpoints=None, control_state=None,
+                     show_control_details=True) -> None:
     theme = current_theme()
     for ax, s in zip(box_axes, SERIES):
         ax.clear()
@@ -380,7 +381,7 @@ def draw_value_boxes(box_axes: list, last: pd.Series, setpoints=None, control_st
         val_str = format(val, s["fmt"]) if pd.notna(val) else "--"
 
         val_y = 0.45
-        value_x = 0.32 if s["col"] != "temp_box_c" else 0.5
+        value_x = 0.32 if show_control_details and s["col"] != "temp_box_c" else 0.5
 
         # Label (top, bold, muted grey)
         ax.text(value_x, 0.78, s["label"],
@@ -395,7 +396,7 @@ def draw_value_boxes(box_axes: list, last: pd.Series, setpoints=None, control_st
                 ax.text(0.82, val_y, f"{val - ambient:+.1f}",
                         ha="center", va="center", fontsize=11, fontweight="bold",
                         color=s["overlay_color"], transform=ax.transAxes, zorder=2)
-        else:
+        elif show_control_details:
             draw_control_values(ax, val, s, setpoints, control_state)
         ax.text(value_x, 0.13, s["unit"],
                 ha="center", va="center", fontsize=10, fontweight="bold",
@@ -494,7 +495,7 @@ def draw(fig: "plt.Figure", box_axes: list, chart_axes: list,
          range_axis: "plt.Axes", footer_text: "plt.Text",
          preserve_view: bool = False, data_cache=None,
          skip_unchanged: bool = False, database=None, csv=None, control_monitor=None,
-         control_history=None) -> None:
+         control_history=None, show_control_details=True) -> None:
     preserved_limits = (
         [(axis.get_xlim(), axis.get_ylim()) for axis in chart_axes]
         if preserve_view else None
@@ -502,7 +503,7 @@ def draw(fig: "plt.Figure", box_axes: list, chart_axes: list,
 
     history = None
     history_changed = False
-    if control_history is not None:
+    if control_history is not None and show_control_details:
         try:
             previous_history_revision = control_history.revision
             history = control_history.load(database or DB_FILE)
@@ -530,7 +531,7 @@ def draw(fig: "plt.Figure", box_axes: list, chart_axes: list,
 
     control_state = control_monitor.snapshot() if control_monitor else None
     setpoints = control_state["setpoints"] if control_state else None
-    draw_value_boxes(box_axes, last, setpoints, control_state)
+    draw_value_boxes(box_axes, last, setpoints, control_state, show_control_details)
     if history is not None and not history.empty:
         history = history.loc[history["timestamp"].between(df["timestamp"].min(), df["timestamp"].max())]
     for ax, s in zip(chart_axes, SERIES):
@@ -623,7 +624,8 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None,
     chart_axes = [fig.add_subplot(gs_charts[r, 0] if command_mode else gs_charts[r, :])
                   for r in range(3)]
     command_panel = CommandPanel(fig, gs_charts, collector, database=database)
-    render = partial(render, control_history=command_panel.history)
+    render = partial(render, control_history=command_panel.history,
+                     show_control_details=command_mode)
 
     command_panel.set_visible(command_mode)
 
@@ -812,7 +814,8 @@ def show_charts(database=DB_FILE, csv=CSV_FILE, title="Lance", collector=None,
                                   state["enabled"], samples[-1]["timestamp"] if samples else None)
                     if card_state != last_card_state:
                         last_card_state = card_state
-                        draw_value_boxes(box_axes, frame.iloc[-1], state["setpoints"], state)
+                        draw_value_boxes(box_axes, frame.iloc[-1], state["setpoints"], state,
+                                         show_control_details=command_mode)
                         fig.canvas.draw_idle()
             except Exception as error:
                 message = f"Could not read measurements: {error}"

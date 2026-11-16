@@ -612,3 +612,19 @@ of the existing hourly pause: successive cycle starts remain one hour apart.
 The viewer shows "cyclic mist active" above both actuator summaries during the
 mist and settling phases, including recorded historical views. Reset PI only
 clears the integrals; it never starts or reschedules cyclic mist.
+
+## Firmware 3.6.12: sensor fallback also works after a cold start
+
+Automatic mode no longer waits indefinitely for its first valid CO2 reading.
+After the 15-second boot grace period, missing/invalid/stale CO2 enters the
+existing recoverable fallback: fan 10%, fogger OFF, both PI integrals retained.
+Valid measurements resume PI automatically. Manual mode, update maintenance,
+unavailable actuator hardware and the existing network policy retain priority.
+CO2 sensor failure also takes priority over scheduled cyclic mist settling;
+settling cannot turn the 10% fallback fan off while the sensor is absent.
+
+Verified on Lilith by OTA with both sensors physically removed: without sending
+a manual enable command after restart, the device entered automatic_co2_invalid,
+commanded fan 10% (observed approximately 300 rpm), and kept fogger OFF.
+Restored integrals remained CO2 40.79% and humidity 19.30%. ESP32-C3 build and
+all 170 automated tests passed.

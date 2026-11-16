@@ -63,7 +63,7 @@ def cyclic_mist_activity_label(state):
         return ""
     cyclic = state.get("cyclic_mist", {})
     active = cyclic.get("misting") or cyclic.get("settling")
-    return "cyclic mist active" if active else ""
+    return "Cyclic Mist active" if active else ""
 
 
 def actuator_graph_labels(state):
@@ -307,9 +307,6 @@ class CommandPanel:
             label = actuator_graph_labels(state)[0 if channel == "humidity" else 1]
             summary, _, detail = label.partition("\n")
             labels = [(summary, .23, 10, "bold"), (detail, .06, 9, "normal")]
-            activity = cyclic_mist_activity_label(state)
-            if activity:
-                labels.append((activity, .40, 9, "normal"))
             for text, height, size, weight in labels:
                 axis.text(0.5, height, text, ha="center", va="bottom", fontsize=size,
                           fontweight=weight, color=theme["text"], transform=axis.transAxes,
@@ -339,11 +336,13 @@ class CommandPanel:
                         edgecolor=theme["grid"], labelcolor=theme["text"])
             columns = [f"{channel}_{term}" for term, *_ in TERM_STYLES]
             has_terms = not frame.empty and frame[columns].notna().any().any()
-            if humidity_locked or not has_terms:
+            message = cyclic_mist_activity_label(state)
+            if not message and (humidity_locked or not has_terms):
                 message = ("No recorded PI data in this range" if history_window is not None else
                            "Humidity PI disabled - ventilation test" if humidity_locked else
                            "Controller not configured" if not state["enabled"] else
                            "Waiting for controller data")
+            if message:
                 axis.text(0.5, 0.5, message, ha="center", va="center",
                           color=theme["muted"], fontsize=9, transform=axis.transAxes)
         self.heading.set_fontproperties(self.graphs[0].title.get_fontproperties())
