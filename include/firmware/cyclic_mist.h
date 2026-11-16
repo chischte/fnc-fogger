@@ -17,6 +17,7 @@ struct CyclicMistSettings {
 class CyclicMist {
  public:
   static constexpr uint32_t MINUTE_MS = 60000;
+  static constexpr uint32_t SETTLING_MS = MINUTE_MS;
 
   bool configure(const CyclicMistSettings& settings, uint32_t now) {
     if (!settings.valid()) return false;
@@ -32,6 +33,7 @@ class CyclicMist {
   void poll(uint32_t now) {
     if (!settings_.enabled || waitingForClock_) {
       misting_ = false;
+      settling_ = false;
       return;
     }
     const uint32_t period = durationMs() + settings_.pauseMinutes * MINUTE_MS;
@@ -40,9 +42,11 @@ class CyclicMist {
     startedAt_ += (elapsed / period) * period;
     if (elapsed >= period) skipCurrentMist_ = false;
     misting_ = !skipCurrentMist_ && now - startedAt_ < durationMs();
+    settling_ = !skipCurrentMist_ && now - startedAt_ >= durationMs() &&
+        now - startedAt_ < durationMs() + SETTLING_MS;
   }
 
-  void waitForClock() { waitingForClock_ = true; misting_ = false; }
+  void waitForClock() { waitingForClock_ = true; misting_ = settling_ = false; }
   bool waitingForClock() const { return waitingForClock_; }
   uint32_t startedAt() const { return startedAt_; }
   uint32_t periodMs() const { return durationMs() + settings_.pauseMinutes * MINUTE_MS; }
@@ -58,10 +62,12 @@ class CyclicMist {
 
   const CyclicMistSettings& settings() const { return settings_; }
   bool misting() const { return misting_; }
+  bool settling() const { return settling_; }
   uint32_t remainingMs(uint32_t now) const {
     if (!settings_.enabled || waitingForClock_) return 0;
     const uint32_t period = durationMs() + settings_.pauseMinutes * MINUTE_MS;
     const uint32_t elapsed = (now - startedAt_) % period;
+    if (settling_) return durationMs() + SETTLING_MS - elapsed;
     return elapsed < durationMs() && !skipCurrentMist_ ? durationMs() - elapsed : period - elapsed;
   }
 
@@ -70,6 +76,7 @@ class CyclicMist {
   CyclicMistSettings settings_;
   uint32_t startedAt_ = 0;
   bool misting_ = false;
+  bool settling_ = false;
   bool hasOrigin_ = false;
   bool waitingForClock_ = false;
   bool skipCurrentMist_ = false;

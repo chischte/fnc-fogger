@@ -95,6 +95,15 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
     fail("automatic_hardware_error", false);
     return;
   }
+  cyclicMist_.poll(now);
+  if (cyclicSettling()) {
+    fanPercent_ = foggerPercent_ = 0;
+    co2Seen_ = humiditySeen_ = false;
+    fanMissing_ = fanDemand_ = false;
+    fanStartedAt_ = now;
+    reason_ = "automatic_cyclic_settling";
+    return;
+  }
   ControlInput effective = input;
   if (input.co2Valid && isfinite(input.co2) && input.co2 >= 0 &&
       now - input.co2At < CO2_MAX_AGE_MS) {
@@ -130,7 +139,6 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
       settings.humidityRh - input.humidity > HumidityEmergency::DEFICIT_RH,
       HUMIDITY_MAX_AGE_MS);
   if (!wasEmergency && humidityEmergency()) co2Seen_ = false;
-  cyclicMist_.poll(now);
   if (cyclicMisting()) {
     if (fanPercent_ < FAN_STALL_CHECK_PERCENT) fanStartedAt_ = now;
     fanPercent_ = CYCLIC_MIST_FAN_PERCENT;

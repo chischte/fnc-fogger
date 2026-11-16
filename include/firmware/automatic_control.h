@@ -75,6 +75,7 @@ class AutomaticControl {
     return humidityEmergency() ? HumidityEmergency::CO2_TARGET_PPM : configured;
   }
   bool cyclicMisting() const { return !humidityEmergency() && cyclicMist_.misting(); }
+  bool cyclicSettling() const { return !humidityEmergency() && cyclicMist_.settling(); }
   bool enabled() const { return enabled_; }
   bool ownsOutputs() const { return ownsOutputs_; }
   bool fault() const { return fault_; }

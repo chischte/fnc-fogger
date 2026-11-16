@@ -214,6 +214,8 @@ String buildControlJson(const ControlSettingsStore& store, const ActuatorStatus*
   json += ",\"mist_pause_min\":" + String(cyclic.pauseMinutes);
   json += ",\"misting\":";
   json += automatic && automatic->cyclicMisting() ? "true" : "false";
+  json += ",\"settling\":";
+  json += automatic && automatic->cyclicSettling() ? "true" : "false";
   json += ",\"remaining_ms\":" + String(automatic ? automatic->cyclicMist().remainingMs(millis()) : 0) + "}";
   json += ",\"parameters\":{\"co2_kp\":" + String(AutomaticLimits::CO2_KP, 3);
   json += ",\"co2_ti_s\":" + String(AutomaticLimits::CO2_TI_SECONDS, 0);

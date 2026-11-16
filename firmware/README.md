@@ -241,3 +241,13 @@ known earlier start from recorded telemetry. This does not change PI memory.
 Automatic humidity PI output and its integral ceiling now allow 0-100%.
 At 100%, the fogger remains continuously on. Fan maximum remains 80%.
 Existing PI integrals, tuning, setpoints and the persisted cyclic mist origin are retained.
+
+## Firmware 3.6.11: one-minute settling after cyclic mist
+
+Each scheduled mist ON phase is followed by 60 seconds with both fan and fogger
+commanded OFF. Both PI controllers retain their P/I terms throughout misting
+and settling, then resume without integrating the paused time. Settling is part
+of the existing hourly pause: successive cycle starts remain one hour apart.
+The viewer shows "cyclic mist active" above both actuator summaries during the
+mist and settling phases, including recorded historical views. Reset PI only
+clears the integrals; it never starts or reschedules cyclic mist.

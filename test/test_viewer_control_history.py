@@ -129,3 +129,28 @@ class ControlHistoryTests(unittest.TestCase):
         self.assertIn("fan @ 12%", [text.get_text() for text in panel.graphs[1].texts])
         self.assertTrue(collector.automatic_commands.empty())
         self.assertFalse(collector.control.snapshot()["online"])
+
+    def test_recorded_mist_and_settling_show_activity_above_both_outputs(self):
+        control = {"enabled": True, "fault": False,
+                   "co2": {"p": 1, "i": 20, "sum": 21},
+                   "humidity": {"p": 2, "i": 30, "sum": 32},
+                   "fan": {"pwm_percent": 0, "rpm": 0},
+                   "fogger": {"duty_percent": 0, "on_time_s": 0}}
+        for index, phase in enumerate(("misting", "settling", "idle")):
+            control["cyclic_mist"] = {"misting": phase == "misting", "settling": phase == "settling"}
+            record_control(self.db, {"measurement": {"boot_id": 1}, "control": control},
+                           f"2026-11-12T10:00:0{index}+00:00")
+        self.db.commit()
+        figure = Figure(figsize=(12, 8))
+        panel = CommandPanel(figure, figure.add_gridspec(3, 2), None)
+        for index in range(3):
+            window = self.cache.window(self.path, limits(f"2026-11-12 11:00:0{index}",
+                                                         f"2026-11-12 11:00:0{index}"))
+            panel._draw_graphs(window[1], DARK_THEME, None, window)
+            for axis in panel.graphs:
+                activity = [text for text in axis.texts if text.get_text() == "cyclic mist active"]
+                self.assertEqual(len(activity), 1 if index < 2 else 0)
+                if activity:
+                    self.assertEqual(activity[0].get_fontsize(), 9)
+                    summary = next(text for text in axis.texts if " @ " in text.get_text())
+                    self.assertGreater(activity[0].get_position()[1], summary.get_position()[1])

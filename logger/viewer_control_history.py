@@ -41,6 +41,8 @@ def recorded_sample(row):
               "fogger_enabled": control.get("fogger_enabled", True),
               "actuators": actuator_telemetry(control),
               "parameters": parameters if isinstance(parameters, dict) else {}}
+    sample["cyclic_mist"] = control.get("cyclic_mist", {})
+    sample["reason"] = control.get("reason")
     setpoints = control.get("setpoints", {})
     for column, key in (("humidity_setpoint", "humidity_rh"), ("co2_setpoint", "co2_ppm")):
         value = setpoints.get(key) if isinstance(setpoints, dict) else None
@@ -119,5 +121,6 @@ class ControlHistoryCache:
             state.update(online=True, enabled=bool(latest["enabled"]), fault=bool(latest["fault"]),
                          actuators=latest["actuators"], parameters=latest["parameters"],
                          fogger_enabled=latest["fogger_enabled"],
+                         cyclic_mist=latest["cyclic_mist"], reason=latest["reason"],
                          samples=[{column: latest[column] for column in PI_COLUMNS}])
         return selected, state

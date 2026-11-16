@@ -58,6 +58,14 @@ def actuator_graph_titles(state):
     return ("Humidity PI [%]", "CO2 PI [%]")
 
 
+def cyclic_mist_activity_label(state):
+    if not state.get("online") or not state.get("enabled") or state.get("fault"):
+        return ""
+    cyclic = state.get("cyclic_mist", {})
+    active = cyclic.get("misting") or cyclic.get("settling")
+    return "cyclic mist active" if active else ""
+
+
 def actuator_graph_labels(state):
     values = state.get("actuators", {}) if state["online"] else {}
     samples = state.get("samples", [])
@@ -235,7 +243,8 @@ class CommandPanel:
         render_state = (tuple(theme.items()), tuple(limits) if limits is not None else None,
                         setpoints, state["supported"], state["online"], state["enabled"],
                         state["message"], len(samples), samples[-1]["timestamp"] if samples else None,
-                        actuator_graph_labels(graph_state), manual_state, automatic_state, cyclic_state,
+                        actuator_graph_labels(graph_state), cyclic_mist_activity_label(graph_state),
+                        manual_state, automatic_state, cyclic_state,
                         pi_parameter_label(graph_state, "co2"), pi_parameter_label(graph_state, "humidity"),
                         self.history.revision, self._history_error,
                         sensor_diagnostics_label(state), self.feedback, self.pending, self.dirty, self.visible)
@@ -297,8 +306,11 @@ class CommandPanel:
             axis.xaxis.set_label_coords(0.5, -0.19)
             label = actuator_graph_labels(state)[0 if channel == "humidity" else 1]
             summary, _, detail = label.partition("\n")
-            for text, height, size, weight in ((summary, .23, 10, "bold"),
-                                                (detail, .06, 9, "normal")):
+            labels = [(summary, .23, 10, "bold"), (detail, .06, 9, "normal")]
+            activity = cyclic_mist_activity_label(state)
+            if activity:
+                labels.append((activity, .40, 9, "normal"))
+            for text, height, size, weight in labels:
                 axis.text(0.5, height, text, ha="center", va="bottom", fontsize=size,
                           fontweight=weight, color=theme["text"], transform=axis.transAxes,
                           zorder=5,

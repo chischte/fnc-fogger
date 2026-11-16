@@ -1,7 +1,7 @@
 import unittest
 
 from logger.viewer_format import format_rpm, whole_percent
-from logger.viewer_control import actuator_graph_labels
+from logger.viewer_control import actuator_graph_labels, cyclic_mist_activity_label
 
 
 class ViewerFormatTests(unittest.TestCase):
@@ -35,3 +35,14 @@ class ViewerFormatTests(unittest.TestCase):
                          ("fogger @ --%\non: --s | off: --s", "fan @ --%\n-- rpm"))
         self.assertEqual(whole_percent(15.5), "16")
         self.assertEqual(whole_percent(float("nan")), "--")
+
+    def test_cyclic_activity_covers_misting_and_settling_only_in_automatic_mode(self):
+        state = {"online": True, "enabled": True, "cyclic_mist": {"misting": True}}
+        self.assertEqual(cyclic_mist_activity_label(state), "cyclic mist active")
+        state["cyclic_mist"] = {"misting": False, "settling": True}
+        self.assertEqual(cyclic_mist_activity_label(state), "cyclic mist active")
+        state["cyclic_mist"] = {"misting": False, "settling": False}
+        self.assertEqual(cyclic_mist_activity_label(state), "")
+        state["cyclic_mist"]["settling"] = True
+        state["enabled"] = False
+        self.assertEqual(cyclic_mist_activity_label(state), "")

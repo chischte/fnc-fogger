@@ -219,6 +219,7 @@ class ControlMonitor:
                 "automatic_waiting_for_fan": "Waiting for fan tach: fogger OFF.",
                 "automatic_humidity_limit": "Humidity limit reached: fogger OFF.",
                 "automatic_cyclic_mist": "Cyclic mist: fan 50%, fogger 100%; both PI controllers held.",
+                "automatic_cyclic_settling": "Cyclic mist settling: fan and fogger OFF for 1 minute; both PI controllers held.",
                 "automatic_running": "CO2 and humidity PI active.",
             }
             if control.get("reason") in commissioning:
