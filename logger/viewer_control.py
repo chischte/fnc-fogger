@@ -33,6 +33,10 @@ def sensor_diagnostics_label(state):
         return ""
     co2 = diagnostics.get("co2", {})
     sht = diagnostics.get("sht45", {})
+    counters = (co2.get("outages", 0), sht.get("outages", 0),
+                co2.get("restarts", 0), sht.get("restarts", 0), diagnostics.get("bus_restarts", 0))
+    if not any(counters):
+        return ""
     return (f"Sensor outages: CO2 {co2.get('outages', 0)} | SHT45 {sht.get('outages', 0)}"
             f" | restarts: CO2 {co2.get('restarts', 0)}, SHT45 {sht.get('restarts', 0)}"
             f", bus {diagnostics.get('bus_restarts', 0)}")

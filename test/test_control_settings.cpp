@@ -2,6 +2,7 @@
 #include "firmware/control_settings_store.h"
 #include "firmware/cyclic_mist_store.h"
 #include "firmware/pi_memory.h"
+#include "firmware/humidity_calibration.h"
 
 extern "C" { int _fltused = 0; }
 
@@ -106,5 +107,31 @@ int main() {
   assert(loadCyclicMistStart(lastStart) && lastStart == 1794687300);
   Preferences::failWrite = false;
   assert(!saveCyclicMistStart(0));
+  Preferences::length = 0;
+  struct LegacyHumidityReference {
+    uint32_t version, revision;
+    float shtRaw, scdRaw, shtOffset, scdOffset;
+    uint32_t durationMs;
+  };
+  const LegacyHumidityReference legacyHumidity = {1, 7, 94, 98, 6, 2, 900000};
+  Preferences humidityStorage;
+  assert(humidityStorage.putBytes("reference", &legacyHumidity, sizeof(legacyHumidity)) == sizeof(legacyHumidity));
+  HumidityReference reference;
+  assert(loadHumidityReference(reference));
+  assert(reference.version == 2 && reference.revision == 7);
+  assert(reference.shtOffset == 6 && reference.scdOffset == 2 && reference.durationMs == 900000);
+  assert(reference.kind == HumidityReferenceKind::assumedSaturation);
+  reference.kind = HumidityReferenceKind::runningCalibration;
+  reference.shtOffset = 4;
+  reference.revision = 8;
+  assert(saveHumidityReference(reference));
+  HumidityReference rebootedReference;
+  assert(loadHumidityReference(rebootedReference));
+  assert(rebootedReference.shtOffset == 4 && rebootedReference.scdOffset == 2);
+  assert(rebootedReference.revision == 8 && rebootedReference.kind == HumidityReferenceKind::runningCalibration);
+  Preferences::failWrite = true;
+  assert(!saveHumidityReference(HumidityReference{}));
+  assert(loadHumidityReference(rebootedReference) && rebootedReference.revision == 8);
+  Preferences::failWrite = false;
   return 0;
 }

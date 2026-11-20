@@ -393,6 +393,15 @@ void WebServer::finishControlSettings() {
     return;
   }
   if (automaticRequest_) {
+    if (automatic_ && controlBody_ == "exit_emergency=1") {
+      if (!automatic_->enabled() || manual_->active()) {
+        startResponse(409, "text/plain", "Emergency exit requires automatic mode.");
+        return;
+      }
+      automatic_->exitEmergency();
+      startResponse(200, "application/json", buildControlJson(controlSettings_, actuators_, manual_, automatic_, calibration_, &measurements_.sensorDiagnostics()));
+      return;
+    }
     if (automatic_ && controlBody_ == "reset=1") {
       if (!automatic_->enabled() || manual_->active()) {
         startResponse(409, "text/plain", "PI reset requires automatic mode.");

@@ -261,3 +261,28 @@ Valid measurements resume PI automatically. Manual mode, update maintenance,
 unavailable actuator hardware and the existing network policy retain priority.
 CO2 sensor failure also takes priority over scheduled cyclic mist settling;
 settling cannot turn the 10% fallback fan off while the sensor is absent.
+
+## Exit Emergency: separate operator recovery
+
+Reset PI only clears accumulated I terms; emergency and fault latches remain.
+During an emergency, the viewer replaces Reset PI with a red Exit Emergency
+button. This separate action clears emergency/fault states and restarts the
+humidity-deficit observation period while retaining PI integrals, tuning,
+setpoints, automatic mode and the cyclic mist schedule.
+
+POST `/api/control/automatic` with `exit_emergency=1` requires automatic mode.
+The API advertises `exit_emergency_supported`; older firmware leaves the new
+button disabled. Devices need this firmware update to support emergency exit.
+Sensor validity, hardware readiness and fan RPM remain checked. Missing CO2
+immediately reactivates emergency ventilation, a persistent fan stall is detected
+again after the normal startup grace and timeout, and a continuous humidity
+deficit greater than 10 percentage points must exceed 30 minutes again.
+
+## Firmware 3.6.15: humidity PI tuning
+
+At the user's request on 20 November 2026, humidity tuning changes to
+Kp: 2 %/%RH | Ki: 0.1 %/(%RH*min) | Ti: 20 min.
+The integral rate remains unchanged; the proportional response increases from
+1.5 to 2 %/%RH. CO2 tuning, setpoints and persisted PI integrals are retained.
+This release also provides the separate Exit Emergency action described above;
+Reset PI continues to clear only the integral terms.

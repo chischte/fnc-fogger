@@ -20,6 +20,18 @@ class ControlRecordingTests(unittest.TestCase):
         row = self.db.execute("SELECT reference_rh,sht_offset_rh,scd_offset_rh,reference_kind FROM humidity_calibrations").fetchall()
         self.assertEqual(row, [(100, 6.23, 1.35, "assumed_saturation")])
 
+    def test_running_calibration_records_offsets_and_source_separately(self):
+        self.payload["control"]["humidity_calibration"] = {
+            "revision": 2, "assumed_reference_rh": 100,
+            "sht_raw_rh": 96, "scd_raw_rh": 99,
+            "sht_offset_rh": 4, "scd_offset_rh": 1, "duration_ms": 0,
+            "reference_kind": "running_calibration"}
+        recorder = MeasurementRecorder(self.db)
+        recorder.record_live(self.payload)
+        recorder.record_live(self.payload)
+        row = self.db.execute("SELECT revision,sht_offset_rh,scd_offset_rh,reference_kind FROM humidity_calibrations").fetchall()
+        self.assertEqual(row, [(2, 4, 1, "running_calibration")])
+
     def setUp(self):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)

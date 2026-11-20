@@ -10,11 +10,13 @@
 namespace AutomaticLimits {
 constexpr float CO2_KP = 0.04f;
 constexpr float CO2_TI_SECONDS = 600;
-constexpr float HUMIDITY_KP = 1.5f;
-constexpr float HUMIDITY_TI_SECONDS = 900;
+constexpr float HUMIDITY_KP = 2.0f;
+constexpr float HUMIDITY_TI_SECONDS = 1200;
 constexpr uint8_t FAN_MIN_PERCENT = 0;
 constexpr uint8_t FAN_MAX_PERCENT = 80;
-constexpr uint8_t FAN_FAULT_PERCENT = 10;
+constexpr uint8_t FAN_FAULT_PERCENT = 20;
+constexpr uint32_t EMERGENCY_FAN_ON_MS = 60000;
+constexpr uint32_t EMERGENCY_FAN_OFF_MS = 240000;
 constexpr uint8_t CYCLIC_MIST_FAN_PERCENT = 50;
 constexpr uint8_t FOGGER_MAX_PERCENT = 100;
 constexpr uint8_t FAN_STALL_CHECK_PERCENT = 10;
@@ -45,6 +47,7 @@ class AutomaticControl {
  public:
   void setEnabled(bool enabled, uint32_t now);
   void releaseToManual();
+  void exitEmergency();
   void resetIntegrals();
   PiMemory memory() const { return {co2Pi_.terms().i, humidityPi_.terms().i}; }
   bool restoreMemory(const PiMemory& memory);
@@ -72,10 +75,11 @@ class AutomaticControl {
             bool networkAvailable, bool maintenance);
   bool humidityEmergency() const { return humidityEmergency_.active(); }
   float effectiveCo2Target(float configured) const {
-    return humidityEmergency() ? HumidityEmergency::CO2_TARGET_PPM : configured;
+    return configured;
   }
   bool cyclicMisting() const { return !humidityEmergency() && cyclicMist_.misting(); }
   bool cyclicSettling() const { return !humidityEmergency() && cyclicMist_.settling(); }
+  bool emergencyVentilation() const { return emergencyVentilationActive_; }
   bool enabled() const { return enabled_; }
   bool ownsOutputs() const { return ownsOutputs_; }
   bool fault() const { return fault_; }
@@ -91,8 +95,9 @@ class AutomaticControl {
  private:
   void resetRuntimeState();
   bool fanStalled(uint32_t now, const ControlInput& input);
-  void fail(const char* reason, bool hardwareReady);
-  void pauseForCo2();
+  void fail(const char* reason, bool hardwareReady, uint32_t now);
+  void pauseForCo2(uint32_t now);
+  void updateEmergencyVentilation(uint32_t now);
   void updateFan(uint32_t now, const ControlInput& input, const ControlSettings& settings);
   void updateFogger(uint32_t now, const ControlInput& input, const ControlSettings& settings);
   void inhibitFogger(const char* reason);
@@ -103,6 +108,8 @@ class AutomaticControl {
   bool enabled_ = false;
   bool ownsOutputs_ = false;
   bool fault_ = false;
+  bool emergencyVentilationActive_ = false;
+  uint32_t emergencyVentilationStartedAt_ = 0;
   bool fanDemand_ = false;
   bool fanMissing_ = false;
   uint32_t fanMissingAt_ = 0;

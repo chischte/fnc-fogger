@@ -9,8 +9,8 @@ int main() {
   // Retuning strengthens P while preserving both integral rates.
   assert(AutomaticLimits::CO2_KP == 0.04f);
   assert(AutomaticLimits::CO2_TI_SECONDS == 600);
-  assert(AutomaticLimits::HUMIDITY_KP == 1.5f);
-  assert(AutomaticLimits::HUMIDITY_TI_SECONDS == 900);
+  assert(AutomaticLimits::HUMIDITY_KP == 2.0f);
+  assert(AutomaticLimits::HUMIDITY_TI_SECONDS == 1200);
   assert(AutomaticLimits::CO2_KP / AutomaticLimits::CO2_TI_SECONDS == 0.02f / 300);
   assert(AutomaticLimits::HUMIDITY_KP / AutomaticLimits::HUMIDITY_TI_SECONDS == 1.0f / 600);
   PiController pi(2, 10);
@@ -97,14 +97,39 @@ int main() {
   control.poll(35002, input, settings, true, false);
   assert(!control.fault());
   control.poll(35003, input, settings, true, false);
-  assert(control.fault() && control.fanPercent() == 10 && !control.foggerOn(35003));
+  assert(control.fault() && control.fanPercent() == 20 && !control.foggerOn(35003));
   input.rpm = 1000;
   control.poll(35004, input, settings, true, false);
   assert(control.fault());  // Sustained stalls remain latched.
+  const PiMemory stalledMemory = control.memory();
+  control.poll(95003, input, settings, true, false);
+  assert(control.fault() && control.fanPercent() == 0 && control.memory() == stalledMemory);
+  control.poll(335003, input, settings, true, false);
+  assert(control.fault() && control.fanPercent() == 20 && control.memory() == stalledMemory);
+  control.exitEmergency();
+  assert(control.memory() == stalledMemory);
+  assert(!control.fault() && !control.emergencyVentilation() && control.enabled());
+  input.co2At = input.humidityAt = 335004;
+  control.poll(335004, input, settings, true, false);
+  assert(!control.fault() && !control.emergencyVentilation() && control.fanPercent() > 0);
+  input.rpm = 0;
+  input.co2At = input.humidityAt = 340004;
+  control.poll(340004, input, settings, true, false);
+  assert(!control.fault());
+  input.co2At = input.humidityAt = 345005;
+  control.poll(345005, input, settings, true, false);
+  assert(control.fault() && control.emergencyVentilation());
+  input.rpm = 1000;
   control.setEnabled(true, 36000);
   input.co2At = 10000;
   control.poll(36000, input, settings, true, false);
   assert(control.fault());
+  control.resetIntegrals();
+  assert(control.fault() && control.emergencyVentilation());
+  control.exitEmergency();
+  assert(!control.fault() && !control.emergencyVentilation());
+  control.poll(36001, input, settings, true, false);
+  assert(control.fault() && control.emergencyVentilation()); // Missing CO2 is rechecked.
 
   control.setEnabled(true, 40000);
   input.co2At = 40000;
@@ -150,7 +175,7 @@ int main() {
   assert(!control.fault());
   const float beforeSensorLoss = control.co2Terms().i;
   control.poll(125000, input, settings, true, false);
-  assert(control.fault() && control.fanPercent() == 10);
+  assert(control.fault() && control.fanPercent() == 20);
   input.co2Valid = true;
   input.co2At = 125001;
   control.poll(125001, input, settings, true, false);
@@ -164,11 +189,11 @@ int main() {
   input.rpm = 650;
   humidity.setEnabled(true, 200000);
   humidity.poll(200000, input, settings, true, false);
-  assert(humidity.foggerPercent() == 8 && humidity.humidityTerms().i == 0);
-  assert(humidity.foggerPeriodMs() == 1250);
+  assert(humidity.foggerPercent() == 10 && humidity.humidityTerms().i == 0);
+  assert(humidity.foggerPeriodMs() == 1000);
   assert(humidity.foggerOn(200000) && humidity.foggerOn(200099));
-  assert(!humidity.foggerOn(200100) && !humidity.foggerOn(201249));
-  assert(humidity.foggerOn(201250));
+  assert(!humidity.foggerOn(200100) && !humidity.foggerOn(200999));
+  assert(humidity.foggerOn(201000));
   hardware.poll(200000, false, true, &humidity);
   assert(pinValues[3] == HIGH);
   hardware.poll(200100, false, true, &humidity);
@@ -179,7 +204,7 @@ int main() {
   input.co2At = input.humidityAt = 265000;
   humidity.poll(265000, input, settings, true, false);
   assert(humidity.humidityTerms().i > 0.54f && humidity.humidityTerms().i < 0.55f);
-  assert(humidity.foggerPercent() == 8);
+  assert(humidity.foggerPercent() == 11);
   input.co2 = 1000;
   input.co2At = 270000;
   humidity.poll(270000, input, settings, true, false);
@@ -292,13 +317,29 @@ int main() {
   missingAtBoot.resumeIfIdle(15000, absentSensors, false, true, false);
   missingAtBoot.poll(15000, absentSensors, settings, true, false);
   assert(missingAtBoot.enabled() && missingAtBoot.fault());
-  assert(missingAtBoot.fanPercent() == 10 && missingAtBoot.foggerPercent() == 0);
+  assert(missingAtBoot.fanPercent() == 20 && missingAtBoot.foggerPercent() == 0);
   assert(missingAtBoot.memory() == beforeMissingSensors);
+  const uint32_t fallbackPhases[] = {74999U, 75000U, 314999U, 315000U, 375000U};
+  for (uint32_t now : fallbackPhases) {
+    missingAtBoot.poll(now, absentSensors, settings, true, false);
+    assert(missingAtBoot.fanPercent() == ((now - 15000) % 300000 < 60000 ? 20 : 0));
+    assert(missingAtBoot.foggerPercent() == 0 && missingAtBoot.memory() == beforeMissingSensors);
+  }
+  AutomaticControl wrappedFallback;
+  const uint32_t wrapOrigin = 0xFFFF0000U;
+  wrappedFallback.setEnabled(true, wrapOrigin);
+  wrappedFallback.poll(wrapOrigin, absentSensors, settings, true, false);
+  assert(wrappedFallback.fanPercent() == 20);
+  wrappedFallback.poll(wrapOrigin + 60000U, absentSensors, settings, true, false);
+  assert(wrappedFallback.fanPercent() == 0);
+  wrappedFallback.poll(wrapOrigin + 300000U, absentSensors, settings, true, false);
+  assert(wrappedFallback.fanPercent() == 20);
   // A scheduled mist or settling phase cannot suspend the sensor fallback.
   const uint32_t missingSensorPhases[] = {3600000U, 3660000U, 3719999U};
   for (uint32_t now : missingSensorPhases) {
     missingAtBoot.poll(now, absentSensors, settings, true, false);
-    assert(missingAtBoot.fault() && missingAtBoot.fanPercent() == 10);
+    assert(missingAtBoot.fault() && missingAtBoot.fanPercent() ==
+        ((now - 15000) % 300000 < 60000 ? 20 : 0));
     assert(missingAtBoot.foggerPercent() == 0 && missingAtBoot.memory() == beforeMissingSensors);
   }
   absentSensors.co2Valid = absentSensors.humidityValid = absentSensors.rpmValid = true;
@@ -332,7 +373,11 @@ int main() {
   assert(idle.fault());
   idle.resetIntegrals();
   idle.resumeIfIdle(900000, input, false, true, false);
-  assert(idle.fault());  // Reset and automatic default must not clear faults.
+  assert(idle.fault() && idle.emergencyVentilation());
+  idle.exitEmergency();
+  assert(!idle.fault() && !idle.emergencyVentilation());
+  idle.poll(900001, input, settings, true, false);
+  assert(idle.fault() && idle.emergencyVentilation());
   AutomaticControl pause;
   input.co2 = 2000;
   input.co2Valid = input.humidityValid = input.rpmValid = true;
@@ -344,7 +389,7 @@ int main() {
   input.co2At = input.humidityAt = 2065000;
   pause.poll(2065000, input, settings, true, false);
   const float pausedIntegral = pause.humidityTerms().i;
-  assert(pausedIntegral > 0 && pause.foggerPercent() == 8);
+  assert(pausedIntegral > 0 && pause.foggerPercent() == 11);
   input.rpm = 0;
   pause.poll(2065001, input, settings, true, false);
   assert(pause.foggerPercent() == 0 && !pause.foggerOn(2065001));
@@ -356,7 +401,7 @@ int main() {
   input.co2At = 2155000;
   pause.poll(2155000, input, settings, true, false);
   assert(pause.humidityTerms().i == pausedIntegral);
-  assert(pause.humidityTerms().p == 9 && pause.foggerPercent() == 10);
+  assert(pause.humidityTerms().p == 12 && pause.foggerPercent() == 13);
   input.co2At = input.humidityAt = 2190000;
   pause.poll(2190000, input, settings, true, false);
   assert(pause.humidityTerms().i > 0.89f && pause.humidityTerms().i < 0.90f);
@@ -489,7 +534,7 @@ int main() {
   assert(!mist.cyclicSettling() && !mist.cyclicMisting());
   assert(mist.co2Terms().i == fanIntegral && mist.co2Terms().p == 16);
   assert(mist.fanPercent() == 17);
-  assert(mist.humidityTerms().i == mistIntegral && mist.humidityTerms().p == 1.5f);
+  assert(mist.humidityTerms().i == mistIntegral && mist.humidityTerms().p == 2.0f);
   input.co2At = input.humidityAt = 5190000;
   mist.poll(5190000, input, settings, false, false);
   assert(mist.humidityTerms().i > mistIntegral && mist.humidityTerms().i < mistIntegral + 0.11f);
@@ -541,17 +586,43 @@ int main() {
     input.co2At = input.humidityAt = now;
     dry.poll(now, input, settings, true, false);
   }
-  assert(dry.humidityEmergency() && dry.effectiveCo2Target(1500) == 5000);
-  assert(dry.fanPercent() == 0 && !dry.cyclicMisting());
+  assert(dry.humidityEmergency() && dry.effectiveCo2Target(1500) == 1500);
+  assert(dry.fanPercent() == 20 && !dry.cyclicMisting() && dry.foggerPercent() == 0);
+  const PiMemory dryMemory = dry.memory();
+  const uint32_t dryPhases[] = {59999U, 60000U, 299999U, 300000U, 360000U};
+  for (uint32_t elapsed : dryPhases) {
+    input.co2At = input.humidityAt = 1801000 + elapsed;
+    dry.poll(1801000 + elapsed, input, settings, true, false);
+    assert(dry.fanPercent() == (elapsed % 300000 < 60000 ? 20 : 0));
+    assert(dry.foggerPercent() == 0 && dry.memory() == dryMemory);
+  }
   input.co2At = input.humidityAt = 3600000;
   input.humidity = settings.humidityRh;
   dry.poll(3600000, input, settings, true, false);
   assert(dry.cyclicMist().misting() && !dry.cyclicMisting() && dry.fanPercent() == 0);
-  dry.resetIntegrals();
-  assert(dry.humidityEmergency());
   dry.setEnabled(false, 3600001);
   dry.setEnabled(true, 3600002);
   assert(dry.humidityEmergency());
+  const uint32_t resetCount = dry.resetCount();
+  dry.resetIntegrals();
+  assert(dry.humidityEmergency());
+  assert(dry.restoreMemory({12, 34}));
+  dry.exitEmergency();
+  assert(!dry.humidityEmergency() && !dry.emergencyVentilation() && !dry.fault());
+  assert(dry.enabled() && dry.resetCount() == resetCount + 1);
+  assert(dry.memory() == (PiMemory{12, 34}));
+  input.humidity = settings.humidityRh - 11;
+  input.co2At = input.humidityAt = 3600003;
+  dry.poll(3600003, input, settings, true, false);
+  assert(!dry.humidityEmergency() && !dry.emergencyVentilation() && dry.cyclicMisting());
+  for (uint32_t elapsed = 1000; elapsed <= HumidityEmergency::DELAY_MS; elapsed += 1000) {
+    input.co2At = input.humidityAt = 3600003 + elapsed;
+    dry.poll(input.co2At, input, settings, true, false);
+  }
+  assert(!dry.humidityEmergency());
+  input.co2At = input.humidityAt = 3600004 + HumidityEmergency::DELAY_MS;
+  dry.poll(input.co2At, input, settings, true, false);
+  assert(dry.humidityEmergency() && dry.emergencyVentilation());
   dry.releaseToManual();
   assert(!dry.humidityEmergency());
   dry.setEnabled(true, 3600003);
@@ -572,7 +643,7 @@ int main() {
   assert(learnedCo2 > 0 && learnedHumidity > 0);
   input.co2Valid = false;
   recovering.poll(10080000, input, settings, true, false);
-  assert(recovering.fault() && recovering.fanPercent() == 10 && recovering.foggerPercent() == 0);
+  assert(recovering.fault() && recovering.fanPercent() == 20 && recovering.foggerPercent() == 0);
   assert(recovering.co2Terms().i == learnedCo2 && recovering.humidityTerms().i == learnedHumidity);
   input.co2Valid = true;
   input.co2At = input.humidityAt = 10150000;

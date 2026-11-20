@@ -141,7 +141,7 @@ class ViewerSensorTests(unittest.TestCase):
             self.assertEqual(90, data.iloc[0]["humidity_rh"])
             self.assertTrue(pd.isna(data.iloc[0]["humidity_scd_rh"]))
 
-    def test_corrected_humidity_is_capped_and_missing_values_stay_missing(self):
+    def test_corrected_humidity_above_100_remains_visible_and_missing_values_stay_missing(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "corrected.csv"
             path.write_text("timestamp,humidity_rh,humidity_offset_rh\n"
@@ -151,5 +151,25 @@ class ViewerSensorTests(unittest.TestCase):
                     patch.object(viewer, "CSV_FILE", path):
                 data = viewer.load_data()
             self.assertEqual(99.5, data.iloc[0]["humidity_rh"])
-            self.assertEqual(100, data.iloc[0]["humidity_corrected_rh"])
+            self.assertEqual(100.5, data.iloc[0]["humidity_corrected_rh"])
             self.assertTrue(pd.isna(data.iloc[1]["humidity_corrected_rh"]))
+
+    def test_both_calibrated_sensors_keep_values_above_100_in_cards_and_graph(self):
+        from logger.viewer_data import normalize_data
+        frame = normalize_data(pd.DataFrame({
+            "timestamp": ["2026-11-16T10:00:00+01:00", "2026-11-16T10:00:05+01:00"],
+            "humidity_rh": [98, 98.2], "humidity_offset_rh": [6.23, 6.23],
+            "humidity_scd_rh": [99, 99.2], "scd_humidity_offset_rh": [1.35, 1.35],
+            "co2_ppm": [1000, 1000], "temp_box_c": [22, 22]}))
+        self.assertAlmostEqual(frame.humidity_corrected_rh.iloc[0], 104.23)
+        self.assertAlmostEqual(frame.humidity_scd_corrected_rh.iloc[0], 100.35)
+        figure = Figure()
+        axis = figure.subplots()
+        with patch.dict(viewer._state, {"adaptive_y": True}):
+            viewer.plot_series(axis, frame, viewer.SERIES[0])
+        self.assertAlmostEqual(axis.lines[0].get_ydata()[0], 104.23)
+        self.assertAlmostEqual(axis.lines[1].get_ydata()[0], 100.35)
+        self.assertGreater(axis.get_ylim()[1], 104.43)
+        cards = Figure().subplots(1, 3)
+        viewer.draw_value_boxes(cards, frame.iloc[-1], show_control_details=False)
+        self.assertIn("104.4", [text.get_text() for text in cards[0].texts])

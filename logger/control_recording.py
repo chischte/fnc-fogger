@@ -47,11 +47,12 @@ def record_control(db, payload, received_at):
     calibration = control.get("humidity_calibration", {})
     if calibration.get("revision", 0) > 0:
         db.execute("""INSERT OR IGNORE INTO humidity_calibrations
-            (revision,received_at,reference_rh,sht_raw_rh,scd_raw_rh,sht_offset_rh,scd_offset_rh,duration_ms)
-            VALUES(?,?,?,?,?,?,?,?)""", (
+            (revision,received_at,reference_rh,sht_raw_rh,scd_raw_rh,sht_offset_rh,scd_offset_rh,duration_ms,reference_kind)
+            VALUES(?,?,?,?,?,?,?,?,?)""", (
                 calibration["revision"], received_at, calibration["assumed_reference_rh"],
                 calibration["sht_raw_rh"], calibration["scd_raw_rh"],
-                calibration["sht_offset_rh"], calibration["scd_offset_rh"], calibration["duration_ms"]))
+                calibration["sht_offset_rh"], calibration["scd_offset_rh"], calibration["duration_ms"],
+                calibration.get("reference_kind", "assumed_saturation")))
     manual = control.get("manual", {})
     fan = control.get("fan", {})
     setpoints = control.get("setpoints", {})

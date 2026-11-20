@@ -2,6 +2,14 @@
 
 using namespace AutomaticLimits;
 
+void AutomaticControl::exitEmergency() {
+  humidityEmergency_.release();
+  if (emergencyVentilationActive_ || fault_) {
+    resetRuntimeState();
+    reason_ = enabled_ ? "automatic_waiting" : "automatic_off";
+  }
+}
+
 void AutomaticControl::resetIntegrals() {
   co2Pi_.resetIntegral(FAN_MAX_PERCENT);
   humidityPi_.resetIntegral(FOGGER_MAX_PERCENT);
@@ -36,6 +44,7 @@ void AutomaticControl::resumeIfIdle(uint32_t now, const ControlInput& input,
 void AutomaticControl::resetRuntimeState() {
   ++memoryRevision_;
   humidityEmergency_.clearPending();
+  emergencyVentilationActive_ = false;
   fanDemand_ = false;
   fanMissing_ = false;
   co2Seen_ = false;
@@ -68,18 +77,17 @@ void AutomaticControl::stop(const char* reason) {
   reason_ = reason;
 }
 
-void AutomaticControl::fail(const char* reason, bool hardwareReady) {
+void AutomaticControl::fail(const char* reason, bool hardwareReady, uint32_t now) {
   resetRuntimeState();
   fault_ = true;
-  fanPercent_ = hardwareReady ? FAN_FAULT_PERCENT : 0;
+  if (hardwareReady) updateEmergencyVentilation(now);
   reason_ = reason;
 }
 
-void AutomaticControl::pauseForCo2() {
+void AutomaticControl::pauseForCo2(uint32_t now) {
   co2Interrupted_ = true;
   fault_ = true;
-  fanPercent_ = FAN_FAULT_PERCENT;
-  foggerPercent_ = 0;
+  updateEmergencyVentilation(now);
   co2Seen_ = humiditySeen_ = false;
   humidityEmergency_.clearPending();
   reason_ = "automatic_co2_invalid";
@@ -93,9 +101,13 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
     stop(maintenance ? "automatic_update" : "automatic_wifi_lost");
     return;
   }
-  if (fault_ && !co2Interrupted_) return;
+  if (fault_ && !co2Interrupted_) {
+    if (emergencyVentilationActive_ && input.hardwareReady) updateEmergencyVentilation(now);
+    else fanPercent_ = 0;
+    return;
+  }
   if (!input.hardwareReady) {
-    fail("automatic_hardware_error", false);
+    fail("automatic_hardware_error", false, now);
     return;
   }
   cyclicMist_.poll(now);
@@ -111,11 +123,12 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
     effective.co2At = lastValidCo2At_;
     effective.co2Valid = true;
   } else {
-    pauseForCo2();
+    pauseForCo2(now);
     return;
   }
   if (co2Interrupted_) {
     co2Interrupted_ = false;
+    if (!humidityEmergency()) emergencyVentilationActive_ = false;
     fault_ = false;
     co2Seen_ = humiditySeen_ = false;
     fanMissing_ = false;
@@ -123,17 +136,21 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
     fanStartedAt_ = now;
   }
   if (!settings.valid()) {
-    fail("automatic_co2_invalid", true);
+    fail("automatic_co2_invalid", true, now);
     return;
   }
   const bool humidityFresh = input.humidityValid && isfinite(input.humidity) &&
       input.humidity >= 0 && input.humidity <= 100 &&
       now - input.humidityAt < HUMIDITY_MAX_AGE_MS;
-  const bool wasEmergency = humidityEmergency();
   humidityEmergency_.poll(now, humidityFresh &&
       settings.humidityRh - input.humidity > HumidityEmergency::DEFICIT_RH,
       HUMIDITY_MAX_AGE_MS);
-  if (!wasEmergency && humidityEmergency()) co2Seen_ = false;
+  if (humidityEmergency()) {
+    updateEmergencyVentilation(now);
+    reason_ = "automatic_humidity_emergency";
+    return;
+  }
+  emergencyVentilationActive_ = false;
   if (cyclicSettling()) {
     fanPercent_ = foggerPercent_ = 0;
     co2Seen_ = humiditySeen_ = false;
@@ -152,11 +169,24 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
   // Below the measured starting duty, zero RPM is expected rather than a fault.
   if (fanPercent_ < FAN_STALL_CHECK_PERCENT) fanStartedAt_ = now;
   if (fanStalled(now, input)) {
-    fail("automatic_fan_stalled", true);
+    fail("automatic_fan_stalled", true, now);
     return;
   }
   updateFogger(now, input, settings);
-  if (humidityEmergency()) reason_ = "automatic_humidity_emergency";
+}
+
+void AutomaticControl::updateEmergencyVentilation(uint32_t now) {
+  if (!emergencyVentilationActive_) {
+    emergencyVentilationActive_ = true;
+    emergencyVentilationStartedAt_ = now;
+  }
+  const uint32_t period = EMERGENCY_FAN_ON_MS + EMERGENCY_FAN_OFF_MS;
+  const uint32_t elapsed = now - emergencyVentilationStartedAt_;
+  // Advance the origin so the phase also survives millis() rollover.
+  emergencyVentilationStartedAt_ += (elapsed / period) * period;
+  fanPercent_ = elapsed % period < EMERGENCY_FAN_ON_MS ? FAN_FAULT_PERCENT : 0;
+  foggerPercent_ = 0;
+  co2Seen_ = humiditySeen_ = false;
 }
 
 bool AutomaticControl::fanStalled(uint32_t now, const ControlInput& input) {

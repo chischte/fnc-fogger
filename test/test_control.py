@@ -44,6 +44,17 @@ class ControlDataTests(unittest.TestCase):
         panel.update(DARK_THEME)
         self.assertEqual(panel.status.get_fontweight(), "normal")
 
+    def test_timed_emergency_message_keeps_normal_setpoints(self):
+        payload = control_payload(enabled=True)
+        payload["control"]["humidity_emergency"] = {"active": True, "co2_target_ppm": 1200}
+        payload["control"]["emergency_ventilation"] = {
+            "active": True, "fan_on_percent": 20, "on_seconds": 60, "off_seconds": 240}
+        self.monitor.ingest(payload)
+        state = self.monitor.snapshot()
+        self.assertIn("Fan 20% for 1 min, OFF for 4 min", state["message"])
+        self.assertNotIn("5,000", state["message"])
+        self.assertEqual(state["setpoints"].co2_ppm, 1200)
+
     def test_sensor_counters_are_exposed_without_changing_setpoints(self):
         from logger.viewer_control import sensor_diagnostics_label
         payload = control_payload(enabled=True)
@@ -55,6 +66,20 @@ class ControlDataTests(unittest.TestCase):
         self.assertIn("CO2 3 | SHT45 2", sensor_diagnostics_label(state))
         self.assertIn("CO2 4, SHT45 5, bus 1", sensor_diagnostics_label(state))
         self.assertEqual(state["setpoints"].co2_ppm, 1200)
+
+    def test_sensor_diagnostics_stay_hidden_until_an_event(self):
+        from logger.viewer_control import sensor_diagnostics_label
+        diagnostics = {"co2": {"outages": 0, "restarts": 0},
+                       "sht45": {"outages": 0, "restarts": 0}, "bus_restarts": 0}
+        state = {"sensor_diagnostics": diagnostics}
+        self.assertEqual(sensor_diagnostics_label(state), "")
+        for channel in ("co2", "sht45"):
+            for counter in ("outages", "restarts"):
+                diagnostics[channel][counter] = 1
+                self.assertIn("Sensor outages:", sensor_diagnostics_label(state))
+                diagnostics[channel][counter] = 0
+        diagnostics["bus_restarts"] = 1
+        self.assertIn("bus 1", sensor_diagnostics_label(state))
 
     def test_fault_title_distinguishes_fallback_pwm_from_pi_output(self):
         import math

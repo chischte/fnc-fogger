@@ -167,6 +167,11 @@ String buildControlJson(const ControlSettingsStore& store, const ActuatorStatus*
   json += automatic && automatic->humidityEmergency() ? "true" : "false";
   json += ",\"co2_target_ppm\":" + String(automatic ?
       automatic->effectiveCo2Target(settings.co2Ppm) : settings.co2Ppm, 1) + "}";
+  json += ",\"emergency_ventilation\":{\"active\":";
+  json += automatic && automatic->emergencyVentilation() ? "true" : "false";
+  json += ",\"fan_on_percent\":" + String(AutomaticLimits::FAN_FAULT_PERCENT);
+  json += ",\"on_seconds\":" + String(AutomaticLimits::EMERGENCY_FAN_ON_MS / 1000);
+  json += ",\"off_seconds\":" + String(AutomaticLimits::EMERGENCY_FAN_OFF_MS / 1000) + "}";
   if (diagnostics) {
     json += ",\"sensor_diagnostics\":{\"co2\":" + sensorFailureJson(diagnostics->co2);
     json += ",\"sht45\":" + sensorFailureJson(diagnostics->sht45);
@@ -197,6 +202,8 @@ String buildControlJson(const ControlSettingsStore& store, const ActuatorStatus*
   json += ",\"automatic_default\":";
   json += automatic ? "true" : "false";
   json += ",\"pi_reset_supported\":";
+  json += automatic ? "true" : "false";
+  json += ",\"exit_emergency_supported\":";
   json += automatic ? "true" : "false";
   json += ",\"pi_memory_saved\":";
   json += automatic && automatic->memorySaved() ? "true" : "false";

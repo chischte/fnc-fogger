@@ -48,11 +48,11 @@ def normalize_data(df):
     df["humidity_corrected_rh"] = (
         pd.to_numeric(df["humidity_rh"], errors="coerce")
         + df["humidity_offset_rh"].fillna(0)
-    ).clip(0, 100)
+    ).clip(lower=0)
     if "scd_humidity_offset_rh" not in df:
         df["scd_humidity_offset_rh"] = 0.0
     df["scd_humidity_offset_rh"] = pd.to_numeric(df["scd_humidity_offset_rh"], errors="coerce").fillna(0)
-    df["humidity_scd_corrected_rh"] = (df["humidity_scd_rh"] + df["scd_humidity_offset_rh"]).clip(0, 100)
+    df["humidity_scd_corrected_rh"] = (df["humidity_scd_rh"] + df["scd_humidity_offset_rh"]).clip(lower=0)
     df.sort_values("timestamp", inplace=True)
     return df
 

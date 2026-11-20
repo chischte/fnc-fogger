@@ -60,13 +60,14 @@ void Application::poll() {
   const bool networkAvailable = webServer_.manualNetworkAvailable();
   const bool maintenance = webServer_.firmwareUpdateInProgress();
   pollCalibration(controlNow, networkAvailable, maintenance);
+  pollRunningCalibration(controlNow, maintenance);
   const Measurement& measurement = measurements_.current();
   const ActuatorStatus& status = actuators_.status();
   ControlInput input;
   input.co2At = measurement.uptimeMs;
   input.humidityAt = measurement.shtReadUptimeMs;
   input.co2 = measurement.co2;
-  input.humidity = min(100.0f, measurement.humidity + measurement.humidityOffset);
+  input.humidity = min(100.0f, measurement.humidity + calibration_.reference().shtOffset);
   input.scdHumidity = measurement.scdHumidity;
   input.co2Valid = measurement.co2Valid;
   input.humidityValid = measurement.humidityValid;
@@ -97,6 +98,24 @@ void Application::checkpointPi(uint32_t now, bool force) {
   }
   lastPiSaveAt_ = now;
   savedPiRevision_ = revision;
+#endif
+}
+
+void Application::pollRunningCalibration(uint32_t now, bool maintenance) {
+#if defined(CONFIG_IDF_TARGET_ESP32C3)
+  if (maintenance) {
+    calibration_.checkpointRunning(now, true);
+    return;
+  }
+  const Measurement& sample = measurements_.current();
+  const bool shtValid = sample.humidityValid && !sample.shtHeated && !sample.shtCooling &&
+      now - sample.shtReadUptimeMs < AutomaticLimits::HUMIDITY_MAX_AGE_MS;
+  const bool scdValid = sample.scdHumidityValid &&
+      now - sample.uptimeMs < AutomaticLimits::CO2_MAX_AGE_MS;
+  if (calibration_.runningCalibration(now, sample.humidity, shtValid, sample.scdHumidity, scdValid)) {
+    sensors_.setHumidityOffsets(calibration_.reference().shtOffset, calibration_.reference().scdOffset);
+    automatic_.refreshMeasurements();
+  }
 #endif
 }
 

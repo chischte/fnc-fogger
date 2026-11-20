@@ -115,3 +115,51 @@ class AutomaticViewerTests(unittest.TestCase):
             self.collector._send_pending_manual()
         self.assertTrue(self.collector.manual_results.get_nowait()[0])
         self.assertTrue(self.collector.control.snapshot()["enabled"])
+
+    def test_emergency_button_switches_label_color_and_command(self):
+        from matplotlib.figure import Figure
+        from logger.viewer_automatic import AutomaticPanel, EMERGENCY_COLOR, EMERGENCY_TEXT_COLOR
+        from logger.viewer_style import DARK_THEME, LIGHT_THEME
+        panel = AutomaticPanel(Figure(), self.collector, lambda: None)
+        for theme in (DARK_THEME, LIGHT_THEME):
+            for trigger in ("humidity_emergency", "emergency_ventilation", "fault"):
+                control = telemetry(True)
+                control.update(pi_reset_supported=True, exit_emergency_supported=True)
+                control[trigger] = True if trigger == "fault" else {"active": True}
+                self.collector.control.ingest({"control": control})
+                panel.update(self.collector.control.snapshot(), True, False, theme)
+                self.assertEqual(panel.button.label.get_text(), "Exit Emergency")
+                self.assertEqual(panel.button.color, EMERGENCY_COLOR)
+                self.assertEqual(panel.button.label.get_color(), EMERGENCY_TEXT_COLOR)
+                self.assertTrue(panel.button.active)
+                panel._reset(None)
+                self.assertEqual(self.collector.automatic_commands.get_nowait(), "exit_emergency")
+                panel._reset(None)
+                self.assertTrue(self.collector.automatic_commands.empty())
+                self.collector.automatic_results.put((True, "Emergency exited."))
+                self.collector.control.ingest({"control": telemetry(True) | {"pi_reset_supported": True}})
+                panel.update(self.collector.control.snapshot(), True, False, theme)
+                self.assertEqual(panel.button.label.get_text(), "Reset PI")
+                self.assertEqual(panel.button.color, theme["selected"])
+                panel._reset(None)
+                self.assertEqual(self.collector.automatic_commands.get_nowait(), "reset")
+                self.collector.automatic_results.put((True, "PI integrals reset."))
+
+    def test_emergency_exit_requires_support_and_confirmation(self):
+        control = telemetry(True)
+        self.collector.control.ingest({"control": control})
+        with self.assertRaisesRegex(ValueError, "firmware update required"):
+            self.collector.submit_exit_emergency()
+        control.update(exit_emergency_supported=True, fault=True)
+        control["emergency_ventilation"] = {"active": True}
+        self.collector.control.ingest({"control": control})
+        response = MagicMock()
+        for emergency_active in (True, False):
+            self.collector.submit_exit_emergency()
+            control["fault"] = emergency_active
+            control["emergency_ventilation"]["active"] = emergency_active
+            response.__enter__.return_value.read.return_value = json.dumps(control).encode()
+            with patch("urllib.request.urlopen", return_value=response) as request:
+                self.collector._send_pending_automatic()
+                self.assertEqual(request.call_args.args[0].data, b"exit_emergency=1")
+            self.assertEqual(self.collector.automatic_results.get_nowait()[0], not emergency_active)

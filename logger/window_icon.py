@@ -10,6 +10,7 @@ def set_window_icon(window):
     if sys.platform == "win32":
         icon = str(ASSET_DIRECTORY / "monitoring-eye.ico")
         window.iconbitmap(bitmap=icon, default=icon)
-        return
+    # Replace Matplotlib's iconphoto too; it takes precedence over iconbitmap on Windows.
     window._application_icon = tk.PhotoImage(master=window, file=str(ASSET_DIRECTORY / "monitoring-eye.png"))
     window.iconphoto(True, window._application_icon)
+    window.iconphoto(False, window._application_icon)

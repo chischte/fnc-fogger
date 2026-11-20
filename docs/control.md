@@ -628,3 +628,87 @@ a manual enable command after restart, the device entered automatic_co2_invalid,
 commanded fan 10% (observed approximately 300 rpm), and kept fogger OFF.
 Restored integrals remained CO2 40.79% and humidity 19.30%. ESP32-C3 build and
 all 170 automated tests passed.
+
+## Calibrated humidity display above 100%
+
+The desktop viewer retains raw humidity plus the recorded calibration offset
+without clipping the upper end to 100%, for both SHT45 and SCD41. This also
+applies when loading historical measurements. Values above 100% can expose an
+excessive assumed-saturation offset; they are not independent proof of actual
+supersaturation. Adaptive Y includes these values. Fixed axis limits and manual
+zoom remain user-controlled. Firmware control input, setpoint limits and the
+firmware web/API corrected values are unchanged by this display adjustment.
+
+## Firmware 3.6.13: Running Calibration
+
+Running Calibration automatically lowers each sensor's offset whenever a valid,
+fresh raw reading plus its offset exceeds 100% RH. SHT45 and SCD41 are adjusted
+independently, in both Manual Mode and automatic operation. Lower readings never
+increase an offset. Heated/cooling SHT45 readings and stale or invalid readings
+are excluded. The explicit 15-minute calibration suspends Running Calibration.
+This remains an assumed-saturation reference, not an external reference measurement.
+
+Corrections apply immediately in RAM. The first correction is saved immediately;
+further changes are checkpointed at most once per minute, with a forced checkpoint
+during firmware update maintenance. A sudden power loss can lose pending changes.
+Existing stored offsets migrate without resetting them. PI integrals, control mode
+and the cyclic mist schedule are unaffected by an offset adjustment.
+
+The API exposes Running Calibration status and persistence failures. The logger
+records offsets with measurements and records saved calibration revisions separately
+in humidity_calibrations, with reference_kind = running_calibration. The viewer
+continues to show historical corrected values above 100% rather than clipping them.
+
+
+## Firmware 3.6.14: timed emergency ventilation
+
+Emergency ventilation now repeats 60 seconds at 20% fan PWM, followed by
+240 seconds at 0%. Entry begins with the ON phase. This replaces both the
+constant 10% CO2-sensor/fan-fault fallback and the 5000 ppm humidity-emergency
+PI target. Normal CO2 setpoints remain stored; emergency ventilation is open-loop
+and cannot guarantee a particular CO2 concentration.
+
+The existing triggers remain: a humidity deficit greater than 10 percentage
+points for more than 30 minutes, prolonged missing CO2, or a latched fan fault.
+A humidity-sensor-only interruption still inhibits fogging while CO2 PI continues.
+During timed emergency ventilation the fogger stays OFF, Cyclic Mist is bypassed,
+and both PI terms/integrals are held. Phase timing is nonblocking and survives
+millis() rollover. Recovery of CO2 resumes normal PI; humidity emergency retains
+its existing release through Manual Mode then PI, or device restart. Manual
+operation, firmware maintenance and the existing network policy retain priority.
+
+The API adds emergency_ventilation with active, fan_on_percent, on_seconds and
+off_seconds. Actual fan PWM remains recorded in control_samples, allowing future
+real emergency events to be evaluated. Viewer messages describe the new timing;
+recordings from older firmware retain their earlier descriptions.
+
+Commissioning basis: on 17 November 2026, 01:23:32-01:33:32 Europe/Zurich,
+Lilith stayed within 3601-4384 ppm (mean 4082 ppm), with fan PWM mean 7.2%
+(range 0-20%) and RPM mean 249 (range 0-1380). The selected 1:4 timing at 20%
+is deliberately lower ventilation and has not yet been validated in a real
+emergency. No emergency is forced for this change.
+
+## Exit Emergency: separate operator recovery
+
+Reset PI only clears accumulated I terms; emergency and fault latches remain.
+During an emergency, the viewer replaces Reset PI with a red Exit Emergency
+button. This separate action clears emergency/fault states and restarts the
+humidity-deficit observation period while retaining PI integrals, tuning,
+setpoints, automatic mode and the cyclic mist schedule.
+
+POST `/api/control/automatic` with `exit_emergency=1` requires automatic mode.
+The API advertises `exit_emergency_supported`; older firmware leaves the new
+button disabled. Devices need this firmware update to support emergency exit.
+Sensor validity, hardware readiness and fan RPM remain checked. Missing CO2
+immediately reactivates emergency ventilation, a persistent fan stall is detected
+again after the normal startup grace and timeout, and a continuous humidity
+deficit greater than 10 percentage points must exceed 30 minutes again.
+
+## Firmware 3.6.15: humidity PI tuning
+
+At the user's request on 20 November 2026, humidity tuning changes to
+Kp: 2 %/%RH | Ki: 0.1 %/(%RH*min) | Ti: 20 min.
+The integral rate remains unchanged; the proportional response increases from
+1.5 to 2 %/%RH. CO2 tuning, setpoints and persisted PI integrals are retained.
+This release also provides the separate Exit Emergency action described above;
+Reset PI continues to clear only the integral terms.

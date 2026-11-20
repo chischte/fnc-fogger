@@ -174,6 +174,14 @@ class LanceCollector:
         self.automatic_commands.put_nowait("reset")
         self.command_event.set()
 
+    def submit_exit_emergency(self):
+        state = self.control.snapshot()
+        if not state["online"] or not state["enabled"] or not state["exit_emergency_supported"]:
+            raise ValueError("Emergency exit unavailable: automatic mode and firmware update required.")
+        self._clear_commands(self.automatic_commands)
+        self.automatic_commands.put_nowait("exit_emergency")
+        self.command_event.set()
+
     def _send_pending_automatic(self):
         try:
             enabled = self.automatic_commands.get_nowait()
@@ -184,20 +192,31 @@ class LanceCollector:
             return
         try:
             reset = enabled == "reset"
+            exit_emergency = enabled == "exit_emergency"
             previous_reset = self.control.snapshot()["pi_reset_count"]
-            fields = {"reset": 1} if reset else {"enabled": int(enabled)}
+            if reset or exit_emergency:
+                fields = {enabled: 1}
+            else:
+                fields = {"enabled": int(enabled)}
             encoded = urllib.parse.urlencode(fields).encode("ascii")
             request = urllib.request.Request(self.lance.url + "/api/control/automatic", data=encoded,
                                              headers={"Content-Type": "application/x-www-form-urlencoded"})
             with urllib.request.urlopen(request, timeout=8) as response:
                 control = json.load(response)
-            expected_enabled = True if reset else enabled
+            expected_enabled = True if reset or exit_emergency else enabled
             if control.get("automatic_supported") is not True or control.get("enabled") is not expected_enabled:
                 raise ValueError("Device did not confirm PI mode.")
             if reset and control.get("pi_reset_count") != previous_reset + 1:
                 raise ValueError("Device did not confirm PI integral reset.")
+            if exit_emergency and (control.get("exit_emergency_supported") is not True
+                                   or control.get("fault") is True
+                                   or control.get("humidity_emergency", {}).get("active") is True
+                                   or control.get("emergency_ventilation", {}).get("active") is True):
+                raise ValueError("Device did not confirm emergency exit.")
             self.control.ingest({"control": control})
             message = "PI integrals reset." if reset else "PI control started." if enabled else "PI stopped."
+            if exit_emergency:
+                message = "Emergency exited; PI integrals retained."
             self.automatic_results.put((True, message))
         except Exception as error:
             self.automatic_results.put((False, f"PI command unconfirmed: {error}. Check device state."))

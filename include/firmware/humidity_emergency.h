@@ -6,7 +6,6 @@
 class HumidityEmergency {
  public:
   static constexpr float DEFICIT_RH = 10;
-  static constexpr float CO2_TARGET_PPM = 5000;
   static constexpr uint32_t DELAY_MS = 30UL * 60 * 1000;
 
   void poll(uint32_t now, bool belowThreshold, uint32_t maximumGapMs) {

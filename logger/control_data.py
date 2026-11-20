@@ -136,6 +136,8 @@ class ControlMonitor:
         self._manual_timeout_ms = 30000
         self._automatic_supported = False
         self._pi_reset_supported = False
+        self._exit_emergency_supported = False
+        self._emergency_ventilation = {}
         self._pi_reset_count = 0
         self._pi_memory_saved = None
         self._fogger_enabled = True
@@ -186,6 +188,9 @@ class ControlMonitor:
             self._enabled = control.get("enabled") is True
             self._automatic_supported = control.get("automatic_supported") is True
             self._pi_reset_supported = control.get("pi_reset_supported") is True
+            self._exit_emergency_supported = control.get("exit_emergency_supported") is True
+            ventilation = control.get("emergency_ventilation", {})
+            self._emergency_ventilation = dict(ventilation) if isinstance(ventilation, dict) else {}
             self._pi_reset_count = control.get("pi_reset_count", 0)
             self._calibration = dict(control.get("humidity_calibration", {}))
             self._fogger_enabled = control.get("fogger_enabled", True) is True
@@ -222,16 +227,30 @@ class ControlMonitor:
                 "automatic_cyclic_settling": "Cyclic mist settling: fan and fogger OFF for 1 minute; both PI controllers held.",
                 "automatic_running": "CO2 and humidity PI active.",
             }
+            timed_emergency = control.get("emergency_ventilation", {})
+            if timed_emergency.get("active") and control.get("reason") in (
+                    "automatic_co2_invalid", "automatic_fan_stalled"):
+                commissioning[control["reason"]] = (
+                    "Emergency ventilation: fan 20% for 1 min, OFF for 4 min; fogger OFF. "
+                    "PI controllers held.")
             if control.get("reason") in commissioning:
                 self._message = commissioning[control["reason"]]
             if self._humidity_emergency.get("active") is True:
-                self._message = HUMIDITY_EMERGENCY_MESSAGE
+                self._message = (
+                    "Emergency mode: humidity too low for over 30 min. Check water/fogger. "
+                    "Fan 20% for 1 min, OFF for 4 min; fogger OFF. "
+                    "Release: Manual Mode then PI, or restart device."
+                    if timed_emergency.get("active") else HUMIDITY_EMERGENCY_MESSAGE)
             if not persisted:
                 self._message += " Setpoints are factory defaults."
             if self._cyclic_mist.get("enabled") and self._cyclic_mist.get("waiting_for_clock"):
                 self._message += " Cyclic mist waiting for clock synchronization."
             if self._pi_memory_saved is False:
                 self._message += " Warning: PI memory not saved; restart may lose integral values."
+            if self._calibration.get("running_calibration_enabled"):
+                self._message += " Running Calibration: on."
+            if self._calibration.get("running_calibration_save_failed"):
+                self._message += " Warning: calibration changes could not be saved."
             has_measurement = sample_id[0] is not None and sample_id[1] is not None
             if has_measurement and self._last_boot is not None and self._last_boot != sample_id[0]:
                 self._samples.clear()
@@ -255,6 +274,8 @@ class ControlMonitor:
                     "manual_timeout_ms": self._manual_timeout_ms,
                     "automatic_supported": self._automatic_supported,
                     "pi_reset_supported": self._pi_reset_supported,
+                    "exit_emergency_supported": self._exit_emergency_supported,
+                    "emergency_ventilation": dict(self._emergency_ventilation),
                     "pi_reset_count": self._pi_reset_count,
                     "pi_memory_saved": self._pi_memory_saved,
                     "calibration": dict(self._calibration),

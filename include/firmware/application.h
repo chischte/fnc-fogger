@@ -21,6 +21,7 @@ class Application {
   void beginSerial();
   void checkpointPi(uint32_t now, bool force);
   void pollCalibration(uint32_t now, bool networkAvailable, bool maintenance);
+  void pollRunningCalibration(uint32_t now, bool maintenance);
 
   QspiStorage storage_;
   SensorManager sensors_;
