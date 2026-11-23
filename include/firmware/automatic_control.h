@@ -14,7 +14,8 @@ constexpr float HUMIDITY_KP = 2.0f;
 constexpr float HUMIDITY_TI_SECONDS = 1200;
 constexpr uint8_t FAN_MIN_PERCENT = 0;
 constexpr uint8_t FAN_MAX_PERCENT = 80;
-constexpr uint8_t FAN_FAULT_PERCENT = 20;
+constexpr uint8_t FAN_FAULT_PERCENT = 25;
+constexpr float EMERGENCY_CO2_TARGET_PPM = 5000;
 constexpr uint32_t EMERGENCY_FAN_ON_MS = 60000;
 constexpr uint32_t EMERGENCY_FAN_OFF_MS = 240000;
 constexpr uint8_t CYCLIC_MIST_FAN_PERCENT = 50;
@@ -75,7 +76,7 @@ class AutomaticControl {
             bool networkAvailable, bool maintenance);
   bool humidityEmergency() const { return humidityEmergency_.active(); }
   float effectiveCo2Target(float configured) const {
-    return configured;
+    return humidityEmergency() || fault_ ? AutomaticLimits::EMERGENCY_CO2_TARGET_PPM : configured;
   }
   bool cyclicMisting() const { return !humidityEmergency() && cyclicMist_.misting(); }
   bool cyclicSettling() const { return !humidityEmergency() && cyclicMist_.settling(); }
@@ -97,6 +98,9 @@ class AutomaticControl {
   bool fanStalled(uint32_t now, const ControlInput& input);
   void fail(const char* reason, bool hardwareReady, uint32_t now);
   void pauseForCo2(uint32_t now);
+  bool resolveCo2(uint32_t now, ControlInput& input);
+  void updateEmergencyControl(uint32_t now, const ControlInput& input,
+                              const ControlSettings& settings);
   void updateEmergencyVentilation(uint32_t now);
   void updateFan(uint32_t now, const ControlInput& input, const ControlSettings& settings);
   void updateFogger(uint32_t now, const ControlInput& input, const ControlSettings& settings);

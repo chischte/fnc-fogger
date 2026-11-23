@@ -44,6 +44,21 @@ class ControlDataTests(unittest.TestCase):
         panel.update(DARK_THEME)
         self.assertEqual(panel.status.get_fontweight(), "normal")
 
+    def test_emergency_target_uses_reported_5000_ppm(self):
+        payload = control_payload(enabled=True)
+        payload["control"]["humidity_emergency"] = {"active": True, "co2_target_ppm": 5000}
+        self.monitor.ingest(payload)
+        state = self.monitor.snapshot()
+        self.assertIn("5,000 ppm", state["message"])
+        self.assertIn("Exit Error Mode", state["message"])
+        self.assertNotIn("4,000", state["message"])
+        self.assertEqual(state["setpoints"].co2_ppm, 1200)
+        payload["control"]["fault"] = True
+        payload["control"]["reason"] = "automatic_fan_stalled"
+        payload["control"]["humidity_emergency"]["active"] = False
+        self.monitor.ingest(payload)
+        self.assertIn("5,000 ppm", self.monitor.snapshot()["message"])
+
     def test_timed_emergency_message_keeps_normal_setpoints(self):
         payload = control_payload(enabled=True)
         payload["control"]["humidity_emergency"] = {"active": True, "co2_target_ppm": 1200}
@@ -54,6 +69,20 @@ class ControlDataTests(unittest.TestCase):
         self.assertIn("Fan 20% for 1 min, OFF for 4 min", state["message"])
         self.assertNotIn("5,000", state["message"])
         self.assertEqual(state["setpoints"].co2_ppm, 1200)
+        from matplotlib.figure import Figure
+        from logger.viewer_control import CommandPanel
+        from logger.viewer_style import DARK_THEME
+        payload["control"]["automatic_supported"] = True
+        payload["control"]["emergency_ventilation"]["fan_on_percent"] = 25
+        collector = LanceCollector(Lance("b81f3f27f4e0", "test.local", 80), self.database)
+        collector.control.ingest(payload)
+        figure = Figure()
+        panel = CommandPanel(figure, figure.add_gridspec(3, 2), collector)
+        panel.set_visible(True)
+        panel.update(DARK_THEME)
+        self.assertIn("Fan 25% for 1 min", panel.status.get_text())
+        self.assertNotIn("5,000", panel.status.get_text())
+        self.assertEqual(panel.automatic.button.label.get_text(), "Exit Error Mode")
 
     def test_sensor_counters_are_exposed_without_changing_setpoints(self):
         from logger.viewer_control import sensor_diagnostics_label

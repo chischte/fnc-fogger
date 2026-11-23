@@ -3,8 +3,9 @@
 using namespace AutomaticLimits;
 
 void AutomaticControl::exitEmergency() {
+  const bool wasEmergency = humidityEmergency() || emergencyVentilationActive_ || fault_;
   humidityEmergency_.release();
-  if (emergencyVentilationActive_ || fault_) {
+  if (wasEmergency) {
     resetRuntimeState();
     reason_ = enabled_ ? "automatic_waiting" : "automatic_off";
   }
@@ -102,8 +103,10 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
     return;
   }
   if (fault_ && !co2Interrupted_) {
-    if (emergencyVentilationActive_ && input.hardwareReady) updateEmergencyVentilation(now);
-    else fanPercent_ = 0;
+    ControlInput effective = input;
+    if (!input.hardwareReady) fanPercent_ = foggerPercent_ = 0;
+    else if (resolveCo2(now, effective)) updateEmergencyControl(now, effective, settings);
+    else updateEmergencyVentilation(now);
     return;
   }
   if (!input.hardwareReady) {
@@ -112,17 +115,7 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
   }
   cyclicMist_.poll(now);
   ControlInput effective = input;
-  if (input.co2Valid && isfinite(input.co2) && input.co2 >= 0 &&
-      now - input.co2At < CO2_MAX_AGE_MS) {
-    co2Available_ = true;
-    lastValidCo2_ = input.co2;
-    lastValidCo2At_ = input.co2At;
-  } else if (co2Available_ && now - lastValidCo2At_ < CO2_MAX_AGE_MS) {
-    // Reuse the timestamp too: held samples must not advance the integral.
-    effective.co2 = lastValidCo2_;
-    effective.co2At = lastValidCo2At_;
-    effective.co2Valid = true;
-  } else {
+  if (!resolveCo2(now, effective)) {
     pauseForCo2(now);
     return;
   }
@@ -137,6 +130,7 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
   }
   if (!settings.valid()) {
     fail("automatic_co2_invalid", true, now);
+    updateEmergencyControl(now, effective, settings);
     return;
   }
   const bool humidityFresh = input.humidityValid && isfinite(input.humidity) &&
@@ -146,7 +140,7 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
       settings.humidityRh - input.humidity > HumidityEmergency::DEFICIT_RH,
       HUMIDITY_MAX_AGE_MS);
   if (humidityEmergency()) {
-    updateEmergencyVentilation(now);
+    updateEmergencyControl(now, effective, settings);
     reason_ = "automatic_humidity_emergency";
     return;
   }
@@ -170,9 +164,36 @@ void AutomaticControl::poll(uint32_t now, const ControlInput& input,
   if (fanPercent_ < FAN_STALL_CHECK_PERCENT) fanStartedAt_ = now;
   if (fanStalled(now, input)) {
     fail("automatic_fan_stalled", true, now);
+    updateEmergencyControl(now, effective, settings);
     return;
   }
   updateFogger(now, input, settings);
+}
+
+bool AutomaticControl::resolveCo2(uint32_t now, ControlInput& input) {
+  if (input.co2Valid && isfinite(input.co2) && input.co2 >= 0 &&
+      now - input.co2At < CO2_MAX_AGE_MS) {
+    co2Available_ = true;
+    lastValidCo2_ = input.co2;
+    lastValidCo2At_ = input.co2At;
+  } else if (co2Available_ && now - lastValidCo2At_ < CO2_MAX_AGE_MS) {
+    // Reuse the timestamp too: held samples must not advance the integral.
+    input.co2 = lastValidCo2_;
+    input.co2At = lastValidCo2At_;
+    input.co2Valid = true;
+  } else {
+    return false;
+  }
+  return true;
+}
+
+void AutomaticControl::updateEmergencyControl(uint32_t now, const ControlInput& input,
+                                              const ControlSettings& settings) {
+  if (emergencyVentilationActive_) co2Seen_ = false;
+  emergencyVentilationActive_ = false;
+  updateFan(now, input, settings);
+  foggerPercent_ = 0;
+  humiditySeen_ = false;
 }
 
 void AutomaticControl::updateEmergencyVentilation(uint32_t now) {

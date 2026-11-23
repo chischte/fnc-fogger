@@ -15,9 +15,25 @@ MAX_HUMIDITY_RH = 99
 MAX_CONTROL_SAMPLES = 2160
 
 
-HUMIDITY_EMERGENCY_MESSAGE = (
-    "Emergency mode: humidity too low for over 30 min. Check water/fogger. "
-    "CO2 target: 5,000 ppm. Release: Manual Mode then PI, or restart device.")
+def humidity_emergency_message(emergency):
+    target = emergency.get("co2_target_ppm")
+    target_text = (f"CO2 target: {target:,.0f} ppm. "
+                   if isinstance(target, (int, float)) and not isinstance(target, bool)
+                   and math.isfinite(target) else "")
+    return ("Emergency mode: humidity too low for over 30 min. Check water/fogger. "
+            + target_text + "Fogger OFF. Release: Exit Error Mode, Manual Mode then PI, "
+            "or restart device.")
+
+
+def emergency_ventilation_message(ventilation):
+    fields = ("fan_on_percent", "on_seconds", "off_seconds")
+    values = [ventilation.get(field) for field in fields]
+    if not all(isinstance(value, (int, float)) and not isinstance(value, bool)
+               and math.isfinite(value) and value >= 0 for value in values):
+        return "Emergency ventilation active; fogger OFF."
+    fan, on_seconds, off_seconds = values
+    return (f"Fan {fan:g}% for {on_seconds / 60:g} min, "
+            f"OFF for {off_seconds / 60:g} min; fogger OFF.")
 
 
 def effective_co2_target(control, configured):
@@ -231,16 +247,23 @@ class ControlMonitor:
             if timed_emergency.get("active") and control.get("reason") in (
                     "automatic_co2_invalid", "automatic_fan_stalled"):
                 commissioning[control["reason"]] = (
-                    "Emergency ventilation: fan 20% for 1 min, OFF for 4 min; fogger OFF. "
-                    "PI controllers held.")
+                    "Emergency ventilation: " + emergency_ventilation_message(timed_emergency) +
+                    " PI controllers held.")
+            if (self._fault and not timed_emergency.get("active")
+                    and control.get("reason") != "automatic_hardware_error"):
+                target = self._humidity_emergency.get("co2_target_ppm")
+                if isinstance(target, (int, float)) and not isinstance(target, bool) and math.isfinite(target):
+                    commissioning[control.get("reason")] = (
+                        f"Error mode: CO2 target: {target:,.0f} ppm; fogger OFF. "
+                        "Release: Exit Error Mode.")
             if control.get("reason") in commissioning:
                 self._message = commissioning[control["reason"]]
             if self._humidity_emergency.get("active") is True:
                 self._message = (
                     "Emergency mode: humidity too low for over 30 min. Check water/fogger. "
-                    "Fan 20% for 1 min, OFF for 4 min; fogger OFF. "
-                    "Release: Manual Mode then PI, or restart device."
-                    if timed_emergency.get("active") else HUMIDITY_EMERGENCY_MESSAGE)
+                    + emergency_ventilation_message(timed_emergency) + " "
+                    "Release: Exit Error Mode, Manual Mode then PI, or restart device."
+                    if timed_emergency.get("active") else humidity_emergency_message(self._humidity_emergency))
             if not persisted:
                 self._message += " Setpoints are factory defaults."
             if self._cyclic_mist.get("enabled") and self._cyclic_mist.get("waiting_for_clock"):

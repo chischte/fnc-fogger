@@ -691,7 +691,7 @@ emergency. No emergency is forced for this change.
 ## Exit Emergency: separate operator recovery
 
 Reset PI only clears accumulated I terms; emergency and fault latches remain.
-During an emergency, the viewer replaces Reset PI with a red Exit Emergency
+During an emergency, the viewer replaces Reset PI with a red Exit Error Mode
 button. This separate action clears emergency/fault states and restarts the
 humidity-deficit observation period while retaining PI integrals, tuning,
 setpoints, automatic mode and the cyclic mist schedule.
@@ -712,3 +712,27 @@ The integral rate remains unchanged; the proportional response increases from
 1.5 to 2 %/%RH. CO2 tuning, setpoints and persisted PI integrals are retained.
 This release also provides the separate Exit Emergency action described above;
 Reset PI continues to clear only the integral terms.
+
+## Emergency ventilation adjustment, 23 November 2026
+
+Emergency fan output increases from 20% to 25%, retaining 1 minute ON and
+4 minutes OFF with the fogger OFF. This applies to humidity emergency and
+sensor/fan fault ventilation. The viewer displays timing and output from device
+telemetry and shows a red Exit Error Mode button only during an emergency/fault;
+normal operation retains Reset PI. Firmware installation and a viewer restart
+are required for these changes to take effect on a running device.
+
+## Firmware 3.6.16: two emergency ventilation modes, 23 November 2026
+
+With valid CO2 measurements, humidity emergency and latched control faults use
+CO2 PI control with an effective target of 5000 ppm. Configured setpoints and PI
+gains remain unchanged. The fogger stays OFF. Without fresh CO2 measurements,
+ventilation switches to 25% for 1 minute followed by 4 minutes OFF. Held CO2
+samples expire after 15 seconds; sensor recovery automatically selects CO2
+control again while a humidity emergency or latched fault remains active.
+A standalone CO2 sensor interruption still resumes normal operation on recovery.
+Exit Error Mode clears the latch; Reset PI only clears integral terms.
+
+Installed by OTA on device `b81f3f27f4e0` on 23 November 2026:
+`3.6.16-esp32c3`, build `47a0ae64619f`. The installer verified device identity,
+firmware/build match and a new boot. ESP32-C3 build and all 178 tests passed.

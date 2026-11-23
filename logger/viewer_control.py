@@ -9,7 +9,7 @@ import pandas as pd
 from matplotlib import dates as mdates
 from matplotlib.patches import Rectangle
 
-from .control_data import Setpoints, HUMIDITY_EMERGENCY_MESSAGE
+from .control_data import Setpoints
 from .viewer_manual import ManualPanel
 from .viewer_automatic import AutomaticPanel
 from .viewer_cyclic_mist import CyclicMistPanel
@@ -282,8 +282,6 @@ class CommandPanel:
         if self.automatic.feedback and not self.manual.selected:
             message = self.automatic.feedback + "\n" + message
         emergency = state.get("humidity_emergency", {}).get("active") is True
-        if emergency:
-            message = HUMIDITY_EMERGENCY_MESSAGE
         diagnostics = sensor_diagnostics_label(state)
         message = textwrap.fill(message, 68)
         if diagnostics:

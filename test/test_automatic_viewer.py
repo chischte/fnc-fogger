@@ -128,7 +128,7 @@ class AutomaticViewerTests(unittest.TestCase):
                 control[trigger] = True if trigger == "fault" else {"active": True}
                 self.collector.control.ingest({"control": control})
                 panel.update(self.collector.control.snapshot(), True, False, theme)
-                self.assertEqual(panel.button.label.get_text(), "Exit Emergency")
+                self.assertEqual(panel.button.label.get_text(), "Exit Error Mode")
                 self.assertEqual(panel.button.color, EMERGENCY_COLOR)
                 self.assertEqual(panel.button.label.get_color(), EMERGENCY_TEXT_COLOR)
                 self.assertTrue(panel.button.active)

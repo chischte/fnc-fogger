@@ -49,7 +49,7 @@ class AutomaticPanel:
         self.emergency = (state.get("humidity_emergency", {}).get("active") is True
                           or state.get("emergency_ventilation", {}).get("active") is True
                           or state.get("fault") is True)
-        self.button.label.set_text("Exit Emergency" if self.emergency else "Reset PI")
+        self.button.label.set_text("Exit Error Mode" if self.emergency else "Reset PI")
         action_supported = state.get("exit_emergency_supported" if self.emergency else "pi_reset_supported", False)
         supported = state.get("automatic_supported", False)
         self.button.ax.set_visible(visible and supported and not manual_selected)
