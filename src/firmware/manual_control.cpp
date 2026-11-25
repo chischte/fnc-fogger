@@ -30,16 +30,14 @@ void ManualControl::stop() {
   foggerPercent_ = 0;
 }
 
-void ManualControl::poll(uint32_t now, bool networkAvailable) {
+void ManualControl::poll(uint32_t, bool networkAvailable) {
   if (active_ && !networkAvailable) {
     stop();
     interrupted_ = true;
   }
-  if (active_ && now - cycleStartedAt_ >= FOGGER_PERIOD_MS) {
-    cycleStartedAt_ += ((now - cycleStartedAt_) / FOGGER_PERIOD_MS) * FOGGER_PERIOD_MS;
-  }
 }
 
 bool ManualControl::foggerOn(uint32_t now) const {
-  return active_ && now - cycleStartedAt_ < FOGGER_PERIOD_MS * foggerPercent_ / 100;
+  return active_ && foggerPercent_ > 0 &&
+      (now - cycleStartedAt_) % foggerPeriodMs() < FoggerTiming::PULSE_MS;
 }

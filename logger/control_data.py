@@ -216,7 +216,7 @@ class ControlMonitor:
             self._actuators = actuator_telemetry(control)
             self._message = "Controller active" if self._enabled else "Controller not configured – outputs inactive."
             commissioning = {
-                "manual": "Manual Mode: PI control disabled. Fogger uses a 1-second duty cycle.",
+                "manual": "Manual Mode: PI control disabled. Fogger uses 100 ms pulses like PI; 100% is continuous ON.",
                 "manual_timeout": "Manual connection expired: both outputs stopped. Switch On again to resume.",
                 "manual_wifi_lost": "Device Wi-Fi disconnected: both outputs stopped. Switch On again to resume.",
                 "startup_test": "Startup hardware test: fan and fogger pulses; PI control disabled.",

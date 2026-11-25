@@ -396,3 +396,37 @@ Der Status enthält den Sicherheitsmodus (`auth`); der Scan pausiert zusätzlich
 Arduino-Auto-Reconnect.
 
 Ergebnisse und Installationsstand: [WLAN-Leistungstest](wifi-power-test-2026-11-12.md).
+
+
+## Neuer Controller b81f3f2905f4, 24./25. November 2026
+
+ESP32-C3 (Revision v0.4), 4 MiB Flash, per USB an COM11 identifiziert.
+Vollständige Erstinstallation mit Bootloader, Partitionstabelle,
+OTA-Auswahl und Firmware `3.6.16-esp32c3`, Build `47a0ae64619f`.
+Quellfingerprint, SHA-256 und geschriebene Flashbereiche wurden geprüft.
+Ein anschließendes OTA derselben Firmware bestätigte Geräte-ID,
+Hardwareprofil, Firmware, Build und neue Boot-ID.
+
+WLAN-Adresse bei Einrichtung: `192.168.31.89`,
+mDNS: `fnc-fogger-2905f4.local`, Anzeigename: `Secondi a Nessuno`.
+In der lokalen Geräteverwaltung ist `actuators_installed` aktiviert,
+damit der Viewer das Control Panel anzeigt.
+
+Aktueller Installationsstand am 25. November 2026:
+`3.6.21-esp32c3`, Build `57871d832342`, per OTA installiert und mit
+neuer Boot-ID verifiziert. Alle 178 Tests und der C3-Build bestanden.
+Manual Mode und PI verwenden gemeinsam 100-ms-EIN-Pulse mit
+stellwertabhängiger Pause; bei 100% dauerhaft EIN. Es gibt keine
+Unterscheidung nach Fogger-Typ mehr. Die vorübergehenden manuellen
+Messzähler wurden entfernt; vorhandene SQLite-Messdaten bleiben erhalten.
+Die anderen Controller wurden bei diesem Update nicht geflasht.
+
+Beim Sensorvergleich am selben Anschluss lieferte SCD41 `77AFEF073BA5`
+gültige CO2-Werte. Ein anderes Modul antwortete nicht unter `0x62`,
+während der SHT45 unter `0x44` erreichbar blieb. Sensor-outages-Zähler
+gelten seit dem letzten Controllerstart; Sensor-Erholung, Sensor-Neustart,
+Reset PI und Exit Error Mode setzen sie nicht zurück.
+
+Die vorhandene Git-Version `2.56.1.windows.1` aus GitKraken 12.7.0 wurde
+zum Benutzer-PATH hinzugefügt; danach war der PlatformIO-Build erfolgreich.
+Bereits laufende Anwendungen benötigen für den neuen PATH einen Neustart.

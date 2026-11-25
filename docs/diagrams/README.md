@@ -9,14 +9,14 @@ Zurück zur [Dokumentationsübersicht](../README.md).
 ESP32-C3 SuperMini mit SDA GPIO0, SCL GPIO1, Fan PWM GPIO10, Fan TACH GPIO7
 und MOSFET-Gate GPIO3 (Firmware 3.4.3). Die Controller-Grafik zeigt die Kontakte direkt am
 Board; sie ist eine Pinpositions-Illustration, keine exakte Fotografie.
-Die aktuelle Revision 07 ist ein SVG: Beschriftungen, Leitungen und
+Die aktuelle Revision 08 ist ein SVG: Beschriftungen, Leitungen und
 Pinzuordnungen sind editierbare Vektorelemente. Die Bauteilbilder wurden
 separat in hoher Auflösung neu generiert und sind
 als Rastergrafiken eingebettet. Es sind fotorealistische Illustrationen, keine
 verifizierten Produktfotos. Die Pinzuordnungen stammen aus der Firmware und
 der Hardwaredokumentation, nicht aus KI-generierten Leiterbahnen.
 
-Der Fan liegt an 24 V, ESP32 und Fogger an Buck OUT+ mit 5 V. Buck IN− und
+Fan und Fogger liegen an 24 V, der ESP32 an Buck OUT+ mit 5 V. Buck IN− und
 OUT− sind im verwendeten Modul intern verbunden und im Plan entsprechend
 dargestellt. Sensorleitungen: 3,3 V rot, GND schwarz, SDA blau, SCL gelb.
 Der optionale SHTC3 ist gestrichelt am gemeinsamen Sensorbus dargestellt.
@@ -38,6 +38,8 @@ der dargestellten Breakouts; dafür gelten die Beschriftungen der realen Module.
 | 11. November 2026 | Revision 06: neue hochauflösende Bauteilillustrationen, eingerahmte Pin-Felder, bereinigte Abstände und Hinweise |
 
 | 12. November 2026 | Revision 07: Fan PWM GPIO10, Fan TACH GPIO7, kompakter Buck und überarbeitete Lüftergrafik |
+
+| 23. November 2026 | Revision 08: Fogger mit integriertem Treiber an 24 V, 5-V-Abzweig entfernt und Startup-Kommentar gelöscht |
 
 ## Bearbeiten und reproduzieren
 

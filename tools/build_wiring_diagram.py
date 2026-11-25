@@ -66,33 +66,33 @@ def build():
 
     text(30,51,'fnc-fogger',43,weight='700')
     text(284,51,'Wiring Diagram',36,weight='600')
-    text(1570,51,'ESP32-C3 SuperMini · 24V fan / 5V fogger · firmware 3.4.3 · REV 07 · 12 Nov 2026',18,color='#526b84',anchor='end')
+    text(1570,51,'ESP32-C3 SuperMini · 24V fan / 24V fogger · firmware 3.4.3 · REV 08 · 23 Nov 2026',18,color='#526b84',anchor='end')
 
     panel(20,115,520,490,1,'24-V Supply')
     text(46,204,'24V DC',21,COLORS['24v'],'700')
-    text(46,338,'GND',21,COLORS['gnd'],'700')
-    component('buck',210,250,144,104)
-    text(282,235,'XZG buck · 24V → 5V',18,weight='600',anchor='middle')
-    text(195,292,'IN+',14,anchor='middle')
-    text(392,292,'OUT+',14,anchor='end')
-    wire([(55,224),(145,224),(145,268),(222,268)],'24v')
-    wire([(145,268),(145,190),(300,190)],'24v');dot(145,268,'24v',7)
-    dot(145,224,'24v',7)
+    text(46,378,'GND',21,COLORS['gnd'],'700')
+    component('buck',210,290,144,104)
+    text(282,275,'XZG buck · 24V → 5V',18,weight='600',anchor='middle')
+    text(195,332,'IN+',14,anchor='middle')
+    text(392,332,'OUT+',14,anchor='end')
+    wire([(55,224),(145,224),(145,308),(222,308)],'24v')
+    wire([(145,308),(145,190),(300,190)],'24v');dot(145,308,'24v',7)
+    dot(145,190,'24v',7)
+    wire([(145,224),(300,224)],'24v');dot(145,224,'24v',7)
+    text(310,230,'Fogger +',18,COLORS['24v'],'600')
     text(310,196,'Fan pin 2',18,COLORS['24v'],'600')
-    wire([(341,268),(400,268),(400,255),(505,255)],'5v')
-    wire([(400,268),(400,325),(505,325)],'5v');dot(400,268,'5v',7)
-    text(426,242,'5V ESP32',17,COLORS['5v'],'600')
-    text(426,312,'5V Fogger',16,COLORS['5v'],'600')
+    wire([(341,308),(400,308),(400,295),(505,295)],'5v')
+    text(426,282,'5V ESP32',17,COLORS['5v'],'600')
     # IN− and OUT− share the module ground; no redundant external loop.
-    wire([(55,356),(222,356),(341,356),(500,356)],'gnd')
-    wire([(222,334),(222,356)],'gnd')
-    wire([(341,334),(341,356)],'gnd')
-    text(222,389,'IN−',16,anchor='middle');text(341,389,'OUT−',16,anchor='middle')
-    for y,label in [(422,'I² GND'),(459,'Fan GND'),(496,'Mosfet source')]:
-        wire([(111,356),(111,y),(194,y)],'gnd');dot(111,y,'gnd',7);text(210,y+6,label,18)
-    text(500,386,'ESP32 GND',18,COLORS['gnd'],'600','end')
+    wire([(55,396),(222,396),(341,396),(500,396)],'gnd')
+    wire([(222,374),(222,396)],'gnd')
+    wire([(341,374),(341,396)],'gnd')
+    text(222,429,'IN−',16,anchor='middle');text(341,429,'OUT−',16,anchor='middle')
+    for y,label in [(462,'I² GND'),(499,'Fan GND'),(536,'Mosfet source')]:
+        wire([(111,396),(111,y),(194,y)],'gnd');dot(111,y,'gnd',7);text(210,y+6,label,18)
+    text(500,426,'ESP32 GND',18,COLORS['gnd'],'600','end')
     for x in (111,222,341):
-        dot(x,356,'gnd',7)
+        dot(x,396,'gnd',7)
 
 
     panel(555,115,430,490,2,'ESP32-C3 SuperMini')
@@ -145,17 +145,17 @@ def build():
 
     panel(535,625,510,444,5,'Fogger · IRLB8721')
     component('irlb8721',583,725,107,192)
-    for y,label,target,color in [(754,'GPIO3','Gate','gate'),(809,'Fogger −','Drain','gnd'),(864,'GND','Source','gnd'),(919,'5V','Fogger','5v')]:
+    for y,label,target,color in [(754,'GPIO3','Gate','gate'),(809,'Fogger −','Drain','gnd'),(864,'GND','Source','gnd'),(919,'24V','Fogger','24v')]:
         box(710,y-23,117,36,'#fff',COLORS[color],6)
         text(768,y+2,label,20,COLORS[color],'700','middle')
         wire([(827,y-5),(906,y-5)],color);text(917,y+1,target,20)
     for x, label in [(616,'G'),(636,'D'),(656,'S')]:
         text(x,943,label,20,weight='700',anchor='middle')
-    note(553,975,474,['HIGH = ON · LOW = OFF','Complete 5V fogger module with its own driver.'])
+    note(553,975,474,['HIGH = ON · LOW = OFF','24V Fogger with integrated driver.'])
 
     panel(1060,625,520,444,6,'Operation · firmware + OTA')
     text(1083,703,'IMPLEMENTED',14,'#167d69','700')
-    for i,line in enumerate(['Sensor sampling + local measurement buffer','Fan PWM / RPM + manual fogger output','Startup: fan 3 s, fogger pulses 100 ms ON / OFF','Manual Mode: independent 0–100% outputs','Manual outputs stop on device Wi-Fi loss','First installation: USB · later updates: OTA']):
+    for i,line in enumerate(['Sensor sampling + local measurement buffer','Fan PWM / RPM + manual fogger output','Manual Mode: independent 0–100% outputs','Manual outputs stop on device Wi-Fi loss','First installation: USB · later updates: OTA']):
         text(1083,738+i*34,'• '+line,17)
     box(1080,946,480,95,'#fff4e3','none',8)
     text(1094,973,'PI CONTROL',17,'#8d591b','700')

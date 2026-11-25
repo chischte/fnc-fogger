@@ -294,5 +294,5 @@ bool AutomaticControl::foggerOn(uint32_t now) const {
 }
 
 uint32_t AutomaticControl::foggerPeriodMs() const {
-  return foggerPercent_ > 0 ? FOGGER_PULSE_MS * 100 / foggerPercent_ : 0;
+  return FoggerTiming::periodMs(foggerPercent_);
 }

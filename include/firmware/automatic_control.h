@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "firmware/fogger_timing.h"
 #include "firmware/control_settings.h"
 #include "firmware/pi_controller.h"
 #include "firmware/pi_memory.h"
@@ -25,7 +26,7 @@ constexpr uint32_t FAN_START_GRACE_MS = 5000;
 constexpr uint32_t FAN_STALL_TIMEOUT_MS = 5000;
 constexpr uint32_t CO2_MAX_AGE_MS = 15000;
 constexpr uint32_t HUMIDITY_MAX_AGE_MS = 135000;
-constexpr uint32_t FOGGER_PULSE_MS = 100;
+constexpr uint32_t FOGGER_PULSE_MS = FoggerTiming::PULSE_MS;
 constexpr bool FOGGER_ENABLED = true;
 constexpr bool STARTUP_TEST_ENABLED = true;
 }

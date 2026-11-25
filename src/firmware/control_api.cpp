@@ -257,12 +257,13 @@ String buildControlJson(const ControlSettingsStore& store, const ActuatorStatus*
   json += ",\"on_time_s\":";
   json += automaticActive ? String(automatic->foggerPercent() > 0 ?
       AutomaticLimits::FOGGER_PULSE_MS / 1000.0f : 0.0f, 2) :
-      manualActive ? String(manual->foggerPercent() / 100.0f, 2) :
+      manualActive ? String(manual->foggerPercent() > 0 ? FoggerTiming::PULSE_MS / 1000.0f : 0.0f, 2) :
       actuators && actuators->foggerTestActive ? String(StartupTest::FOGGER_PULSE_MS / 1000.0f, 1) : String("0.0");
   json += ",\"off_time_s\":";
   json += automaticActive ? (automatic->foggerPercent() > 0 ?
       String((automatic->foggerPeriodMs() - AutomaticLimits::FOGGER_PULSE_MS) / 1000.0f, 3) : String("null")) :
-      manualActive ? String(1.0f - manual->foggerPercent() / 100.0f, 2) :
+      manualActive ? (manual->foggerPercent() > 0 ?
+          String((manual->foggerPeriodMs() - FoggerTiming::PULSE_MS) / 1000.0f, 3) : String("null")) :
       actuators && actuators->foggerTestActive ? String(StartupTest::FOGGER_PAUSE_MS / 1000.0f, 1) : String("null");
   json += "},\"startup_test\":{\"active\":";
   json += testing ? "true" : "false";

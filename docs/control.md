@@ -1,5 +1,13 @@
 # Control concept
 
+## Unified fogger control (current)
+
+All fogger modules use one common control path. There is no separate wick or
+submerged fogger profile, device-specific timing override or fogger-type
+selection. Since firmware 3.6.21, Manual Mode and PI both use 100 ms ON pulses
+with an output-dependent OFF interval; 0% stays OFF and 100% stays continuously
+ON. Earlier release notes describing separate profiles are historical.
+
 ## Firmware 3.6.2: hold both PI loops during mist
 
 During the ON phase, Cyclic Mist holds both CO2 and humidity P/I terms,
@@ -214,8 +222,9 @@ recording has been enabled; a verified snapshot shows 18% fan PWM, about
 Open the viewer's Command Mode, then select Manual Mode. Entry sets both
 outputs to zero. Fan [%] controls the configured fan PWM duty from 0 to 100, rather than
 closed-loop RPM; actual measured RPM remains visible in the CO2 graph title.
-Fogger [%] controls a one-second time-proportioned cycle: 25% means 250 ms ON
-and 750 ms OFF, 0% stays OFF, 100% stays ON. Each output has its own On/Off button.
+From firmware 3.6.21, Fogger [%] uses the same 100 ms ON pulses as PI:
+25% means 100 ms ON and 300 ms OFF; 50% means 100 ms ON and 100 ms OFF.
+0% stays OFF and 100% stays continuously ON. Each output has its own On/Off button.
 Slider changes apply immediately to
 enabled outputs; disabled outputs retain their local slider setting for the next
 On press. Pending slider commands are coalesced to the latest position.

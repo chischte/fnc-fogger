@@ -13,46 +13,46 @@
 <g font-family="Segoe UI, Arial, sans-serif" fill="#17324e">
 <text x="30" y="51" font-size="43" fill="#17324e" font-weight="700" text-anchor="start">fnc-fogger</text>
 <text x="284" y="51" font-size="36" fill="#17324e" font-weight="600" text-anchor="start">Wiring Diagram</text>
-<text x="1570" y="51" font-size="18" fill="#526b84" font-weight="400" text-anchor="end">ESP32-C3 SuperMini · 24V fan / 5V fogger · firmware 3.4.3 · REV 07 · 12 Nov 2026</text>
+<text x="1570" y="51" font-size="18" fill="#526b84" font-weight="400" text-anchor="end">ESP32-C3 SuperMini · 24V fan / 24V fogger · firmware 3.4.3 · REV 08 · 23 Nov 2026</text>
 <rect x="20" y="115" width="520" height="490" rx="12" fill="#fff" stroke="#d6e1ee"/>
 <rect x="20" y="115" width="520" height="52" rx="12" fill="url(#header)" stroke="none"/>
 <rect x="32" y="124" width="34" height="34" rx="8" fill="#fff" stroke="none"/>
 <text x="49" y="149" font-size="24" fill="#173e77" font-weight="700" text-anchor="middle">1</text>
 <text x="80" y="149" font-size="25" fill="#fff" font-weight="700" text-anchor="start">24-V Supply</text>
 <text x="46" y="204" font-size="21" fill="#ed7b15" font-weight="700" text-anchor="start">24V DC</text>
-<text x="46" y="338" font-size="21" fill="#202c38" font-weight="700" text-anchor="start">GND</text>
-<svg x="210" y="250" width="144" height="104" viewBox="100 95 1275 875" preserveAspectRatio="xMidYMid meet"><use xlink:href="#buck"/></svg>
-<text x="282" y="235" font-size="18" fill="#17324e" font-weight="600" text-anchor="middle">XZG buck · 24V → 5V</text>
-<text x="195" y="292" font-size="14" fill="#17324e" font-weight="400" text-anchor="middle">IN+</text>
-<text x="392" y="292" font-size="14" fill="#17324e" font-weight="400" text-anchor="end">OUT+</text>
-<polyline points="55,224 145,224 145,268 222,268" fill="none" stroke="#ed7b15" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-<polyline points="145,268 145,190 300,190" fill="none" stroke="#ed7b15" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="145" cy="268" r="7" fill="#ed7b15"/>
+<text x="46" y="378" font-size="21" fill="#202c38" font-weight="700" text-anchor="start">GND</text>
+<svg x="210" y="290" width="144" height="104" viewBox="100 95 1275 875" preserveAspectRatio="xMidYMid meet"><use xlink:href="#buck"/></svg>
+<text x="282" y="275" font-size="18" fill="#17324e" font-weight="600" text-anchor="middle">XZG buck · 24V → 5V</text>
+<text x="195" y="332" font-size="14" fill="#17324e" font-weight="400" text-anchor="middle">IN+</text>
+<text x="392" y="332" font-size="14" fill="#17324e" font-weight="400" text-anchor="end">OUT+</text>
+<polyline points="55,224 145,224 145,308 222,308" fill="none" stroke="#ed7b15" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="145,308 145,190 300,190" fill="none" stroke="#ed7b15" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="145" cy="308" r="7" fill="#ed7b15"/>
+<circle cx="145" cy="190" r="7" fill="#ed7b15"/>
+<polyline points="145,224 300,224" fill="none" stroke="#ed7b15" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
 <circle cx="145" cy="224" r="7" fill="#ed7b15"/>
+<text x="310" y="230" font-size="18" fill="#ed7b15" font-weight="600" text-anchor="start">Fogger +</text>
 <text x="310" y="196" font-size="18" fill="#ed7b15" font-weight="600" text-anchor="start">Fan pin 2</text>
-<polyline points="341,268 400,268 400,255 505,255" fill="none" stroke="#da343b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-<polyline points="400,268 400,325 505,325" fill="none" stroke="#da343b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="400" cy="268" r="7" fill="#da343b"/>
-<text x="426" y="242" font-size="17" fill="#da343b" font-weight="600" text-anchor="start">5V ESP32</text>
-<text x="426" y="312" font-size="16" fill="#da343b" font-weight="600" text-anchor="start">5V Fogger</text>
-<polyline points="55,356 222,356 341,356 500,356" fill="none" stroke="#202c38" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-<polyline points="222,334 222,356" fill="none" stroke="#202c38" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-<polyline points="341,334 341,356" fill="none" stroke="#202c38" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-<text x="222" y="389" font-size="16" fill="#17324e" font-weight="400" text-anchor="middle">IN−</text>
-<text x="341" y="389" font-size="16" fill="#17324e" font-weight="400" text-anchor="middle">OUT−</text>
-<polyline points="111,356 111,422 194,422" fill="none" stroke="#202c38" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="111" cy="422" r="7" fill="#202c38"/>
-<text x="210" y="428" font-size="18" fill="#17324e" font-weight="400" text-anchor="start">I² GND</text>
-<polyline points="111,356 111,459 194,459" fill="none" stroke="#202c38" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="111" cy="459" r="7" fill="#202c38"/>
-<text x="210" y="465" font-size="18" fill="#17324e" font-weight="400" text-anchor="start">Fan GND</text>
-<polyline points="111,356 111,496 194,496" fill="none" stroke="#202c38" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="111" cy="496" r="7" fill="#202c38"/>
-<text x="210" y="502" font-size="18" fill="#17324e" font-weight="400" text-anchor="start">Mosfet source</text>
-<text x="500" y="386" font-size="18" fill="#202c38" font-weight="600" text-anchor="end">ESP32 GND</text>
-<circle cx="111" cy="356" r="7" fill="#202c38"/>
-<circle cx="222" cy="356" r="7" fill="#202c38"/>
-<circle cx="341" cy="356" r="7" fill="#202c38"/>
+<polyline points="341,308 400,308 400,295 505,295" fill="none" stroke="#da343b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="426" y="282" font-size="17" fill="#da343b" font-weight="600" text-anchor="start">5V ESP32</text>
+<polyline points="55,396 222,396 341,396 500,396" fill="none" stroke="#202c38" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="222,374 222,396" fill="none" stroke="#202c38" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="341,374 341,396" fill="none" stroke="#202c38" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="222" y="429" font-size="16" fill="#17324e" font-weight="400" text-anchor="middle">IN−</text>
+<text x="341" y="429" font-size="16" fill="#17324e" font-weight="400" text-anchor="middle">OUT−</text>
+<polyline points="111,396 111,462 194,462" fill="none" stroke="#202c38" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="111" cy="462" r="7" fill="#202c38"/>
+<text x="210" y="468" font-size="18" fill="#17324e" font-weight="400" text-anchor="start">I² GND</text>
+<polyline points="111,396 111,499 194,499" fill="none" stroke="#202c38" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="111" cy="499" r="7" fill="#202c38"/>
+<text x="210" y="505" font-size="18" fill="#17324e" font-weight="400" text-anchor="start">Fan GND</text>
+<polyline points="111,396 111,536 194,536" fill="none" stroke="#202c38" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="111" cy="536" r="7" fill="#202c38"/>
+<text x="210" y="542" font-size="18" fill="#17324e" font-weight="400" text-anchor="start">Mosfet source</text>
+<text x="500" y="426" font-size="18" fill="#202c38" font-weight="600" text-anchor="end">ESP32 GND</text>
+<circle cx="111" cy="396" r="7" fill="#202c38"/>
+<circle cx="222" cy="396" r="7" fill="#202c38"/>
+<circle cx="341" cy="396" r="7" fill="#202c38"/>
 <rect x="555" y="115" width="430" height="490" rx="12" fill="#fff" stroke="#d6e1ee"/>
 <rect x="555" y="115" width="430" height="52" rx="12" fill="url(#header)" stroke="none"/>
 <rect x="567" y="124" width="34" height="34" rx="8" fill="#fff" stroke="none"/>
@@ -200,16 +200,16 @@
 <text x="768" y="866" font-size="20" fill="#202c38" font-weight="700" text-anchor="middle">GND</text>
 <polyline points="827,859 906,859" fill="none" stroke="#202c38" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
 <text x="917" y="865" font-size="20" fill="#17324e" font-weight="400" text-anchor="start">Source</text>
-<rect x="710" y="896" width="117" height="36" rx="6" fill="#fff" stroke="#da343b"/>
-<text x="768" y="921" font-size="20" fill="#da343b" font-weight="700" text-anchor="middle">5V</text>
-<polyline points="827,914 906,914" fill="none" stroke="#da343b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="710" y="896" width="117" height="36" rx="6" fill="#fff" stroke="#ed7b15"/>
+<text x="768" y="921" font-size="20" fill="#ed7b15" font-weight="700" text-anchor="middle">24V</text>
+<polyline points="827,914 906,914" fill="none" stroke="#ed7b15" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
 <text x="917" y="920" font-size="20" fill="#17324e" font-weight="400" text-anchor="start">Fogger</text>
 <text x="616" y="943" font-size="20" fill="#17324e" font-weight="700" text-anchor="middle">G</text>
 <text x="636" y="943" font-size="20" fill="#17324e" font-weight="700" text-anchor="middle">D</text>
 <text x="656" y="943" font-size="20" fill="#17324e" font-weight="700" text-anchor="middle">S</text>
 <rect x="553" y="975" width="474" height="64" rx="8" fill="#edf4fc" stroke="none"/>
 <text x="565" y="1000" font-size="16" fill="#17324e" font-weight="400" text-anchor="start">HIGH = ON · LOW = OFF</text>
-<text x="565" y="1023" font-size="16" fill="#17324e" font-weight="400" text-anchor="start">Complete 5V fogger module with its own driver.</text>
+<text x="565" y="1023" font-size="16" fill="#17324e" font-weight="400" text-anchor="start">24V Fogger with integrated driver.</text>
 <rect x="1060" y="625" width="520" height="444" rx="12" fill="#fff" stroke="#d6e1ee"/>
 <rect x="1060" y="625" width="520" height="52" rx="12" fill="url(#header)" stroke="none"/>
 <rect x="1072" y="634" width="34" height="34" rx="8" fill="#fff" stroke="none"/>
@@ -218,10 +218,9 @@
 <text x="1083" y="703" font-size="14" fill="#167d69" font-weight="700" text-anchor="start">IMPLEMENTED</text>
 <text x="1083" y="738" font-size="17" fill="#17324e" font-weight="400" text-anchor="start">• Sensor sampling + local measurement buffer</text>
 <text x="1083" y="772" font-size="17" fill="#17324e" font-weight="400" text-anchor="start">• Fan PWM / RPM + manual fogger output</text>
-<text x="1083" y="806" font-size="17" fill="#17324e" font-weight="400" text-anchor="start">• Startup: fan 3 s, fogger pulses 100 ms ON / OFF</text>
-<text x="1083" y="840" font-size="17" fill="#17324e" font-weight="400" text-anchor="start">• Manual Mode: independent 0–100% outputs</text>
-<text x="1083" y="874" font-size="17" fill="#17324e" font-weight="400" text-anchor="start">• Manual outputs stop on device Wi-Fi loss</text>
-<text x="1083" y="908" font-size="17" fill="#17324e" font-weight="400" text-anchor="start">• First installation: USB · later updates: OTA</text>
+<text x="1083" y="806" font-size="17" fill="#17324e" font-weight="400" text-anchor="start">• Manual Mode: independent 0–100% outputs</text>
+<text x="1083" y="840" font-size="17" fill="#17324e" font-weight="400" text-anchor="start">• Manual outputs stop on device Wi-Fi loss</text>
+<text x="1083" y="874" font-size="17" fill="#17324e" font-weight="400" text-anchor="start">• First installation: USB · later updates: OTA</text>
 <rect x="1080" y="946" width="480" height="95" rx="8" fill="#fff4e3" stroke="none"/>
 <text x="1094" y="973" font-size="17" fill="#8d591b" font-weight="700" text-anchor="start">PI CONTROL</text>
 <text x="1094" y="1000" font-size="16" fill="#17324e" font-weight="400" text-anchor="start">CO₂ PI controls the fan.</text>

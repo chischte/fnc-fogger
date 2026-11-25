@@ -310,3 +310,22 @@ Exit Error Mode clears the latch; Reset PI only clears integral terms.
 Installed by OTA on device `b81f3f27f4e0` on 23 November 2026:
 `3.6.16-esp32c3`, build `47a0ae64619f`. The installer verified device identity,
 firmware/build match and a new boot. ESP32-C3 build and all 178 tests passed.
+
+
+## Firmware 3.6.21: unified manual and PI fogger timing, 25 November 2026
+
+Manual Mode now uses the existing PI pulse schedule: fixed 100 ms ON,
+demand-dependent OFF, and continuous ON at 100%. Both modes use the same
+shared period calculation, including its integer-millisecond rounding.
+Examples: 10% = 100/900 ms, 25% = 100/300 ms, 50% = 100/100 ms ON/OFF.
+0% remains OFF. API timing and the viewer status text reflect this schedule.
+Manual fan control, PI gains, setpoints and fault handling are unchanged.
+There are no device-specific fogger profiles or fogger-type selections.
+The temporary manual measurement counters are removed; existing SQLite
+measurement data remain available. Restart the viewer to reload its status text.
+
+Installed by OTA on `b81f3f2905f4` (Secondi a Nessuno):
+`3.6.21-esp32c3`, build `57871d832342`. Device identity, hardware profile,
+firmware, build and a new boot were verified. All 178 tests and the C3 build
+passed, including manual timing boundaries for 1-100%, OFF, continuous ON
+and timestamp wraparound.

@@ -65,7 +65,7 @@ int main() {
   assert(hardware.status().fanPercent == 40 && pinValues[3] == HIGH);
   hardware.poll(11250, false);
   assert(pinValues[3] == LOW);
-  hardware.poll(12000, false);
+  hardware.poll(11800, false);
   assert(pinValues[3] == HIGH);
   assert(manual.set(true, 100, 100, 12001));
   hardware.poll(12999, false);
@@ -96,6 +96,22 @@ int main() {
 
   ManualControl afterReboot;
   assert(!afterReboot.active() && afterReboot.fanPercent() == 0 && afterReboot.foggerPercent() == 0);
+
+  ManualControl timing;
+  assert(timing.set(true, 0, 0, 0));
+  assert(timing.foggerPeriodMs() == 0 && !timing.foggerOn(0));
+  for (uint8_t percent = 1; percent <= 100; ++percent) {
+    assert(timing.set(true, 0, percent, 0));
+    const uint32_t period = FoggerTiming::periodMs(percent);
+    assert(timing.foggerPeriodMs() == period);
+    assert(timing.foggerOn(0) && timing.foggerOn(99));
+    assert(timing.foggerOn(100) == (percent == 100));
+    assert(timing.foggerOn(period));
+    assert(timing.foggerOn(period - 1) == (percent == 100));
+  }
+  assert(timing.set(true, 0, 25, 0xFFFFFF00U));
+  assert(timing.foggerOn(0xFFFFFF00U + 400U));
+  assert(!timing.foggerOn(0xFFFFFF00U + 500U));
 
   pwmAvailable = false;
   StartupActuators failed;
