@@ -143,7 +143,7 @@ def build():
         text(367,y+5,label,20,weight='700');text(367,y+27,target,17)
     note(38,984,464,['PWM: 3.3V push-pull · 25 kHz','Tach: 2 pulses / revolution · internal 3.3V pull-up'])
 
-    panel(535,625,510,444,5,'Fogger · IRLB8721')
+    panel(535,625,510,444,5,'Fogger · IRLB8721 / IRLZ44N')
     component('irlb8721',583,725,107,192)
     for y,label,target,color in [(754,'GPIO3','Gate','gate'),(809,'Fogger −','Drain','gnd'),(864,'GND','Source','gnd'),(919,'24V','Fogger','24v')]:
         box(710,y-23,117,36,'#fff',COLORS[color],6)
