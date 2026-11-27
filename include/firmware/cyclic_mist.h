@@ -21,8 +21,13 @@ class CyclicMist {
 
   bool configure(const CyclicMistSettings& settings, uint32_t now) {
     if (!settings.valid()) return false;
+    const bool enabling = settings.enabled && !settings_.enabled;
     settings_ = settings;
-    if (!hasOrigin_) {
+    if (enabling) {
+      waitingForClock_ = false;
+      skipCurrentMist_ = false;
+    }
+    if (!hasOrigin_ || enabling) {
       startedAt_ = now;
       hasOrigin_ = true;
     }

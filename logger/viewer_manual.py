@@ -28,7 +28,7 @@ class ManualPanel:
         self.fan_button = Button(figure.add_axes([0, 0, .1, .03]), "Fan Off")
         self.fogger_button = Button(figure.add_axes([0, 0, .1, .03]), "Fogger Off")
         self.stop = Button(figure.add_axes([0, 0, .1, .03]), "Stop All")
-        self.calibration = Button(figure.add_axes([0, 0, .1, .03]), "Calibrate 15 min")
+        self.calibration = Button(figure.add_axes([0, 0, .1, .03]), "Calibrate")
         self.calibration.on_clicked(self._calibrate)
         self.calibrating = False
         self.toggle.on_clicked(self._toggle)
@@ -151,7 +151,10 @@ class ManualPanel:
         self.calibrating = calibration.get("running", False)
         if self.calibrating:
             seconds = calibration.get("remaining_ms", 0) // 1000
-            self.feedback = f"Assumed-100% reference: {seconds // 60}:{seconds % 60:02d} remaining; fan 50%, fogger 100%."
+            self.feedback = (
+                f"Assumed-100% reference: {seconds // 60}:{seconds % 60:02d} "
+                "until stable; resets on 0.1%RH rise; fan 30%, fogger 100%."
+            )
             if confirmed is not None:
                 self.fan_on = self.fogger_on = True
                 for slider, value in ((self.fan, confirmed.fan_percent),
@@ -165,7 +168,7 @@ class ManualPanel:
         for widget in self._output_widgets():
             widget.set_active(available and self.selected and not self.calibrating)
         self.calibration.set_active(available and self.selected and calibration.get("supported", False) and not self.pending)
-        self.calibration.label.set_text("Cancel Calibration" if self.calibrating else "Calibrate 15 min")
+        self.calibration.label.set_text("Cancel Calibration" if self.calibrating else "Calibrate")
         fogger_available = state.get("fogger_enabled", True)
         self.fogger.set_active(available and self.selected and fogger_available and not self.calibrating)
         self.fogger_button.set_active(available and self.selected and fogger_available and not self.calibrating)

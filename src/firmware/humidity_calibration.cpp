@@ -17,6 +17,27 @@ bool adjustOffset(float raw, bool valid, float& referenceRaw, float& offset) {
 }
 }
 
+void HumidityCalibration::start(uint32_t now) {
+  startedAt_ = lastRiseAt_ = now;
+  hasHumidity_ = false;
+  running_ = true;
+  status_ = "running";
+}
+
+void HumidityCalibration::observeHumidity(uint32_t now, float humidity, bool valid) {
+  if (!running_) return;
+  if (!valid || !validHumidity(humidity)) {
+    hasHumidity_ = false;
+    lastRiseAt_ = now;
+    return;
+  }
+  if (!hasHumidity_ || humidity >= riseReferenceRh_ + MINIMUM_RISE_RH) {
+    riseReferenceRh_ = humidity;
+    lastRiseAt_ = now;
+    hasHumidity_ = true;
+  }
+}
+
 bool HumidityCalibration::capture(float shtRaw, float scdRaw, uint32_t durationMs) {
   if (!isfinite(shtRaw) || !isfinite(scdRaw) || shtRaw < 0 || shtRaw > 100 ||
       scdRaw < 0 || scdRaw > 100) return false;

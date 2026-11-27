@@ -452,6 +452,21 @@ int main() {
   assert(!timer.settling() && timer.remainingMs(120000) == 3480000);
   timer.poll(3600000);
   assert(timer.misting());
+  // Enabling after an idle or restored phase starts a full mist immediately.
+  CyclicMist toggled;
+  assert(toggled.configure({false, 0, 60}, 0));
+  toggled.waitForClock();
+  toggled.restorePhase(1000, 20 * 60000);
+  assert(toggled.configure({true, 1, 59}, 1800000));
+  assert(!toggled.waitingForClock() && toggled.misting());
+  assert(toggled.startedAt() == 1800000 && toggled.remainingMs(1800000) == 60000);
+  assert(toggled.configure({true, 2, 58}, 1801000));
+  assert(toggled.startedAt() == 1800000 && toggled.remainingMs(1801000) == 119000);
+  assert(toggled.configure({false, 0, 60}, 1802000));
+  toggled.waitForClock();
+  assert(toggled.configure({true, 1, 59}, 1803000));
+  assert(!toggled.waitingForClock() && toggled.misting());
+  assert(toggled.remainingMs(1803000) == 60000);
   CyclicMist wrapped;
   assert(wrapped.configure({true, 1, 10}, 0xFFFFFF00U));
   wrapped.poll(0xFFFFFF00U + 60000U);

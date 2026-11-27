@@ -372,7 +372,7 @@ void WebServer::finishControlSettings() {
         startResponse(409, "text/plain", "Select Manual Mode before starting.");
         return;
       }
-      manual_->set(true, 50, 100, millis());
+      manual_->set(true, HumidityCalibration::FAN_PERCENT, HumidityCalibration::FOGGER_PERCENT, millis());
       automatic_->releaseToManual();
       calibration_->start(millis());
     } else if (controlBody_ == "action=cancel") {

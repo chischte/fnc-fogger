@@ -8,6 +8,17 @@ selection. Since firmware 3.6.21, Manual Mode and PI both use 100 ms ON pulses
 with an output-dependent OFF interval; 0% stays OFF and 100% stays continuously
 ON. Earlier release notes describing separate profiles are historical.
 
+## Cyclic Mist activation (current)
+
+Changing from 0 to a positive min/h value starts a full mist phase immediately,
+clearing any old phase or clock-wait state. Editing an already enabled cycle
+preserves its time origin. Reboot restoration still skips an interrupted mist
+phase and waits for the next scheduled period.
+
+Installed and restart-verified on Secondi a Nessuno (`b81f3f2905f4`) on
+27 November 2026, build `a25ed1a27ba5`. This build also includes the
+30% fan and humidity-stability completion rule for explicit calibration.
+
 ## Firmware 3.6.2: hold both PI loops during mist
 
 During the ON phase, Cyclic Mist holds both CO2 and humidity P/I terms,
@@ -179,7 +190,16 @@ Device Overview preserves name/location capitalization and uses the viewer's
 12-point Segoe UI Semibold title style.
 Older version sections and the original design below provide historical context.
 
-## Humidity reference adjustment, firmware 3.5.6
+## Humidity reference adjustment
+
+Manual Mode offers **Calibrate** with 30% fan / 100% fogger. The cycle ends
+when raw SHT45 humidity has not risen by at least 0.1 percentage points for
+three minutes. Smaller rises accumulate relative to the last qualifying high;
+falling humidity does not lower that reference. Invalid, stale, heated or cooling
+readings restart the observation period. The countdown shows time until completion
+if no further qualifying rise occurs. The actual cycle duration is recorded.
+
+### Original behavior, firmware 3.5.6
 
 Manual Mode offers **Calibrate 15 min**. It commands 50% fan / 100% fogger
 for 900 seconds on the ESP32, independent of the viewer remaining open.
@@ -654,7 +674,7 @@ Running Calibration automatically lowers each sensor's offset whenever a valid,
 fresh raw reading plus its offset exceeds 100% RH. SHT45 and SCD41 are adjusted
 independently, in both Manual Mode and automatic operation. Lower readings never
 increase an offset. Heated/cooling SHT45 readings and stale or invalid readings
-are excluded. The explicit 15-minute calibration suspends Running Calibration.
+are excluded. The explicit calibration cycle suspends Running Calibration.
 This remains an assumed-saturation reference, not an external reference measurement.
 
 Corrections apply immediately in RAM. The first correction is saved immediately;

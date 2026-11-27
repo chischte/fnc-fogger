@@ -124,18 +124,20 @@ void Application::pollCalibration(uint32_t now, bool networkAvailable, bool main
   if (!calibration_.running()) return;
   ManualControl& manual = actuators_.manualControl();
   if (!networkAvailable || maintenance || !manual.active() ||
-      manual.fanPercent() != 50 || manual.foggerPercent() != 100) {
+      manual.fanPercent() != HumidityCalibration::FAN_PERCENT ||
+      manual.foggerPercent() != HumidityCalibration::FOGGER_PERCENT) {
     calibration_.cancel("interrupted");
     manual.stop();
     return;
   }
-  if (!calibration_.due(now)) return;
   const Measurement& sample = measurements_.current();
   const bool valid = sample.humidityValid && sample.scdHumidityValid &&
+      !sample.shtHeated && !sample.shtCooling &&
       now - sample.shtReadUptimeMs < AutomaticLimits::HUMIDITY_MAX_AGE_MS &&
       now - sample.uptimeMs < AutomaticLimits::CO2_MAX_AGE_MS;
-  if (!valid || !calibration_.capture(sample.humidity, sample.scdHumidity,
-                                     HumidityCalibration::DURATION_MS)) {
+  calibration_.observeHumidity(now, sample.humidity, valid);
+  if (!calibration_.due(now)) return;
+  if (!calibration_.capture(sample.humidity, sample.scdHumidity, calibration_.elapsed(now))) {
     calibration_.cancel("failed");
   }
   manual.stop();
